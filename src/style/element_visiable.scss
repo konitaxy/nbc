@@ -1,0 +1,284 @@
+/* 改变主题色变量 */
+:root {
+    --text-title-color: #343434;
+    --el-dialog-border-radius: 8px;
+    --el-border-radius-base: 16px;
+}
+
+.el-select__wrapper{
+    min-width: 100px;
+    padding: 12px 16px;
+    border-radius: 8px;
+}
+
+.el-input__wrapper {
+    min-width: 80px;
+    padding: 4px 16px;
+    border-radius: 8px;
+}
+
+.el-date-editor.el-input__wrapper {
+    padding: 4px 16px;
+    height: auto;
+}
+
+.el-pagination .el-select__wrapper{
+    min-width: 0px;
+}
+
+@media (max-width: 768px) {
+    .el-select__wrapper{
+        // padding: 4px 12px;
+    }
+}
+    
+::-webkit-scrollbar-track-piece {
+    background-color: #f8f8f8;
+}
+
+::-webkit-scrollbar {
+    width: 9px;
+    height: 9px;
+}
+.el-radio-button__inner{
+     width: 99%;
+     border-radius: 10px !important;
+}
+
+::-webkit-scrollbar-thumb {
+    background-color: #dddddd;
+    background-clip: padding-box;
+    min-height: 28px;
+    border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+    background-color: #bbb;
+}
+.el-message-box-custom {
+    max-width: 600px;
+}
+.el-button--primary {
+    --el-button-font-color: #ffffff;
+    --el-button-background-color: #01ad5a;
+    --el-button-border-color: #01ad5a;
+    --el-button-hover-color: #02974f;
+    --el-button-active-font-color: #e6e6e6;
+    --el-button-active-background-color: #01ad5a;
+    --el-button-active-border-color: #01ad5a;
+    --el-button-bg-color: #01ad5a;
+    --el-button-bg-hover-color: #02974f;
+    --el-button-active-bg-color: #01ad5a;
+    --el-button-disabled-bg-color: var(--el-color-success-light-3);
+    
+}
+.el-button--primary.el-button:hover {
+    --el-button-hover-bg-color: #01ad5a;
+    --el-button-font-color: #ffffff;
+    opacity: 0.8;
+}
+
+.el-button--danger.el-button:hover {
+    --el-button-hover-bg-color: var(--el-color-danger);
+    --el-button-hover-border-color: var(--el-color-danger);
+    opacity: 0.8;
+    // --el-button-font-color: #ffffff;
+}
+
+.el-button--success.el-button:hover {
+    --el-button-hover-bg-color: var(--el-color-success-light-3);
+    --el-button-hover-border-color: var(--el-color-success-light-3);
+    opacity: 0.8;
+    // --el-button-font-color: #ffffff;
+}
+
+.el-button--secondary.el-button{
+    --el-button-font-color: #fff;
+    --el-button-background-color: #01ad5a;
+    --el-button-text-color: #01ad5a;
+    --el-button-border-color: #01ad5a;
+    --el-button-hover-color: #01ad5a;
+    --el-button-active-font-color: #01ad5a;
+    --el-button-active-background-color: #f5f5f5;
+    --el-button-active-border-color: #f5f5f5;
+    --el-button-bg-color: #f5f5f5;
+    --el-button-bg-hover-color: #ffffff;
+    --el-button-active-bg-color: #f5f5f5;
+}
+
+.el-button--secondary.el-button:hover {
+    // --el-button-font-color: #fff;
+    // --el-button-hover-color: #232323;
+
+    // --el-button-hover-border-color: #232323;
+    opacity: 0.8;
+    // --el-button-font-color: #ffffff;
+}
+
+.el-button.is-disabled, .el-button.is-disabled:hover {
+    background-color: var(--el-button-disabled-bg-color);
+    --el-button-disabled-border-color: var(--el-button-disabled-bg-color);
+}
+
+.el-button:hover {
+    --el-button-font-color: #01ad5a;
+    --el-button-background-color: #f5f5f5;
+    --el-button-border-color: #01ad5a;
+    --el-button-hover-color: #01ad5a;
+    --el-button-active-font-color: #ffffff;
+    --el-button-active-background-color: #f5f5f5;
+    --el-button-active-border-color: #01ad5a;
+    --el-button-bg-color: #f5f5f5;
+    --el-button-bg-hover-color: #01ad5a;
+    --el-button-hover-border-color: #01ad5a;
+    --el-button-hover-bg-color: #f5f5f5;
+}
+
+.el-button--text:not(.is-disabled):hover {
+    color: #f5f5f5;
+}
+.el-button:focus-visible {
+    outline: none;
+}
+
+.el-link.el-link--primary {
+    --el-link-hover-text-color: #04cb6b;
+    --el-link-disabled-text-color: #bfbfbf;
+}
+
+.el-message-box {
+    padding: 24px 16px;
+    border-radius: 24px;
+}
+
+
+:root {
+    --el-color-primary: #01ad5a;
+    --el-menu-hover-bg-color: #f8fafb;
+    .btn-danger {
+        --bs-btn-bg: #d22f31 !important;
+    }
+}
+.gva-search-box {
+    .el-collapse {
+        border: none;
+        .el-collapse-item__header,
+        .el-collapse-item__wrap {
+            border-bottom: none;
+        }
+    }
+    padding: 24px;
+    padding-bottom: 2px;
+    background-color: #fff;
+    border-radius: 2px;
+    margin-bottom: 12px;
+}
+
+.el-form--inline{
+    .el-form-item{
+        margin-right: 24px;
+    }
+}
+.el-input__inner{
+    // height: 30px;
+    line-height: 35px;
+}
+
+
+.gva-table-box {
+    padding: 24px;
+    background-color: #fff;
+    border-radius: 2px;
+}
+
+.el-button--small {
+    font-size: 12px !important;
+    padding: 8px 16px !important;
+}
+
+.el-checkbox{
+    height: auto;
+}
+
+.el-button {
+    padding: 12px 24px;
+    border-radius: 12px;
+    height: auto;
+    &.el-button--text {
+        padding: 8px 0;
+    }   
+}
+@media (max-width: 768px) {
+    .el-button {
+        padding: 8px 12px; // 小屏设备更紧凑
+        font-size: 14px;   // 可选：调整字体大小
+    }
+    
+}
+
+.el-button--mini {
+    padding: 6px 12px;
+    font-size: 12px;
+}
+.el-dialog {
+    padding: 12px;
+    .el-dialog__body {
+        padding: 12px 6px;
+    }
+    .el-dialog__header {
+        .el-dialog__title {
+            font-size: 16px;
+            font-weight: 500;
+        }
+        // padding: 0px 6px;
+        border-bottom: 1px solid #ebeef5;
+    }
+    // .el-dialog__headerbtn {
+    //     top: 16px;
+    // }
+    .el-dialog__footer {
+        // padding: 0 16px 16px 0;
+        .dialog-footer {
+            .el-button {
+                padding-left: 24px;
+                padding-right: 24px;
+            }
+        }
+    }
+}
+@media screen and (max-width: 768px) {
+    .el-form-item__label{
+        margin-bottom: 2px !important;
+    }
+}
+.el-form-item{
+    margin-bottom:16px
+}
+.el-form-item--default .el-form-item__content {
+    line-height: 15px;
+}
+.el-drawer__body {
+    padding: 0;
+}
+
+.el-date-editor .el-range-separator {
+    line-height: 24px;
+}
+
+.el-select .el-input .el-select__caret.el-icon {
+    height: 38px;
+}
+
+/* el-card 样式重写 */
+.el-card {
+    border-radius: 24px;
+    background-color: #fff;
+    border: none;
+    margin-bottom: 16px;
+    .el-card__header {
+
+    }
+}
+.el-form-item--label-top .el-form-item__label {
+    margin-bottom: 4px;
+}
