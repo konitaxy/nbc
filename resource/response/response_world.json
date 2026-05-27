@@ -1,0 +1,51 @@
+{
+    "global":{
+        "success": "success",
+        "fail":"operation fail",
+    },
+    "login":{
+        "success":"login success",
+        "fail":"Login failed,Please check email or password",
+        "fail_because_of_system":"set login status fail",
+    },
+    "register":{
+        "success":"register success",
+        "fail":"register fail",
+        "verify_code_error":"verify code error",
+        "invite_code_error":["code not exist","code expired"]
+    },
+    "changePassword":{
+        "success":"success",
+        "fail":"change password failed",
+        "old_password_error":"old password error",
+        "verify_fail":["password length should be at least 6","verify code error"],
+    },
+    "payment":{
+        "set_payment_success":"success",
+        "get_payment_fail":"get payment failed",
+        "set_payment_fail":"set payment failed",
+        "payment_method_not_exist":"payment not exist",
+        "verify_fail":["invalid account or bad pay method","verify code error"],
+    },
+    "send_verify_mail":{
+        "success":"success",
+        "fail":"Ssend verify mail failed",
+        "email_error":"Invalid email",
+        "send_register_mail_fail":["you are not be inviter","you are actived"],
+        "send_to_many":"Too many requests",
+    },
+    "artwork":{
+        "uplaod_artwork":{
+            "success":"upload success",
+            "fail":"upload failed",
+            //图片验证: 1.不支持格式, 2.图片解码失败, 3.图片尺寸不合理时,4.用户重复上传时 ,5 上传数量超过每日上限
+            "verify_fail":["unsupported image format","image decode failed","image size at least 2900x4060,current is %dx%d","duplicate upload","You have reached the limit of uploads today"],
+        },
+    },
+    "withdraw":{
+        "withdraw_amount_large_than_balance": "insufficient funds",
+        "withdraw_is_zero":"Invalid amount",
+        "withdraw_payment_account_not_exist":"payment method not set"
+    },
+
+}

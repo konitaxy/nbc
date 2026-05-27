@@ -1,0 +1,112 @@
+captcha:
+  key-long: 4
+  img-width: 240
+  img-height: 80
+casbin:
+  model-path: ./resource/rbac_model.conf
+cors:
+  mode: whitelist
+  whitelist:
+  - allow-origin: example1.com
+    allow-methods: GET, POST
+    allow-headers: content-type
+    expose-headers: Content-Length, Access-Control-Allow-Origin, Access-Control-Allow-Headers,
+      Content-Type
+    allow-credentials: true
+  - allow-origin: example2.com
+    allow-methods: GET, POST
+    allow-headers: content-type
+    expose-headers: Content-Length, Access-Control-Allow-Origin, Access-Control-Allow-Headers,
+      Content-Type
+    allow-credentials: true
+db-list:
+- disable: false
+  type: ""
+  alias-name: ""
+  path: ""
+  port: ""
+  config: ""
+  db-name: ""
+  username: ""
+  password: ""
+  max-idle-conns: 10
+  max-open-conns: 100
+  log-mode: ""
+  log-zap: false
+email:
+  to: 510172593@qq.com
+  port: 587
+  from: info@pixelcard.cloud
+  host: smtp.mandrillapp.com
+  reply-to: 
+  is-ssl: true
+  secret: md-Q3d_3mucxNEqtIzORQgx6A
+  nickname: pixel_finance
+excel:
+  dir: ./resource/excel/
+jwt:
+  buffer-time: 86400
+  expires-time: 604800
+  snap-expires-time: 3600
+  issuer: qmPlus
+  signing-key: 5a23460a-b627-48eb-b345-d750a47f1e9b
+local:
+  path: uploads/file
+mysql:
+  config: charset=utf8mb4&parseTime=True&loc=Local
+  path: mptest.c74kyicq6gez.us-east-1.rds.amazonaws.com
+  db-name: metalposter_test
+  username: mptest
+  password: Ln9KdHgPQ888
+  port: "3306"
+  max-idle-conns: 10
+  max-open-conns: 100
+  log-mode: error
+  log-zap: false
+redis:
+  db: 0
+  addr: redis:6379
+  password: ""
+system:
+  env: public
+  env-code: 3
+  addr: 8888
+  db-type: mysql
+  oss-type: local
+  use-multipoint: true
+  use-redis: true
+  iplimit-count: 15000
+  iplimit-time: 3600
+timer:
+  start: true
+  spec: '@daily'
+  detail:
+  - tableName: sys_operation_records
+    compareField: created_at
+    interval: 2160h
+  - tableName: jwt_blacklists
+    compareField: created_at
+    interval: 168h
+zap:
+  level: info
+  format: console
+  prefix: '[gitlab.com/ucard/api]'
+  director: log
+  show-line: true
+  encode-level: LowercaseColorLevelEncoder
+  stacktrace-key: stacktrace
+  log-in-console: true
+domain:
+  referral: "https://testreferral.metalposter.com"
+  artist: "https://testartist.metalposter.com"
+  admin: "https://testadmin.metalposter.com"
+  view: "https://testid.metalposter.com"
+carbin:
+  base-url: "https://api.cardbin.io"
+  app-id: "1894343052164249928"
+  app-secret: "b2434d156a154e8cabf64cd43e557303"
+gzy:
+  base-url: "https://x-api1.uat.photontech.cc"
+  app-id: "rOAnetlu"
+  app-secret: "20fd050505a4dbaaa4aa7faa76fdaaa49eaaaa6c"
+  account-id: "FA-USD2052566705788575744"

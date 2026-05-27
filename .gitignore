@@ -1,0 +1,90 @@
+# 忽略所有临时文件和编译产生的文件
+*.tmp
+*.swp
+*.swo
+*.swn
+*.log
+*.out
+*.so
+*.obj
+*.exe
+*.dll
+*.orig
+*.rej
+*.bak
+*.lock
+api/log
+*.log
+__debug_bin*
+
+# 忽略IDE产生的文件
+.vscode/
+
+# 忽略Go相关的编译产物
+# 请注意，如果你使用的是Go Modules，则不要忽略go.mod和go.sum文件
+bin/
+pkg/
+vendor/
+test/
+build/
+# 以下行仅适用于未使用Go Modules的项目
+# go.mod
+# go.sum
+
+# 忽略系统特定的隐藏文件
+.DS_Store
+.TELEMETRY
+.Spotlight-V100
+.Trashes
+.fseventsd
+.SVN
+.CS
+.scpt
+.scptd
+# macOS system file: “._*” is added to the end of directory names with no apparent cause
+# See https://github.com/github/choosealicense.com/issues/28
+._*
+
+# RSA 私钥勿提交
+resource/keys/*private*.pem
+
+# 忽略个人配置文件
+.env
+.env*
+.local
+.local*
+.user
+.user*
+config.yaml
+
+# 忽略日志文件
+log/
+logs/
+
+# 忽略测试数据
+testdata/
+
+# 忽略覆盖率报告
+cover/
+
+# 忽略IDE索引文件
+.idea/
+
+# 忽略Docker相关文件
+.dockerignore
+docker-compose.yml
+docker-compose.override.yml
+Dockerfile
+docker/
+
+# 忽略VSCode相关文件
+.vscode/
+.code-workspace
+
+# 忽略包管理工具的缓存
+dep/
+glide/
+Glide.lock
+glide.yaml
+vendor/
+config.yaml
