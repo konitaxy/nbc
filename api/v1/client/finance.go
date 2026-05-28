@@ -17,6 +17,7 @@ import (
 	"gitlab.com/ucard/model/constant"
 	"gitlab.com/ucard/model/finance"
 	"gitlab.com/ucard/model/finance/request"
+	finresp "gitlab.com/ucard/model/finance/response"
 	"gitlab.com/ucard/utils"
 	"go.uber.org/zap"
 )
@@ -250,21 +251,13 @@ func (f *FinanceApi) WalletRechargeConfirm(c *gin.Context) {
 		response.FailWithMessage(err.Error(), c)
 		return
 	}
-	if req.Amount.LessThanOrEqual(decimal.NewFromInt(0)) {
-		response.FailWithMessage("Amount cannot less than 0", c)
+	iamID, clientID, _ := utils.GetUserAndTenantID(c)
+	resp, err := financeService.PrepareBlockchainWalletRecharge(req, clientID, iamID)
+	if err != nil {
+		response.FailWithMessage(err.Error(), c)
 		return
 	}
-	id := utils.GetUserID(c)
-	fd, _ := decimal.NewFromString(fmt.Sprintf("0.0%s", utils.GenerateRandomNumber(2)))
-	remmitAmount := req.Amount.Add(fd)
-	traceId := fmt.Sprintf("%d_%s", id, utils.GenerateID(constant.OrderPrefix_Wallet_Recharge))
-	global.GVA_REDIS.Set(context.TODO(), traceId, remmitAmount.StringFixed(3), 24*time.Hour)
-	qrCode, _ := utils.GenerateQRCodeBase64("TPWbGdcLtKAgDyGyvgHqmxxjcekJY5DG9u", 200)
-	response.OkWithData(gin.H{
-		"qrCode":       qrCode,
-		"remmitAmount": remmitAmount.StringFixed(3),
-		"traceId":      traceId,
-	}, c)
+	writeWalletRechargePrepareResponse(c, resp)
 }
 
 func (f *FinanceApi) WalletRechargeApply(c *gin.Context) {
@@ -274,11 +267,6 @@ func (f *FinanceApi) WalletRechargeApply(c *gin.Context) {
 		response.FailWithMessage(err.Error(), c)
 		return
 	}
-	if req.Amount.LessThanOrEqual(decimal.Zero) {
-		response.FailWithMessage("Amount cannot less than 0", c)
-		return
-	}
-	// id := utils.GetUserID(c)
 	iamID, clientID, _ := utils.GetUserAndTenantID(c)
 	if cl, _ := clientService.GetClient(clientID); cl.ID > 0 {
 		req.ClientNo = cl.ClientNo
@@ -295,91 +283,27 @@ func (f *FinanceApi) WalletRechargeApply(c *gin.Context) {
 		response.Fail(c)
 		return
 	}
-	if resp, err := financeService.InboundApply(req); err != nil {
+	resp, err := financeService.PrepareBlockchainWalletRecharge(req, clientID, iamID)
+	if err != nil {
 		response.FailWithMessage(err.Error(), c)
-	} else {
-
-		qrCode, _ := utils.GenerateQRCodeBase64(resp.AccountNo, 200)
-		recharge := finance.WalletRecharge{
-			OrderID:       resp.PartnerOrderID,
-			ClientID:      clientID,
-			IAMID:         iamID,
-			AccountType:   resp.ChainName,
-			RechargeType:  constant.RechargeType_BLOCKCHAIN,
-			OriginAmount:  resp.RemitAmount,
-			RemitAmount:   req.Amount,
-			Currency:      constant.USDT,
-			AccountNumber: resp.AccountNo,
-			ExpireTime:    resp.ExpireTime,
-			Status:        constant.RechargeStatus_PENDING,
-		}
-		if resp.RemitAmount.LessThan(req.Amount) {
-			global.GVA_LOG.Sugar().Warnf("充值金额小于请求金额 %s %s<%s", resp.OrderID, resp.RemitAmount, req.Amount)
-			response.FailWithMessage("recharge error", c)
-			return
-		}
-		if err := clientFinanceService.SaveWalletRecharge(&recharge); err == nil {
-			response.OkWithData(gin.H{
-				"qrCode":        qrCode,
-				"remmitAmount":  resp.RemitAmount.StringFixed(3),
-				"traceId":       utils.GenerateRandomNumber(10),
-				"orderId":       resp.OrderID,
-				"expireTime":    resp.ExpireTime,
-				"chain":         resp.ChainName,
-				"currency":      resp.RemitCurrency,
-				"accountNumber": resp.AccountNo,
-			}, c)
-		} else {
-			global.GVA_LOG.Error("wallet recharge failed", zap.Any("err", err))
-			response.FailWithMessage("wallet recharge failed", c)
-		}
+		return
 	}
-	// fd, _ := decimal.NewFromString(fmt.Sprintf("0.0%s", randomCode))
-	// remmitAmount := req.Amount.Add(fd)
-	// orderId := utils.GenerateID(constant.OrderPrefix_Wallet_Recharge)
-	// traceId := fmt.Sprintf("%d_%s", id, orderId)
-	// global.GVA_REDIS.Set(context.TODO(), traceId, remmitAmount.StringFixed(3), 24*time.Hour)
-	// srv := common.ConfigService{}
-	// cfg, err := srv.Get("tronAddress")
-	// if err != nil {
-	// 	global.GVA_LOG.Error("tronAddress not found", zap.Error(err))
-	// 	return
-	// }
-	// if cfg.ID == 0 {
-	// 	response.FailWithMessage("Tron address not exist,Please contact the administrator", c)
-	// 	return
-	// }
-	// accType, _ := srv.Get("addressChain")
-	// accountType := "TRC20"
-	// if accType.ID == 0 {
-	// 	accType.StringValue = &accountType
-	// }
-	// qrCode, _ := utils.GenerateQRCodeBase64(*cfg.StringValue, 200)
-	// recharge := finance.WalletRecharge{
-	// 	OrderID:       orderId,
-	// 	ClientID:      id,
-	// 	AccountType:   *accType.StringValue,
-	// 	RechargeType:  constant.RechargeType_BLOCKCHAIN,
-	// 	OriginAmount:  remmitAmount,
-	// 	Currency:      constant.USDT,
-	// 	AccountNumber: *cfg.StringValue,
-	// 	Status:        constant.RechargeStatus_PENDING,
-	// }
-	// if err := clientFinanceService.SaveWalletRecharge(&recharge); err == nil {
-	// 	response.OkWithData(gin.H{
-	// 		"qrCode":        qrCode,
-	// 		"remmitAmount":  remmitAmount.StringFixed(3),
-	// 		"traceId":       traceId,
-	// 		"chain":         *accType.StringValue,
-	// 		"currency":      constant.USDT,
-	// 		"accountNumber": *cfg.StringValue,
-	// 	}, c)
-	// } else {
+	writeWalletRechargePrepareResponse(c, resp)
+}
 
-	// 	global.GVA_LOG.Error("wallet recharge failed", zap.Any("err", err))
-	// 	response.FailWithMessage("wallet recharge failed", c)
-	// }
-
+func writeWalletRechargePrepareResponse(c *gin.Context, resp *finresp.WalletRechargePrepareResp) {
+	qrCode, _ := utils.GenerateQRCodeBase64(resp.AccountNumber, 200)
+	response.OkWithData(gin.H{
+		"qrCode":        qrCode,
+		"remmitAmount":  resp.RemitAmount.StringFixed(3),
+		"baseAmount":    resp.BaseAmount.StringFixed(0),
+		"orderId":       resp.OrderID,
+		"expireTime":    resp.ExpireTime,
+		"expireAtUnix":  resp.ExpireAtUnix,
+		"chain":         resp.Chain,
+		"currency":      resp.Currency,
+		"accountNumber": resp.AccountNumber,
+	}, c)
 }
 
 func (f *FinanceApi) ListCardBin(c *gin.Context) {

@@ -1,0 +1,28 @@
+package initialize
+
+import (
+	"gitlab.com/ucard/global"
+	"gitlab.com/ucard/service/tron"
+	"go.uber.org/zap"
+)
+
+// ChainInboundTimer 每分钟从 chain_watch_address 表读取启用地址并监听链上转入。
+func TronInboundTimer() {
+	if global.GVA_DB == nil {
+		return
+	}
+	if !global.GVA_CONFIG.Tron.Enabled {
+		return
+	}
+	const spec = "@every 1m"
+	if _, err := global.GVA_Timer.AddTaskByFunc("ChainInboundWatch", spec, func() {
+		n, err := tron.WatchInboundFromDB()
+		if err != nil {
+			global.GVA_LOG.Error("chain inbound watch failed", zap.Error(err))
+			return
+		}
+		global.GVA_LOG.Info("chain inbound watch completed", zap.Int("newTransfers", n))
+	}); err != nil {
+		global.GVA_LOG.Error("register tron inbound timer failed", zap.Error(err))
+	}
+}

@@ -25,6 +25,9 @@ func (s *CardManagerRouter) InitFinanceManagerRouter(Router *gin.RouterGroup) {
 		router.POST("wallet/recharge/edit", api.EditRechargeRecord)     //
 
 		router.POST("wallet/withdraw/review", api.ReviewWalletWithdraw) //
+
+		router.POST("chain/address/add", api.AddChainWatchAddress)
+		router.POST("chain/address/delete", api.DeleteChainWatchAddress)
 	}
 	{
 		routerWithRecord.POST("fee/list/global", api.ListFeeGlobalConfig) //
@@ -37,6 +40,9 @@ func (s *CardManagerRouter) InitFinanceManagerRouter(Router *gin.RouterGroup) {
 		routerWithRecord.POST("report/all", api.Report)
 		routerWithRecord.POST("report/list", api.ReportGroupByDay)
 		routerWithRecord.POST("report/listByClient", api.ReportGroupByClient)
+
+		routerWithRecord.POST("chain/address/list", api.ListChainWatchAddress)
+		routerWithRecord.POST("chain/transaction/list", api.ListChainInboundTransaction)
 
 	}
 }

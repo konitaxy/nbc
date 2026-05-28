@@ -31,6 +31,7 @@ func main() {
 		initialize.RegisterTables(global.GVA_DB) // 初始化表
 		initialize.GzyCardBinSyncTimer()
 		initialize.CardTransactionSyncTimer()
+		initialize.TronInboundTimer()
 		srv := system.InitDBService{}
 		srv.InitMysqlData()
 		// 程序结束前关闭数据库链接

@@ -63,6 +63,8 @@ func RegisterTables(db *gorm.DB) {
 		finance.ClientDailyReport{},
 
 		finance.CardTransactionRecord{},
+		finance.ChainWatchAddress{},
+		finance.ChainInboundTransaction{},
 
 		finance.FeeGlobalConfig{},
 		finance.FeeUserConfig{},
