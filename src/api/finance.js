@@ -135,7 +135,37 @@ export const listStatReportByClient = (data) => {
   })
 }
 
+export const addChainWatchAddress = (data) => {
+  return service({
+    url: '/admin/finance/chain/address/add',
+    method: 'post',
+    data
+  })
+}
 
+export const deleteChainWatchAddress = (data) => {
+  return service({
+    url: '/admin/finance/chain/address/delete',
+    method: 'post',
+    data
+  })
+}
+
+export const listChainWatchAddress = (data) => {
+  return service({
+    url: '/admin/finance/chain/address/list',
+    method: 'post',
+    data
+  })
+}
+
+export const listChainInboundTransaction = (data) => {
+  return service({
+    url: '/admin/finance/chain/transaction/list',
+    method: 'post',
+    data
+  })
+}
 
 
 
