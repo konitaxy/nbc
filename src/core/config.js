@@ -3,7 +3,7 @@
  */
 
 const config = {
-  appName: 'Pixel',
+  appName: 'Newbee',
   appLogo: 'https://metalposterpro.s3.us-east-1.amazonaws.com/static/display/admin/no_bug.png',
   showViteLogo: true
 }
