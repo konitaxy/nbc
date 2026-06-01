@@ -124,7 +124,7 @@ div{
     // padding: 5px 16px 0px 0;
 }
 .watermark {
-    background-image: url('@/assets/watermark2.jpg');
+    // background-image: url('@/assets/watermark.jpg');
     background-repeat: round;
 }
 
@@ -1380,7 +1380,7 @@ $asideHight: 100vh;
         width: 190px;
         height: 40px;
         vertical-align: middle;   
-        object-fit: cover;
+        object-fit: scale-down;
     }
 }
 @media (max-width: 551px) {

@@ -43,8 +43,8 @@ import { emitter } from '@/utils/bus.js'
 // import Vcode from "./verify_code.vue";
 import Vcode from "vue3-puzzle-vcode";
 
-import img1 from '@/assets/imgs/11.jpeg'
-import img2 from '@/assets/imgs/12.jpg'
+// import img1 from '@/assets/imgs/11.jpeg'
+// import img2 from '@/assets/imgs/12.jpg'
 import { ElMessage } from 'element-plus'
 import {captcha} from '@/api/profile'
 const form = reactive({
@@ -70,7 +70,7 @@ const sliderVConf = reactive({
         isParentNode: false,
         isShowTip: true,
 })
-const imgs=[img1,img2]
+const imgs=[]
 const isShow = ref(true)
 const vertifySuccess = (value,obj) =>{
     captcha().then(res =>{

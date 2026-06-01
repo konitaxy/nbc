@@ -22,7 +22,7 @@
       
           <el-card class="box-card" v-if="rechargeForm.rechargeType === 'BLOCKCHAIN'">
               <el-alert
-                v-if="rechargeApplyResult.traceId"
+                v-if="hasRechargeApplyResult"
                 :title="$t('lang.please_transfer_to_the_following_address')"
                 type="info"
                 :description="$t('lang.please_contact_customer_manager_for_more_information')"
@@ -56,7 +56,7 @@
         label-class="fw-bold"
       >
         <el-input
-          :readonly="rechargeApplyResult.traceId"
+          :readonly="hasRechargeApplyResult"
           v-model="rechargeForm.amount"
           :placeholder="$t('lang.please_enter_amount')"
           clearable
@@ -64,7 +64,7 @@
       </el-form-item>
 
       <!-- 操作按钮组 (未生成结果时) -->
-      <div class="button-group" v-if="rechargeApplyResult.traceId == null">
+      <div class="button-group" v-if="!hasRechargeApplyResult">
         <el-button @click="goBack">{{ $t('lang.back') }}</el-button>
         <el-button
           :loading="loading.rechargeApplyLoading"
@@ -75,7 +75,7 @@
       </div>
 
       <!-- 充值结果卡片 (生成结果后) -->
-      <el-card class="box-card" v-if="rechargeApplyResult.traceId">
+      <el-card class="box-card" v-if="hasRechargeApplyResult">
         <div class="d-flex flex-column justify-content-center align-items-center">
           <h3>{{ $t('lang.transfer_amount') }}</h3>
           <p class="fs-4 text-danger balance-view">
@@ -134,7 +134,7 @@
 }
 </script>
 <script setup>
-import { reactive, ref } from 'vue';
+import { reactive, ref, computed } from 'vue';
 import {walletRechargeApply} from '@/api/finance'
 import { ElMessage } from 'element-plus'
 import {writeText} from 'clipboard-polyfill'
@@ -165,14 +165,21 @@ const goBack = () => {
 };
 const rechargeApplyResult = ref({
 })
+/** 接口返回 orderId；旧版可能为 traceId */
+const hasRechargeApplyResult = computed(() => {
+  const r = rechargeApplyResult.value
+  return !!(r?.orderId || r?.traceId)
+})
 const handleRechargeApply = () => {
   rechargeApplyResult.value = {}
   loading.rechargeApplyLoading = true
   walletRechargeApply(rechargeForm).then(res =>{
     if (res.code === 0){
       rechargeApplyResult.value = res.data
-      console.log(rechargeApplyResult.value.expireTime.replace(' ','T'))
-      expireTime.value = new Date(rechargeApplyResult.value.expireTime.replace(' ','T'))
+      const expireAt = res.data.expireAtUnix
+        ? new Date(res.data.expireAtUnix * 1000)
+        : new Date(String(res.data.expireTime || '').replace(' ', 'T'))
+      expireTime.value = expireAt
     }
     loading.rechargeApplyLoading = false
   })
