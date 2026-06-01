@@ -1,10 +1,57 @@
-package meiguodizhi
+package dizhi
 
 import (
+	"fmt"
+	"strings"
 	"testing"
 
 	"gitlab.com/ucard/model/constant"
 )
+
+func TestResolvePath(t *testing.T) {
+	cases := []struct {
+		region string
+		want   string
+	}{
+		{"", "/"},
+		{"us", "/"},
+		{"US", "/"},
+		{"hk", "/hk-address"},
+		{"HK", "/hk-address"},
+		{"jp", "/jp-address"},
+	}
+	for _, tc := range cases {
+		if got := ResolvePath(tc.region); got != tc.want {
+			t.Fatalf("ResolvePath(%q) = %q, want %q", tc.region, got, tc.want)
+		}
+	}
+}
+
+// TestPrintAddresses 拉 3 条美国地址并打印 holder name / address
+// go test -v -run TestPrintAddresses ./utils/dizhi/
+func TestPrintAddresses(t *testing.T) {
+	client := NewClient()
+	for i := 1; i <= 3; i++ {
+		a, err := client.FetchAddress("")
+		if err != nil {
+			t.Fatalf("fetch %d: %v", i, err)
+		}
+		fmt.Printf("holder name: %s\naddress: %s\n\n",
+			strings.TrimSpace(a.FullName),
+			formatPrintAddressLine(a, "US"),
+		)
+	}
+}
+
+func formatPrintAddressLine(a *Address, country string) string {
+	return fmt.Sprintf("%s %s %s %s %s",
+		country,
+		strings.TrimSpace(a.State),
+		strings.TrimSpace(a.City),
+		strings.TrimSpace(a.Address),
+		strings.TrimSpace(a.ZipCode),
+	)
+}
 
 func TestAddressToCardHolder(t *testing.T) {
 	a := &Address{
@@ -17,7 +64,7 @@ func TestAddressToCardHolder(t *testing.T) {
 		Birthday:      "6/17/1995",
 		TemporaryMail: "rtrsbgxcmq@iubridge.com",
 	}
-	h, err := AddressToCardHolder(a)
+	h, err := AddressToCardHolder(a, "")
 	if err != nil {
 		t.Fatal(err)
 	}

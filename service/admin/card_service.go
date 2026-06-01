@@ -117,6 +117,10 @@ func (*CardService) ListCardBin(search request.CardBinSearchParams) (total int64
 		conditions = append(conditions, "card_model = ?")
 		args = append(args, search.CardModel)
 	}
+	if search.BinStatus != nil {
+		conditions = append(conditions, "bin_status = ?")
+		args = append(args, *search.BinStatus)
+	}
 	if len(conditions) > 0 {
 		query = query.Where(strings.Join(conditions, " AND "), args...)
 	}

@@ -331,7 +331,7 @@ func (f *CardManagerApi) CardCancel(c *gin.Context) {
 				return
 			} else {
 				global.GVA_LOG.Error("termiate card failed", zap.Any("err", err))
-				response.FailWithMessage("termiate card failed", c)
+				response.FailWithServiceError(c, err)
 				return
 			}
 		}
@@ -362,6 +362,7 @@ func (f *CardManagerApi) SyncCard(c *gin.Context) {
 	} else {
 		if err := financeService.SyncCardDetail(card.OrderID, card.CardID); err != nil {
 			global.GVA_LOG.Error("sync card detail failed", zap.Any("err", err))
+			response.FailWithServiceError(c, err)
 			return
 		}
 		response.Ok(c)
@@ -392,7 +393,7 @@ func (f *CardManagerApi) CardFrozen(c *gin.Context) {
 	// 调用服务方法
 	if err := financeService.CardFrozen(req.ID, card.ClientID, req.Action, req.Remark); err != nil {
 		global.GVA_LOG.Error("card frozen/unfrozen failed", zap.Error(err))
-		response.FailWithMessage(err.Error(), c)
+		response.FailWithServiceError(c, err)
 		return
 	}
 

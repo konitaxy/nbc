@@ -2,8 +2,10 @@ package response
 
 import (
 	"net/http"
+	"strings"
 
 	"github.com/gin-gonic/gin"
+	"gitlab.com/ucard/utils"
 )
 
 type Response struct {
@@ -60,6 +62,32 @@ func KYCWaitRequired(c *gin.Context) {
 
 func FailWithMessage(message string, c *gin.Context) {
 	Result(ERROR, map[string]interface{}{}, message, c)
+}
+
+// FailWithServiceError 上游或业务错误直接返回文案（光子 API 优先映射 code 中文说明）。
+func FailWithServiceError(c *gin.Context, err error) {
+	if err == nil {
+		Fail(c)
+		return
+	}
+	msg := utils.ProviderUserMessage(err)
+	if msg == "" {
+		msg = err.Error()
+	}
+	FailWithMessage(msg, c)
+}
+
+// FailWithServiceErrorUnless 命中 unless 子串时返回固定文案，否则同 FailWithServiceError。
+func FailWithServiceErrorUnless(c *gin.Context, err error, unlessContains, unlessMsg string) {
+	if err == nil {
+		Fail(c)
+		return
+	}
+	if unlessContains != "" && strings.Contains(err.Error(), unlessContains) {
+		FailWithMessage(unlessMsg, c)
+		return
+	}
+	FailWithServiceError(c, err)
 }
 
 func FailWithDetailed(data interface{}, message string, c *gin.Context) {

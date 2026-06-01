@@ -52,6 +52,7 @@ func (m *menu) Initialize() error {
 		{GVA_MODEL: global.GVA_MODEL{ID: 91}, MenuLevel: 0, Hidden: false, ParentId: "9", Path: "cardFee", Name: "cardFee", Component: "view/admin/configue/cardFee/index.vue", Sort: 1, Meta: system.Meta{Title: "Card Fee", Icon: "pie-chart"}},
 		{GVA_MODEL: global.GVA_MODEL{ID: 92}, MenuLevel: 0, Hidden: false, ParentId: "9", Path: "inboundFee", Name: "inboundFee", Component: "view/admin/configue/inboundFee/index.vue", Sort: 2, Meta: system.Meta{Title: "Inbound Fee", Icon: "pie-chart"}},
 		{GVA_MODEL: global.GVA_MODEL{ID: 93}, MenuLevel: 0, Hidden: false, ParentId: "9", Path: "setting", Name: "inboundAndDepositSetting", Component: "view/admin/configue/inboundSetting/index.vue", Sort: 3, Meta: system.Meta{Title: "Inbound Settings", Icon: "pie-chart"}},
+		{GVA_MODEL: global.GVA_MODEL{ID: 94}, MenuLevel: 0, Hidden: false, ParentId: "9", Path: "chain", Name: "chain", Component: "view/admin/configue/chain/index.vue", Sort: 4, Meta: system.Meta{Title: "Chain", Icon: "pie-chart"}},
 
 		{GVA_MODEL: global.GVA_MODEL{ID: 10}, MenuLevel: 0, Hidden: false, ParentId: "0", Path: "snsCode", Name: "smsCode", Component: "view/admin/smsCode/index.vue", Sort: 7, Meta: system.Meta{Title: "SMS Code", Icon: "pie-chart"}},
 	}

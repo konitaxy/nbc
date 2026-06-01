@@ -18,7 +18,7 @@ import (
 	"gitlab.com/ucard/service/credit_provider/cardplatform"
 	"gitlab.com/ucard/service/credit_provider/gzy"
 	"gitlab.com/ucard/utils"
-	"gitlab.com/ucard/utils/meiguodizhi"
+	"gitlab.com/ucard/utils/dizhi"
 	"gitlab.com/ucard/utils/transaction"
 	"go.uber.org/zap"
 	"gorm.io/gorm"
@@ -186,9 +186,10 @@ func (fs FinanceService) SyncTranscation() {
 	}
 }
 
-// FetchCardHolderFromMeiguoDizhi 从 meiguodizhi.com 拉取随机美国地址并映射为 CardHolder（未入库、未调渠道）。
-func (FinanceService) FetchCardHolderFromMeiguoDizhi() (*finance.CardHolder, error) {
-	return meiguodizhi.FetchCardHolder()
+// FetchCardHolderFromDizhi 从 dizhi API 拉取随机地址并映射为 CardHolder（未入库、未调渠道）。
+// regionCode 为空为美国 path=/；传入 hk 等为 path=/hk-address，method 均为 address。
+func (FinanceService) FetchCardHolderFromDizhi(regionCode string) (*finance.CardHolder, error) {
+	return dizhi.FetchCardHolder(regionCode)
 }
 
 func (FinanceService) AddCardHolder(holder *finance.CardHolder) error {
@@ -851,12 +852,28 @@ func (f *FinanceService) ListCardTransaction(search *request.CardTransactionSear
 	// 分页查询
 	offset := (search.Page - 1) * search.PageSize
 	err = query.Limit(search.PageSize).Offset(offset).Find(&list).Error
+	for i := range list {
+		normalizeGzyTransactionAmounts(&list[i])
+	}
 
 	return
 }
 func (f *FinanceService) GetTransactionDetail(transactionID string, clientID uint) (record finance.CardTransactionRecord, err error) {
 	err = global.GVA_DB.Find(&record, "transaction_id = ? AND client_id = ?", transactionID, clientID).Error
+	if err == nil {
+		normalizeGzyTransactionAmounts(&record)
+	}
 	return
+}
+
+// normalizeGzyTransactionAmounts 光子金额带方向（正负），对外展示统一为正数。
+func normalizeGzyTransactionAmounts(rec *finance.CardTransactionRecord) {
+	if rec == nil || rec.Channel != constant.Channel_Gzy {
+		return
+	}
+	rec.Amount = rec.Amount.Abs()
+	rec.OriginAmount = rec.OriginAmount.Abs()
+	rec.Fee = rec.Fee.Abs()
 }
 func (f *FinanceService) GetCard(id uint, clientID uint) (card finance.PixielCard, err error) {
 	err = global.GVA_DB.Preload("Fee").First(&card, "id = ? and client_id = ?", id, clientID).Error

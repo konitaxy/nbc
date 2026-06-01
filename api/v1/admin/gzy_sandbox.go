@@ -24,7 +24,7 @@ func (*CardManagerApi) SandBoxTransaction(c *gin.Context) {
 	resp, err := financeService.SandBoxTransaction(req)
 	if err != nil {
 		global.GVA_LOG.Error("sandbox transaction failed", zap.Error(err), zap.Any("req", req))
-		response.FailWithMessage(err.Error(), c)
+		response.FailWithServiceError(c, err)
 		return
 	}
 	response.OkWithData(resp, c)

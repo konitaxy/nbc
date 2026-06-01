@@ -354,12 +354,16 @@ func unifyTransactionPageFromGzy(out *gzy.QueryCardTransactionsResponse) *Unifie
 	}
 	rows := make([]UnifiedCardTransaction, 0, len(out.List))
 	for _, v := range out.List {
+		amt := gzy.PositiveAmount(v.TxnPrincipalChangeAmount)
+		if amt.IsZero() {
+			amt = gzy.PositiveAmount(v.TransactionAmount)
+		}
 		rows = append(rows, UnifiedCardTransaction{
 			TransactionID:       v.TransactionID,
 			CardID:              v.CardID,
 			Status:              v.Status,
 			TransactionType:     v.TransactionType,
-			TransactionAmount:   v.TransactionAmount,
+			TransactionAmount:   amt,
 			TransactionCurrency: v.TransactionCurrency,
 			CreatedAt:           firstNonEmpty(v.CreatedAt, v.TxnDate),
 			MerchantName:        firstNonEmpty(v.MerchantNameLocation, v.MerchantLocation),

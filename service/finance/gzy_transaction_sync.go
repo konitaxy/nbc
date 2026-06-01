@@ -129,22 +129,22 @@ func (fs FinanceService) ProcessGzyTradeOrder(v gzy.VccTradeOrderResp) (syncCard
 }
 
 func buildGzyCardTransactionRecord(v gzy.VccTradeOrderResp, eventType string, transactionType constant.TransactionType) finance.CardTransactionRecord {
-	amount := v.TxnPrincipalChangeAmount
+	amount := gzy.PositiveAmount(v.TxnPrincipalChangeAmount)
 	currency := strings.TrimSpace(v.TxnPrincipalChangeCurrency)
 	if amount.IsZero() {
-		amount = v.TransactionAmount
+		amount = gzy.PositiveAmount(v.TransactionAmount)
 		currency = strings.TrimSpace(v.TransactionCurrency)
 	}
 	return finance.CardTransactionRecord{
 		Amount:          amount,
 		Currency:        currency,
-		OriginAmount:    v.TransactionAmount,
+		OriginAmount:    gzy.PositiveAmount(v.TransactionAmount),
 		OriginCurrency:  strings.TrimSpace(v.TransactionCurrency),
 		Channel:         constant.Channel_Gzy,
 		OrderID:         strings.TrimSpace(v.RequestID),
 		CardID:          strings.TrimSpace(v.CardID),
 		EventType:       eventType,
-		Fee:             v.FeeDeductionAmount,
+		Fee:             gzy.PositiveAmount(v.FeeDeductionAmount),
 		FeeDetail:       gzyFeeDetailJSON(v.FeeDetailJSON, v.FeeReturnDetailJSON),
 		Status:          gzyTradeStatusToSystem(v.Status),
 		TransactionType: transactionType,

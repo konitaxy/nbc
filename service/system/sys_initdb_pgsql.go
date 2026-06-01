@@ -79,6 +79,7 @@ func (initDBService *InitDBService) initPgsqlData() error {
 		system.UserAuthority,
 		system.DataAuthorities,
 		system.AuthoritiesMenus,
+		system.ChainMenuAuthority,
 		system.ViewAuthorityMenuPostgres,
 	)
 }

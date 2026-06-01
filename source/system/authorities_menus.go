@@ -30,6 +30,7 @@ func (a *authoritiesMenus) Initialize() error {
 		{BaseMenuId: 35, AuthorityId: "888"},
 		{BaseMenuId: 36, AuthorityId: "888"},
 		{BaseMenuId: 37, AuthorityId: "888"},
+		{BaseMenuId: 94, AuthorityId: "888"},
 	}
 	if err := global.GVA_DB.Create(&entities).Error; err != nil {
 		return errors.Wrap(err, a.TableName()+"表数据初始化失败!")

@@ -12,6 +12,7 @@ type CardBinSearchParams struct {
 	CardModel string `json:"cardModel" form:"cardModel"`
 	CardBinID string `json:"cardBinID" form:"cardBinID"`
 	Blocked   bool   `json:"blocked" form:"blocked"`
+	BinStatus *bool  `json:"binStatus" form:"binStatus"`
 }
 
 type CardSearchParams struct {

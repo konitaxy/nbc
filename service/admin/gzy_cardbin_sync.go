@@ -90,7 +90,7 @@ func (c *CardService) SyncGzyCardBinsFromPhoton() error {
 					TopUp:                      topUp,
 					CustomerAvailable:          qty > 0,
 					CardholderRequired:         strings.Contains(strings.ToLower(it.CardFormFactor), "physical"),
-					BinStatus:                  qty > 0,
+					BinStatus:                  true,
 					CancelCard:                 true,
 					Withdrawal:                 true,
 					SupportFreezing:            true,
@@ -116,7 +116,6 @@ func (c *CardService) SyncGzyCardBinsFromPhoton() error {
 			row.TopUp = topUp
 			row.CustomerAvailable = qty > 0
 			row.CardholderRequired = strings.Contains(strings.ToLower(it.CardFormFactor), "physical")
-			row.BinStatus = qty > 0
 
 			if err := c.SaveCardBin(&row); err != nil {
 				return fmt.Errorf("gzy card bin sync: save %s: %w", cardBinID, err)

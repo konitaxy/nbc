@@ -20,12 +20,12 @@ import (
 const DEFAULT_BASE_URL = "https://x-api.photonpay.com"
 
 func gzyAPIFailure(code, message string) error {
-	if message != "" {
-		// global.GVA_LOG.Warn("gzy (PhotonPay) API response not SUCCESS", zap.String("code", code), zap.String("message", message))
-		return fmt.Errorf("gzy API: code=%s, message=%s", code, message)
+	code = strings.TrimSpace(code)
+	userMsg := photonUserMessage(code, message)
+	if code != "" {
+		return fmt.Errorf("gzy API: code=%s, message=%s", strings.ToUpper(code), userMsg)
 	}
-	// global.GVA_LOG.Warn("gzy (PhotonPay) API response not SUCCESS", zap.String("code", code))
-	return fmt.Errorf("gzy API: code=%s", code)
+	return fmt.Errorf("gzy API: message=%s", userMsg)
 }
 
 type Gzy struct {
@@ -543,7 +543,11 @@ func (g *Gzy) CreateCard(req CreateCardRequest) (*CreateCardResponse, error) {
 		if msg == "" {
 			msg = "openCard data.status=failed"
 		}
-		return nil, fmt.Errorf("gzy CreateCard: %s", msg)
+		code := strings.TrimSpace(parsed.Code)
+		if code != "" && !strings.EqualFold(code, "0000") {
+			return nil, gzyAPIFailure(code, msg)
+		}
+		return nil, fmt.Errorf("gzy API: message=%s", msg)
 	}
 	if out.CardID == "" {
 		return nil, fmt.Errorf("gzy CreateCard: 响应缺少 data.cardDetail.cardId")
@@ -1031,7 +1035,7 @@ func (g *Gzy) RechargeCard(req RechargeCommitRequest) (*RechargeResponse, error)
 		if msg == "" {
 			msg = "recharge status=failed"
 		}
-		return out, fmt.Errorf("gzy recharge: %s", msg)
+		return out, gzyAPIFailure(env.Code, msg)
 	}
 	return out, nil
 }
@@ -1112,7 +1116,7 @@ func (g *Gzy) WithdrawFromCard(req WithdrawRequest) (*WithdrawResponse, error) {
 		if msg == "" {
 			msg = "rechargeReturn status=failed"
 		}
-		return out, fmt.Errorf("gzy rechargeReturn: %s", msg)
+		return out, gzyAPIFailure(env.Code, msg)
 	}
 	return out, nil
 }

@@ -48,7 +48,7 @@ func (t *TokenResponse) UnmarshalJSON(b []byte) error {
 	var e env
 	if err := json.Unmarshal(b, &e); err == nil && strings.TrimSpace(e.Code) != "" && len(bytes.TrimSpace(e.Data)) > 0 && string(bytes.TrimSpace(e.Data)) != "null" {
 		if !isPhotonSuccess(strings.TrimSpace(e.Code)) {
-			return fmt.Errorf("gzy token API: code=%s msg=%s", strings.TrimSpace(e.Code), strings.TrimSpace(e.Msg))
+			return gzyAPIFailure(strings.TrimSpace(e.Code), strings.TrimSpace(e.Msg))
 		}
 		type dataT struct {
 			ExpiresIn        int64  `json:"expiresIn"`

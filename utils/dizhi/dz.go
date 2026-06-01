@@ -1,4 +1,4 @@
-package meiguodizhi
+package dizhi
 
 import (
 	"bytes"
@@ -17,7 +17,9 @@ import (
 
 const defaultDzAPIURL = "https://www.meiguodizhi.com/api/v1/dz"
 
-// Client 美国地址生成 API（meiguodizhi.com）。
+const dzMethodAddress = "address"
+
+// Client 地址生成 API（meiguodizhi.com /dz）。
 type Client struct {
 	BaseURL string
 	HTTP    *http.Client
@@ -36,8 +38,7 @@ func NewClient() *Client {
 			}
 		}
 	}
-	base := defaultDzAPIURL
-	return &Client{BaseURL: base, HTTP: c}
+	return &Client{BaseURL: defaultDzAPIURL, HTTP: c}
 }
 
 type dzRequest struct {
@@ -47,16 +48,16 @@ type dzRequest struct {
 
 // Address 接口返回的 address 对象（字段名与线网一致）。
 type Address struct {
-	Address      string `json:"Address"`
-	Telephone    string `json:"Telephone"`
-	City         string `json:"City"`
-	ZipCode      string `json:"Zip_Code"`
-	State        string `json:"State"`
-	StateFull    string `json:"State_Full"`
-	FullName     string `json:"Full_Name"`
-	Birthday     string `json:"Birthday"`
+	Address       string `json:"Address"`
+	Telephone     string `json:"Telephone"`
+	City          string `json:"City"`
+	ZipCode       string `json:"Zip_Code"`
+	State         string `json:"State"`
+	StateFull     string `json:"State_Full"`
+	FullName      string `json:"Full_Name"`
+	Birthday      string `json:"Birthday"`
 	TemporaryMail string `json:"Temporary_mail"`
-	Title        string `json:"Title"`
+	Title         string `json:"Title"`
 }
 
 type dzResponse struct {
@@ -64,12 +65,24 @@ type dzResponse struct {
 	Status  string  `json:"status"`
 }
 
-// FetchAddress POST {"path":"/","method":"address"} 获取一条随机美国地址。
-func (c *Client) FetchAddress() (*Address, error) {
+// ResolvePath 根据地区代号解析 dz path；空或 us 为 /，其它为 /{code}-address（如 hk → /hk-address）。
+func ResolvePath(regionCode string) string {
+	code := strings.ToLower(strings.TrimSpace(regionCode))
+	if code == "" || code == "us" {
+		return "/"
+	}
+	return "/" + code + "-address"
+}
+
+// FetchAddress 拉取一条随机地址。method 固定 address；regionCode 为空为美国 path=/，传入 hk 等为 path=/hk-address。
+func (c *Client) FetchAddress(regionCode string) (*Address, error) {
 	if c == nil {
 		c = NewClient()
 	}
-	body, err := json.Marshal(dzRequest{Path: "/", Method: "address"})
+	body, err := json.Marshal(dzRequest{
+		Path:   ResolvePath(regionCode),
+		Method: dzMethodAddress,
+	})
 	if err != nil {
 		return nil, err
 	}
@@ -82,7 +95,7 @@ func (c *Client) FetchAddress() (*Address, error) {
 
 	resp, err := c.HTTP.Do(req)
 	if err != nil {
-		return nil, fmt.Errorf("meiguodizhi: request: %w", err)
+		return nil, fmt.Errorf("dizhi: request: %w", err)
 	}
 	defer resp.Body.Close()
 
@@ -91,47 +104,48 @@ func (c *Client) FetchAddress() (*Address, error) {
 		return nil, err
 	}
 	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
-		return nil, fmt.Errorf("meiguodizhi: http %d: %s", resp.StatusCode, truncate(string(raw), 256))
+		return nil, fmt.Errorf("dizhi: http %d: %s", resp.StatusCode, truncate(string(raw), 256))
 	}
 
 	var out dzResponse
 	if err := json.Unmarshal(raw, &out); err != nil {
-		return nil, fmt.Errorf("meiguodizhi: decode: %w", err)
+		return nil, fmt.Errorf("dizhi: decode: %w", err)
 	}
 	if !strings.EqualFold(strings.TrimSpace(out.Status), "ok") {
-		return nil, fmt.Errorf("meiguodizhi: status=%q", out.Status)
+		return nil, fmt.Errorf("dizhi: status=%q", out.Status)
 	}
 	if strings.TrimSpace(out.Address.Address) == "" {
-		return nil, fmt.Errorf("meiguodizhi: empty address")
+		return nil, fmt.Errorf("dizhi: empty address")
 	}
 	return &out.Address, nil
 }
 
 // AddressToCardHolder 将接口 address 映射为本地 CardHolder（不含 ClientID/IAMID/CardHolderID）。
-func AddressToCardHolder(a *Address) (*finance.CardHolder, error) {
+func AddressToCardHolder(a *Address, regionCode string) (*finance.CardHolder, error) {
 	if a == nil {
-		return nil, fmt.Errorf("meiguodizhi: address is nil")
+		return nil, fmt.Errorf("dizhi: address is nil")
 	}
 	first, last := splitFullName(a.FullName)
 	birth, err := normalizeBirthDate(a.Birthday)
 	if err != nil {
 		return nil, err
 	}
-	mobilePrefix, mobile := parseUSTelephone(a.Telephone)
+	mobilePrefix, mobile := parseTelephone(a.Telephone, regionCode)
 	email := strings.TrimSpace(a.TemporaryMail)
 	if email == "" {
 		email = "noreply@example.com"
 	}
+	region, country := holderRegionCountry(regionCode)
 
 	return &finance.CardHolder{
-		Region:       string(constant.Region_US),
+		Region:       region,
 		FirstName:    first,
 		LastName:     last,
 		Email:        email,
 		MobilePrefix: mobilePrefix,
 		Mobile:       mobile,
 		BirthDate:    birth,
-		CountryCode:  string(constant.CountryCode_USA),
+		CountryCode:  country,
 		State:        strings.TrimSpace(a.State),
 		City:         strings.TrimSpace(a.City),
 		Postcode:     strings.TrimSpace(a.ZipCode),
@@ -139,13 +153,22 @@ func AddressToCardHolder(a *Address) (*finance.CardHolder, error) {
 	}, nil
 }
 
-// FetchCardHolder 拉取地址并转为 CardHolder。
-func FetchCardHolder() (*finance.CardHolder, error) {
-	addr, err := NewClient().FetchAddress()
+// FetchCardHolder 拉取地址并转为 CardHolder；regionCode 为空为美国。
+func FetchCardHolder(regionCode string) (*finance.CardHolder, error) {
+	addr, err := NewClient().FetchAddress(regionCode)
 	if err != nil {
 		return nil, err
 	}
-	return AddressToCardHolder(addr)
+	return AddressToCardHolder(addr, regionCode)
+}
+
+func holderRegionCountry(regionCode string) (region, country string) {
+	switch strings.ToLower(strings.TrimSpace(regionCode)) {
+	case "hk":
+		return "HK", "HKG"
+	default:
+		return string(constant.Region_US), string(constant.CountryCode_USA)
+	}
 }
 
 func splitFullName(full string) (first, last string) {
@@ -165,7 +188,7 @@ func splitFullName(full string) (first, last string) {
 func normalizeBirthDate(s string) (string, error) {
 	s = strings.TrimSpace(s)
 	if s == "" {
-		return "", fmt.Errorf("meiguodizhi: empty birthday")
+		return "", fmt.Errorf("dizhi: empty birthday")
 	}
 	layouts := []string{
 		"1/2/2006", "01/02/2006",
@@ -177,23 +200,38 @@ func normalizeBirthDate(s string) (string, error) {
 			return t.Format("2006-01-02"), nil
 		}
 	}
-	return "", fmt.Errorf("meiguodizhi: unsupported birthday format %q", s)
+	return "", fmt.Errorf("dizhi: unsupported birthday format %q", s)
 }
 
-func parseUSTelephone(tel string) (prefix, number string) {
-	digits := strings.Map(func(r rune) rune {
+func parseTelephone(tel, regionCode string) (prefix, number string) {
+	digits := digitsOnly(tel)
+	switch strings.ToLower(strings.TrimSpace(regionCode)) {
+	case "hk":
+		if len(digits) >= 11 && strings.HasPrefix(digits, "852") {
+			return "+852", digits[3:]
+		}
+		if len(digits) == 8 {
+			return "+852", digits
+		}
+		return "+852", strings.TrimSpace(tel)
+	default:
+		if len(digits) == 11 && digits[0] == '1' {
+			return "+1", digits[1:]
+		}
+		if len(digits) == 10 {
+			return "+1", digits
+		}
+		return "+1", strings.TrimSpace(tel)
+	}
+}
+
+func digitsOnly(s string) string {
+	return strings.Map(func(r rune) rune {
 		if r >= '0' && r <= '9' {
 			return r
 		}
 		return -1
-	}, tel)
-	if len(digits) == 11 && digits[0] == '1' {
-		return "+1", digits[1:]
-	}
-	if len(digits) == 10 {
-		return "+1", digits
-	}
-	return "+1", strings.TrimSpace(tel)
+	}, s)
 }
 
 func truncate(s string, n int) string {

@@ -173,9 +173,10 @@ func (p *FinanceApi) ListCardHolder(c *gin.Context) {
 	}
 }
 
-// FetchCardHolderAddress 从 meiguodizhi 拉取随机美国地址，映射为 CardHolder 字段供前端预填。
+// FetchCardHolderAddress 从 dizhi 拉取随机地址，映射为 CardHolder 字段供前端预填。
+// Query region：空/us 为 path=/；hk 等为 path=/hk-address，method 均为 address。
 func (f *FinanceApi) FetchCardHolderAddress(c *gin.Context) {
-	holder, err := financeService.FetchCardHolderFromMeiguoDizhi()
+	holder, err := financeService.FetchCardHolderFromDizhi(c.Query("region"))
 	if err != nil {
 		global.GVA_LOG.Error("fetch card holder address failed", zap.Error(err))
 		response.FailWithMessage(err.Error(), c)
@@ -208,7 +209,7 @@ func (f *FinanceApi) AddCardHolder(c *gin.Context) {
 		response.OkWithMessage("Success", c)
 	} else {
 		global.GVA_LOG.Error("Failed", zap.Error(err))
-		response.FailWithMessage(err.Error(), c)
+		response.FailWithServiceError(c, err)
 	}
 }
 
@@ -309,6 +310,10 @@ func writeWalletRechargePrepareResponse(c *gin.Context, resp *finresp.WalletRech
 func (f *FinanceApi) ListCardBin(c *gin.Context) {
 	var req request.CardBinSearchParams
 	_ = c.ShouldBindJSON(&req)
+	if req.BinStatus == nil {
+		enabled := true
+		req.BinStatus = &enabled
+	}
 	if total, list, err := cardService.ListCardBin(req); err == nil {
 		response.OkWithDetailed(response.PageResult{
 			List:  list,
@@ -436,12 +441,8 @@ func (f *FinanceApi) OpenCard(c *gin.Context) {
 					response.FailWithMessage(fmt.Sprintf("Create card total: %d, success: %d", req.Number, n), c)
 					return
 				}
-				global.GVA_LOG.Error("create card failed", zap.Any("err", err))
-				if strings.Contains(err.Error(), "failed to deduct funds from source wallet") {
-					response.FailWithMessage("insufficient balance", c)
-					return
-				}
-				response.FailWithMessage("create card failed", c)
+				global.GVA_LOG.Error("create card failed", zap.Error(err))
+				response.FailWithServiceErrorUnless(c, err, "failed to deduct funds from source wallet", "insufficient balance")
 				return
 			}
 		}
@@ -499,7 +500,7 @@ func (f *FinanceApi) ChangeSubAuthLimit(c *gin.Context) {
 
 	if err := financeService.ChangeSubAuthLimit(card.CardID, clientID, updateAmount); err != nil {
 		global.GVA_LOG.Error("change sub card auth limit failed", zap.Error(err))
-		response.FailWithMessage(err.Error(), c)
+		response.FailWithServiceError(c, err)
 		return
 	}
 
@@ -522,7 +523,7 @@ func (f *FinanceApi) CardFrozen(c *gin.Context) {
 	clientID := utils.GetTenantID(c)
 	if err := financeService.CardFrozen(req.ID, clientID, req.Action, req.Remark); err != nil {
 		global.GVA_LOG.Error("card frozen/unfrozen failed", zap.Error(err))
-		response.FailWithMessage(err.Error(), c)
+		response.FailWithServiceError(c, err)
 		return
 	}
 
@@ -543,6 +544,7 @@ func (f *FinanceApi) SyncCard(c *gin.Context) {
 	} else {
 		if err := financeService.SyncCardDetail(card.OrderID, card.CardID); err != nil {
 			global.GVA_LOG.Error("sync card detail failed", zap.Any("err", err))
+			response.FailWithServiceError(c, err)
 			return
 		}
 		response.Ok(c)
@@ -621,7 +623,11 @@ func (f *FinanceApi) CancelCard(c *gin.Context) {
 		}
 		if err := financeService.CancelCard(&card); err != nil {
 			global.GVA_LOG.Error("cancel card failed", zap.Any("id", it.ID), zap.String("cardId", it.CardId), zap.Error(err))
-			result.Failed = append(result.Failed, request.BatchCancelItemFailure{ID: it.ID, CardId: it.CardId, Reason: err.Error()})
+			reason := utils.ProviderUserMessage(err)
+			if reason == "" {
+				reason = err.Error()
+			}
+			result.Failed = append(result.Failed, request.BatchCancelItemFailure{ID: it.ID, CardId: it.CardId, Reason: reason})
 			continue
 		}
 		result.Success++
@@ -722,8 +728,8 @@ func (f *FinanceApi) ShowCardDetail(c *gin.Context) {
 	}
 	card, err := financeService.GetCardDetail(uint(cid), clientID, iamID)
 	if err != nil {
-		global.GVA_LOG.Error("list card bin failed", zap.Any("err", err))
-		response.FailWithMessage("list card bin failed", c)
+		global.GVA_LOG.Error("get card detail failed", zap.Any("err", err))
+		response.FailWithServiceError(c, err)
 	} else {
 		response.OkWithData(card, c)
 	}
@@ -743,7 +749,7 @@ func (f *FinanceApi) PreRecharge(c *gin.Context) {
 	data, err := financeService.CardPreRecharge(req)
 	if err != nil {
 		global.GVA_LOG.Error("preRecharge failed", zap.Error(err))
-		response.FailWithMessage(err.Error(), c)
+		response.FailWithServiceError(c, err)
 		return
 	}
 	response.OkWithData(data, c)
@@ -781,7 +787,7 @@ func (f *FinanceApi) RechargeCard(c *gin.Context) {
 			}
 			if err := financeService.RechargeCard(&card, req.Amount, constant.USD); err != nil {
 				global.GVA_LOG.Error("RechargeCard error", zap.Error(err))
-				response.FailWithMessage(err.Error(), c)
+				response.FailWithServiceError(c, err)
 				return
 			}
 			response.Ok(c)
@@ -821,7 +827,7 @@ func (f *FinanceApi) WithdrawCard(c *gin.Context) {
 			}
 			if err := financeService.WithdrawCard(&card, req.Amount, card.Currency); err != nil {
 				global.GVA_LOG.Error("WithdrawCard error", zap.Error(err))
-				response.FailWithMessage("WithdrawCard error", c)
+				response.FailWithServiceError(c, err)
 				return
 			} else {
 				financeService.SyncCardDetail("", card.CardID)

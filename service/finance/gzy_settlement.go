@@ -39,16 +39,16 @@ func (fs FinanceService) ProcessGzySettlementOrder(v gzy.IssuingSettlementNotify
 }
 
 func buildGzySettlementCardTransactionRecord(v gzy.IssuingSettlementNotify, eventType string, transactionType constant.TransactionType) finance.CardTransactionRecord {
-	amount := v.SettleAmount
+	amount := gzy.PositiveAmount(v.SettleAmount)
 	currency := strings.TrimSpace(v.SettleCurrency)
 	if amount.IsZero() {
-		amount = v.TransactionAmount
+		amount = gzy.PositiveAmount(v.TransactionAmount)
 		currency = strings.TrimSpace(v.TransactionCurrency)
 	}
 	return finance.CardTransactionRecord{
 		Amount:          amount,
 		Currency:        currency,
-		OriginAmount:    v.TransactionAmount,
+		OriginAmount:    gzy.PositiveAmount(v.TransactionAmount),
 		OriginCurrency:  strings.TrimSpace(v.TransactionCurrency),
 		Channel:         constant.Channel_Gzy,
 		OrderID:         firstNonEmptyStr(v.OriginTransactionID, v.TransactionID),

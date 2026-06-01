@@ -88,6 +88,7 @@ func (initDBService *InitDBService) initMysqlData() error {
 		system.UserAuthority,
 		system.DataAuthorities,
 		system.AuthoritiesMenus,
+		system.ChainMenuAuthority,
 		system.ViewAuthorityMenuMysql,
 		users.User,
 	)
@@ -103,6 +104,7 @@ func (initDBService *InitDBService) InitMysqlData() error {
 		system.UserAuthority,
 		system.DataAuthorities,
 		system.AuthoritiesMenus,
+		system.ChainMenuAuthority,
 		system.ViewAuthorityMenuMysql,
 
 		users.User,
