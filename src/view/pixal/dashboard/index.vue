@@ -1,23 +1,71 @@
 <template>
-  <div  style="width: 100%;">
-    <div class="operation-bar">
+  <div class="dashboard-page">
+    <section class="dashboard-hero">
+      <div>
+        <p class="eyebrow">Card analytics</p>
+        <h1>Dashboard</h1>
+        <p class="hero-copy">Track authorization, reversal, recharge and withdrawal activity across your virtual card operations.</p>
+      </div>
+      <div class="operation-bar">
         <el-date-picker
           v-model="search.dateRange"
           type="daterange"
           :placeholder="$t('lang.start_date')"
-          style="margin-right: 10px;max-width:300px"
           format="YYYY-MM-DD"
           value-format="YYYY-MM-DD"
           clearable
-          class="max-width:100px"
+          class="date-range"
         ></el-date-picker>
-        <el-button type="primary" icon="search" @click="getChartData">{{$t('lang.search')}}</el-button>
+        <el-button class="search-btn" type="primary" icon="search" @click="getChartData">{{$t('lang.search')}}</el-button>
       </div>
-    <div class="mt-5">
-        <div ref="authorizationDom" class="chart" style="width: 100%; height: 500px;"></div>
-        <div ref="reversalDom" class="chart" style="width: 100%; height: 500px;"></div>
-        <div ref="inoutDom" class="chart" style="width: 100%; height: 500px;"></div>
-    </div>
+    </section>
+
+    <section class="metric-grid">
+      <article class="metric-card metric-card-primary">
+        <span>{{ $t('lang.total_amount') }}</span>
+        <strong>${{ chartData.totalAuthorizationAmount || '0.00' }}</strong>
+        <p>{{ $t('lang.authorization_statistics') }}</p>
+      </article>
+      <article class="metric-card">
+        <span>{{ $t('lang.total_quantity') }}</span>
+        <strong>{{ chartData.totalAuthorizationCount || 0 }}</strong>
+        <p>{{ $t('lang.authorization_statistics') }}</p>
+      </article>
+      <article class="metric-card">
+        <span>{{ $t('lang.total_recharge_amount') }}</span>
+        <strong>${{ chartData.totalRechargeAmount || '0.00' }}</strong>
+        <p>{{ $t('lang.recharge_and_withdrawal_statistics') }}</p>
+      </article>
+      <article class="metric-card">
+        <span>{{ $t('lang.total_withdrawal_amount') }}</span>
+        <strong>${{ chartData.totalWithdrawalAmount || '0.00' }}</strong>
+        <p>{{ $t('lang.recharge_and_withdrawal_statistics') }}</p>
+      </article>
+    </section>
+
+    <section class="chart-grid">
+      <article class="chart-card">
+        <div class="chart-card-header">
+          <span>01</span>
+          <h2>{{ $t('lang.authorization_statistics') }}</h2>
+        </div>
+        <div ref="authorizationDom" class="chart"></div>
+      </article>
+      <article class="chart-card">
+        <div class="chart-card-header">
+          <span>02</span>
+          <h2>{{ $t('lang.reversal_statistics') }}</h2>
+        </div>
+        <div ref="reversalDom" class="chart"></div>
+      </article>
+      <article class="chart-card chart-card-wide">
+        <div class="chart-card-header">
+          <span>03</span>
+          <h2>{{ $t('lang.recharge_and_withdrawal_statistics') }}</h2>
+        </div>
+        <div ref="inoutDom" class="chart"></div>
+      </article>
+    </section>
   </div>
 </template>
 
@@ -29,6 +77,29 @@ import * as echarts from 'echarts';
 import { useI18n } from 'vue-i18n';
 import { graphic } from 'echarts/lib/export';
 const { t } = useI18n();
+const chartTextColor = '#dcecff'
+const chartMutedColor = 'rgba(220, 236, 255, 0.58)'
+const chartGridLine = 'rgba(139, 214, 255, 0.12)'
+const amountColor = '#44d5ff'
+const quantityColor = '#7dffcc'
+const warningColor = '#ff8aa6'
+const tooltipStyle = {
+  backgroundColor: 'rgba(5, 16, 29, 0.92)',
+  borderColor: 'rgba(139, 214, 255, 0.22)',
+  textStyle: {
+    color: chartTextColor
+  }
+}
+const axisLineStyle = {
+  lineStyle: {
+    color: 'rgba(139, 214, 255, 0.2)'
+  }
+}
+const splitLineStyle = {
+  lineStyle: {
+    color: chartGridLine
+  }
+}
 // import {
 //   BarChart
 // } from 'echarts/charts';
@@ -74,6 +145,7 @@ const option = {
     left: 'center',
     top:'0px',
     textStyle: {
+      color: chartTextColor,
       fontSize: 20,
       fontWeight: 'bold'
     }
@@ -87,6 +159,7 @@ const option = {
         style: {
           text: ``,
           fontSize: 12,
+          fill: chartMutedColor,
           align: 'left'
         }
       }
@@ -94,6 +167,7 @@ const option = {
   },
   // 提示框，trigger: 'axis' 会在鼠标悬停到x轴时触发
   tooltip: {
+    ...tooltipStyle,
     trigger: 'axis',
     axisPointer: {
       type: 'shadow' // 默认为 'line'，'shadow' 表示阴影指示器
@@ -103,7 +177,10 @@ const option = {
   legend: {
     data: ['Amount', 'Quantity'],
     bottom: 15, // 放在标题下面
-    left: 'center'
+    left: 'center',
+    textStyle: {
+      color: chartMutedColor
+    }
   },
   // 网格配置，调整图表在容器中的位置
   grid: {
@@ -116,21 +193,35 @@ const option = {
   // X轴：时间（这里用月份作为类别）
   xAxis: {
     type: 'category',
-    data: []
+    data: [],
+    axisLabel: {
+      color: chartMutedColor
+    },
+    axisLine: axisLineStyle
   },
   // Y轴：金额
   yAxis: [{
     type: 'value',
     name: `${t('lang.amount')}(usd)`,
+    nameTextStyle: {
+      color: chartMutedColor
+    },
     axisLabel: {
+      color: chartMutedColor,
       formatter: '{value} usd'
-    }
+    },
+    splitLine: splitLineStyle
   },{
     type: 'value',
     name: `${t('lang.quanlity')}`,
+    nameTextStyle: {
+      color: chartMutedColor
+    },
     axisLabel: {
+      color: chartMutedColor,
       formatter: '{value}'
-    }
+    },
+    splitLine: splitLineStyle
   }],
   // 系列数据
   series: [
@@ -140,10 +231,11 @@ const option = {
       yAxisIndex: 0, // 对应左侧 Y 轴
       data: [],
       itemStyle: {
-        color: '#5470C6' // 收入的颜色
+        color: amountColor
       },
       smooth: true,
         lineStyle: {
+          color: amountColor,
           width: 3
         }
     },
@@ -153,10 +245,11 @@ const option = {
       yAxisIndex: 1, // 对应左侧 Y 轴
       data: [],
       itemStyle: {
-        color: '#EE6666' // 支出的颜色
+        color: quantityColor
       },
       smooth: true,
         lineStyle: {
+          color: quantityColor,
           width: 3
         }
     }
@@ -169,12 +262,14 @@ const inoutOption = {
     left: 'center',
     top:'0px',
     textStyle: {
+      color: chartTextColor,
       fontSize: 20,
       fontWeight: 'bold'
     }
   },
   // 提示框，trigger: 'axis' 会在鼠标悬停到x轴时触发
   tooltip: {
+    ...tooltipStyle,
     trigger: 'axis',
     axisPointer: {
       type: 'shadow' // 默认为 'line'，'shadow' 表示阴影指示器
@@ -184,7 +279,10 @@ const inoutOption = {
   legend: {
     data: ['Recharge', 'Withdrawal'],
     bottom: 15, // 放在标题下面
-    left: 'center'
+    left: 'center',
+    textStyle: {
+      color: chartMutedColor
+    }
   },
   // 网格配置，调整图表在容器中的位置
   grid: {
@@ -197,21 +295,35 @@ const inoutOption = {
   // X轴：时间（这里用月份作为类别）
   xAxis: {
     type: 'category',
-    data: []
+    data: [],
+    axisLabel: {
+      color: chartMutedColor
+    },
+    axisLine: axisLineStyle
   },
   // Y轴：金额
   yAxis: [{
     type: 'value',
     name: `${t('lang.recharge_amount')}(usd)`,
+    nameTextStyle: {
+      color: chartMutedColor
+    },
     axisLabel: {
+      color: chartMutedColor,
       formatter: '{value} usd'
-    }
+    },
+    splitLine: splitLineStyle
   },{
     type: 'value',
     name: `${t('lang.withdrawal_amount')}(usd)`,
+    nameTextStyle: {
+      color: chartMutedColor
+    },
     axisLabel: {
+      color: chartMutedColor,
       formatter: '{value} usd'
-    }
+    },
+    splitLine: splitLineStyle
   }],
   // 系列数据
   series: [
@@ -221,10 +333,11 @@ const inoutOption = {
       yAxisIndex: 0, // 对应左侧 Y 轴
       data: [],
       itemStyle: {
-        color: '#5470C6' // 收入的颜色
+        color: quantityColor
       },
       smooth: true,
         lineStyle: {
+          color: quantityColor,
           width: 3
         }
     },
@@ -234,10 +347,11 @@ const inoutOption = {
       yAxisIndex: 1, // 对应左侧 Y 轴
       data: [],
       itemStyle: {
-        color: '#EE6666' // 支出的颜色
+        color: warningColor
       },
       smooth: true,
         lineStyle: {
+          color: warningColor,
           width: 3
         }
     }
@@ -250,12 +364,14 @@ const reversalOption = {
     left: 'center',
     top:'0px',
     textStyle: {
+      color: chartTextColor,
       fontSize: 20,
       fontWeight: 'bold'
     }
   },
   // 提示框，trigger: 'axis' 会在鼠标悬停到x轴时触发
   tooltip: {
+    ...tooltipStyle,
     trigger: 'axis',
     axisPointer: {
       type: 'shadow' // 默认为 'line'，'shadow' 表示阴影指示器
@@ -265,7 +381,10 @@ const reversalOption = {
   legend: {
     data: ['Amount', 'Quantity'],
     bottom: 15, // 放在标题下面
-    left: 'center'
+    left: 'center',
+    textStyle: {
+      color: chartMutedColor
+    }
   },
   // 网格配置，调整图表在容器中的位置
   grid: {
@@ -278,21 +397,35 @@ const reversalOption = {
   // X轴：时间（这里用月份作为类别）
   xAxis: {
     type: 'category',
-    data: []
+    data: [],
+    axisLabel: {
+      color: chartMutedColor
+    },
+    axisLine: axisLineStyle
   },
   // Y轴：金额
   yAxis: [{
     type: 'value',
     name: `${t('lang.amount')}(usd)`,
+    nameTextStyle: {
+      color: chartMutedColor
+    },
     axisLabel: {
+      color: chartMutedColor,
       formatter: '{value} usd'
-    }
+    },
+    splitLine: splitLineStyle
   },{
     type: 'value',
     name: `${t('lang.quanlity')}`,
+    nameTextStyle: {
+      color: chartMutedColor
+    },
     axisLabel: {
+      color: chartMutedColor,
       formatter: '{value}'
-    }
+    },
+    splitLine: splitLineStyle
   }],
   // 系列数据
   series: [
@@ -302,10 +435,11 @@ const reversalOption = {
       yAxisIndex: 0, // 对应左侧 Y 轴
       data: [],
       itemStyle: {
-        color: '#5470C6' // 收入的颜色
+        color: amountColor
       },
       smooth: true,
         lineStyle: {
+          color: amountColor,
           width: 3
         }
     },
@@ -315,10 +449,11 @@ const reversalOption = {
       yAxisIndex: 1, // 对应左侧 Y 轴
       data: [],
       itemStyle: {
-        color: '#EE6666' // 支出的颜色
+        color: warningColor
       },
       smooth: true,
         lineStyle: {
+          color: warningColor,
           width: 3
         }
     }
@@ -364,6 +499,7 @@ const getChartData = async () => {
               style: {
                 text: `${t('lang.total_amount')}: $${chartData.value.totalAuthorizationAmount} \n${t('lang.total_quantity')}: ${chartData.value.totalAuthorizationCount}`,
                 fontSize: 12,
+                fill: chartMutedColor,
                 // fontWeight: 'bold',
                 // fill: '#1890ff',
                 align: 'left'
@@ -397,6 +533,7 @@ const getChartData = async () => {
                     style: {
                         text: `${t('lang.total_amount')}: $${chartData.value.totalReversalAmount} \n${t('lang.total_quantity')}: ${chartData.value.totalReversalCount}`,
                         fontSize: 12,
+                        fill: chartMutedColor,
                         align: 'left'
                     }
                     }
@@ -428,6 +565,7 @@ const getChartData = async () => {
                     style: {
                         text: `${t('lang.total_recharge_amount')}: $${chartData.value.totalRechargeAmount} \n${t('lang.total_withdrawal_amount')}: $${chartData.value.totalWithdrawalAmount}`,
                         fontSize: 12,
+                        fill: chartMutedColor,
                         align: 'left'
                     }
                     }
@@ -519,13 +657,274 @@ onBeforeUnmount(() => {
 </script>
 
 <style scoped>
-/* 样式可以保持为空，因为大小是在 div 上直接设置的 */
+.dashboard-page {
+  --bg: #020812;
+  --panel: rgba(5, 16, 29, 0.86);
+  --panel-soft: rgba(8, 24, 43, 0.62);
+  --line: rgba(139, 214, 255, 0.16);
+  --line-strong: rgba(139, 214, 255, 0.3);
+  --text: #f4fbff;
+  --muted: rgba(225, 242, 255, 0.72);
+  --dim: rgba(225, 242, 255, 0.5);
+  --cyan: #44d5ff;
+  --green: #7dffcc;
+  --danger: #ff8aa6;
+  position: relative;
+  width: 100%;
+  min-height: calc(100vh - 110px);
+  padding: 24px;
+  overflow: hidden;
+  color: var(--text);
+  background:
+    radial-gradient(circle at 10% 4%, rgba(68, 213, 255, 0.12), transparent 30%),
+    radial-gradient(circle at 88% 0%, rgba(47, 125, 255, 0.13), transparent 28%),
+    linear-gradient(180deg, #020812 0%, #030b16 58%, #04101d 100%);
+  border-radius: 24px;
+}
+
+.dashboard-page::before {
+  content: "";
+  position: absolute;
+  width: 420px;
+  height: 420px;
+  right: -180px;
+  top: 120px;
+  border-radius: 50%;
+  background: rgba(68, 213, 255, 0.12);
+  filter: blur(80px);
+  pointer-events: none;
+}
+
+.dashboard-hero,
+.metric-grid,
+.chart-grid {
+  position: relative;
+  z-index: 1;
+}
+
+.dashboard-hero {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: end;
+  gap: 22px;
+  margin-bottom: 22px;
+}
+
+.eyebrow {
+  display: inline-flex;
+  margin: 0 0 12px;
+  color: var(--green);
+  font-size: 12px;
+  font-weight: 800;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+}
+
+.dashboard-hero h1 {
+  margin: 0;
+  font-size: clamp(2rem, 4vw, 3.6rem);
+  line-height: 1;
+  letter-spacing: -0.055em;
+}
+
+.hero-copy {
+  max-width: 620px;
+  margin: 14px 0 0;
+  color: var(--muted);
+  line-height: 1.75;
+}
+
+.operation-bar {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px;
+  border: 1px solid var(--line);
+  border-radius: 22px;
+  background: rgba(4, 15, 29, 0.76);
+  backdrop-filter: blur(14px);
+}
+
+.date-range {
+  width: min(320px, 60vw);
+}
+
+.date-range :deep(.el-input__wrapper) {
+  min-height: 42px;
+  border-radius: 14px;
+  border: 1px solid rgba(139, 214, 255, 0.14);
+  background: rgba(255, 255, 255, 0.055);
+  box-shadow: none;
+}
+
+.date-range :deep(.el-input__inner),
+.date-range :deep(.el-range-input),
+.date-range :deep(.el-range-separator) {
+  color: var(--text);
+}
+
+.search-btn {
+  min-height: 42px;
+  border: 0;
+  border-radius: 14px;
+  color: #04111e;
+  font-weight: 800;
+  background: linear-gradient(135deg, var(--green), var(--cyan));
+  box-shadow: 0 14px 28px rgba(68, 213, 255, 0.18);
+}
+
+.search-btn:hover,
+.search-btn:focus {
+  color: #04111e;
+  background: linear-gradient(135deg, var(--green), var(--cyan));
+}
+
+.metric-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 14px;
+  margin-bottom: 18px;
+}
+
+.metric-card {
+  min-height: 140px;
+  padding: 22px;
+  border: 1px solid var(--line);
+  border-radius: 24px;
+  background: var(--panel-soft);
+  backdrop-filter: blur(14px);
+}
+
+.metric-card-primary {
+  background:
+    linear-gradient(135deg, rgba(125, 255, 204, 0.14), rgba(68, 213, 255, 0.08)),
+    var(--panel);
+  border-color: rgba(125, 255, 204, 0.28);
+}
+
+.metric-card span {
+  color: var(--dim);
+  font-size: 12px;
+  font-weight: 800;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+
+.metric-card strong {
+  display: block;
+  margin-top: 18px;
+  color: #ffffff;
+  font-size: clamp(1.6rem, 3vw, 2.5rem);
+  line-height: 1;
+  letter-spacing: -0.045em;
+}
+
+.metric-card p {
+  margin: 12px 0 0;
+  color: var(--muted);
+  line-height: 1.55;
+}
+
+.chart-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 18px;
+}
+
+.chart-card {
+  min-width: 0;
+  padding: 22px;
+  border: 1px solid var(--line);
+  border-radius: 28px;
+  background:
+    linear-gradient(145deg, rgba(68, 213, 255, 0.07), transparent 34%),
+    var(--panel);
+  box-shadow: 0 24px 70px rgba(0, 0, 0, 0.22);
+  backdrop-filter: blur(14px);
+}
+
+.chart-card-wide {
+  grid-column: 1 / -1;
+}
+
+.chart-card-header {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 10px;
+}
+
+.chart-card-header span {
+  display: grid;
+  width: 42px;
+  height: 42px;
+  place-items: center;
+  border-radius: 14px;
+  color: #04111e;
+  background: linear-gradient(135deg, var(--green), var(--cyan));
+  font-weight: 900;
+}
+
+.chart-card-header h2 {
+  margin: 0;
+  color: var(--text);
+  font-size: 1.05rem;
+}
+
 .chart {
   width: 100%;
-  height: 500px;
-  margin-bottom: 40px;
-  background: #f9f9f9;
-  border-radius: 20px;
-  padding: 20px;
+  height: 430px;
+}
+
+.chart-card-wide .chart {
+  height: 460px;
+}
+
+@media (max-width: 1180px) {
+  .dashboard-hero {
+    grid-template-columns: 1fr;
+  }
+
+  .operation-bar {
+    width: fit-content;
+  }
+
+  .metric-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .chart-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 680px) {
+  .dashboard-page {
+    padding: 16px;
+    border-radius: 18px;
+  }
+
+  .operation-bar {
+    width: 100%;
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .date-range {
+    width: 100%;
+  }
+
+  .metric-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .chart-card {
+    padding: 16px;
+    border-radius: 22px;
+  }
+
+  .chart {
+    height: 360px;
+  }
 }
 </style>

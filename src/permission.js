@@ -5,7 +5,7 @@ import router from '@/router'
 
 let asyncRouterFlag = 0
 
-const whiteList = ['PixelCard','Login', 'Init','Invite','forgetPassword','adminLogin']
+const whiteList = ['PixelCard','Login', 'Init','Invite','forgetPassword','adminLogin','About','Contact','Policy']
 const getRouter = async(userStore) => {
   
   const routerStore = useRouterStore()

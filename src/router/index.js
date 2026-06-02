@@ -11,6 +11,21 @@ const routes = [{
   component: () => import('@/view/login/login.vue')
 },
 {
+  path: '/about',
+  name: 'About',
+  component: () => import('@/view/about.vue')
+},
+{
+  path: '/contact',
+  name: 'Contact',
+  component: () => import('@/view/contact.vue')
+},
+{
+  path: '/policy',
+  name: 'Policy',
+  component: () => import('@/view/policy.vue')
+},
+{
   path: '/forgetPassword',
   name: 'forgetPassword',
   component: () => import('@/view/login/refound_password.vue')
