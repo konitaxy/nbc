@@ -31,7 +31,7 @@ func TestResolvePath(t *testing.T) {
 // go test -v -run TestPrintAddresses ./utils/dizhi/
 func TestPrintAddresses(t *testing.T) {
 	client := NewClient()
-	for i := 1; i <= 3; i++ {
+	for i := 1; i <= 5; i++ {
 		a, err := client.FetchAddress("")
 		if err != nil {
 			t.Fatalf("fetch %d: %v", i, err)

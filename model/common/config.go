@@ -17,7 +17,7 @@ type AdminConfig struct {
 	NumberValue  *int64    `gorm:"column:number_value;type:bigint" json:"numberValue"`
 	BooleanValue *bool     `gorm:"column:boolean_value;type:boolean" json:"booleanValue"`
 	JsonValue    *string   `gorm:"column:json_value;type:text" json:"jsonValue"`
-	DateValue    time.Time `gorm:"column:date_value;type:datetime" json:"dateValue"`
+	DateValue    *time.Time `gorm:"column:date_value;type:datetime" json:"dateValue,omitempty"`
 	Operator     string    `gorm:"column:operator;type:varchar(255)" json:"operator"`
 }
 

@@ -40,7 +40,7 @@ func MysqlDataInitialize(inits ...InitData) error {
 		}
 
 		if err := inits[i].Initialize(); err != nil {
-			color.Info.Printf(InitDataFailed, Mysql, err)
+			color.Info.Printf(InitDataFailed, Mysql, inits[i].TableName(), err)
 			return err
 		} else {
 			color.Info.Printf(InitDataSuccess, Mysql, inits[i].TableName())
@@ -68,7 +68,7 @@ func PgsqlDataInitialize(inits ...InitData) error {
 		}
 
 		if err := inits[i].Initialize(); err != nil {
-			color.Info.Printf(InitDataFailed, Pgsql, err)
+			color.Info.Printf(InitDataFailed, Pgsql, inits[i].TableName(), err)
 			continue
 		} else {
 			color.Info.Printf(InitDataSuccess, Pgsql, inits[i].TableName())
