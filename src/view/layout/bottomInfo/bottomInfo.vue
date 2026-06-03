@@ -3,12 +3,12 @@
     <div>
       <span>Powered by</span>
       <span>
-        <a href="https://pixelcard.com">{{ $GIN_VUE_ADMIN.appName }}</a>
+        <a href="https://newbeecard.com">{{ $GIN_VUE_ADMIN.appName }}</a>
       </span>
       <el-divider direction="vertical" />
       <span>Copyright</span>
       <span>
-        <a href="https://pixelcard.com">Pixelcard tech</a>
+        <a href="https://newbeecard.com">NEWBEECARD</a>
       </span>
     </div>
   </div>

@@ -87,6 +87,7 @@ service.interceptors.response.use(
          return ElMessageBox.prompt('', language.t('lang.mfa_verify_code'), {
             roundButton:true,
             center:true,
+            closeOnClickModal: false,
             inputPlaceholder: language.t('lang.verify_code_placeholder'),
             confirmButtonText: language.t('lang.confirm'),
             cancelButtonText: language.t('lang.cancel'),
@@ -128,6 +129,7 @@ service.interceptors.response.use(
           return ElMessageBox.prompt('', language.t('lang.pin_verify_code'), {
              roundButton:true,
              center:true,
+             closeOnClickModal: false,
              inputPlaceholder: language.t('lang.verify_code_placeholder'),
              confirmButtonText: language.t('lang.confirm'),
              cancelButtonText: language.t('lang.cancel'),
@@ -157,6 +159,7 @@ service.interceptors.response.use(
             }).then(async(sres)=>{
               if (sres.code === 0){
                 return ElMessageBox.prompt(language.t('lang.verify_code_sent'), language.t('lang.email_verify_code'), {
+                  closeOnClickModal: false,
                   inputPlaceholder: language.t('lang.verify_code_placeholder'),
                   confirmButtonText: language.t('lang.confirm'),
                   cancelButtonText: language.t('lang.cancel'),
@@ -280,6 +283,7 @@ service.interceptors.response.use(
           ElMessageBox.prompt('', 'Two-factor authentication code', {
             roundButton:true,
             center:true,
+            closeOnClickModal: false,
             confirmButtonText: 'OK',
             cancelButtonText: 'Cancel',
             inputErrorMessage: 'Invalid code',
@@ -315,6 +319,7 @@ service.interceptors.response.use(
             sendVerifyCode(data).then((sres)=>{
               if (sres.code === 0){
                 ElMessageBox.prompt('', 'Email authentication code', {
+                  closeOnClickModal: false,
                   confirmButtonText: 'OK',
                   cancelButtonText: 'Cancel',
                   inputErrorMessage: 'Invalid code',

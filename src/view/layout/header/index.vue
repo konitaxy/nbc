@@ -1,22 +1,32 @@
 <template>
-    <div class="h-100 w-100">
-      <el-row justify="start" class="h-100 w-100">
-        <el-col :xs="6" :sm="6" :md="0">
-          <i class="bi bi-list d-block d-lg-none text-white" style="font-size: 3rem;" @click="handleExpland"></i>
+    <div class="console-header h-100 w-100">
+      <el-row justify="start" class="h-100 w-100 align-items-center">
+        <el-col :xs="4" :sm="4" :md="0">
+          <button class="console-menu-toggle d-block d-lg-none" type="button" aria-label="Toggle sidebar" @click="handleExpland">
+            <i class="bi bi-list"></i>
+          </button>
         </el-col>
-        <el-col :span="8" :xs="8" :sm="6" :md="10">
+        <el-col :span="8" :xs="10" :sm="8" :md="10">
           <div class="logo-container">
-            <img src="@/assets/logo-new.png" class="logo-img" alt="logo" />
+            <img src="@/assets/NEWBEECARD-logo.png" class="logo-img" alt="NEWBEECARD" />
+            <div class="console-brand-copy d-none d-md-flex">
+              <strong>NEWBEECARD</strong>
+              <span>Global subscription cards</span>
+            </div>
+            <span class="console-brand-tag d-none d-xl-inline-flex">Control center</span>
           </div>
           <!-- <img :src="logo" class="logo" style="max-width: 186px; height:75px;object-fit:cover;"></img> -->
         </el-col>
-        <el-col :xs="10" :sm="10" :md="14">
-          <el-col  class="h-100 align-items-center justify-content-end d-flex me-2 gap-3">
-                <div style="color: white;" class="d-none d-sm-block">{{$t('lang.clientNo') }}: {{ userStore.userInfo.clientNo }} </div>
+        <el-col :xs="10" :sm="12" :md="14">
+          <el-col  class="console-actions h-100 align-items-center justify-content-end d-flex me-2 gap-3">
+                <div class="console-client-pill d-none d-sm-flex">
+                  <span>{{ $t('lang.clientNo') }}</span>
+                  <strong>{{ userStore.userInfo.clientNo }}</strong>
+                </div>
                 <!-- <i class="bi bi-envelope fs-5 me-4"></i> -->
                 <!-- <i class="bi bi-envelope fs-5 me-4"></i> -->
-                <el-dropdown class="me-2" popper-class="px-2">
-                  <a href="#" class="link-offset-2 link-underline-opacity-25 link-underline-opacity-100-hover text-nowrap" style="line-height: normal;">
+                <el-dropdown class="console-dropdown me-2" popper-class="px-2">
+                  <a href="#" class="console-language-link text-nowrap" style="line-height: normal;">
                     {{ langStore.currentLocale ==='zh'?'中文':langStore.currentLocale ==='en'?'English':'Tiếng Việt' }}<el-icon class="el-icon--right"><arrow-down /></el-icon>
                   </a>
                   <template #dropdown>
@@ -30,9 +40,9 @@
                 </el-dropdown>
                 <!-- <i class="bi bi-bell fs-3 me-2"></i> -->
                 <!-- <i class="bi bi-question-circle fs-5 me-3"></i> -->
-                <el-dropdown class="me-2" popper-class="px-2">
-                  <span class="el-dropdown-link">
-                    <el-avatar shape="circle" :size="35" :src="avatar"></el-avatar>
+                <el-dropdown class="console-avatar-dropdown me-2" popper-class="px-2">
+                  <span class="console-avatar-trigger el-dropdown-link">
+                    <el-avatar shape="circle" :size="38" :src="avatar"></el-avatar>
                     <!-- <el-icon class="fs-4 el-icon--right"><arrow-down /></el-icon> -->
                   </span>
                   <template #dropdown>

@@ -32,3 +32,12 @@ const buildIcon = (icon) => {
   return "bootstrap-icon "+ icon
 }
 </script>
+
+<style lang="scss" scoped>
+.bootstrap-icon {
+  display: inline-flex;
+  justify-content: center;
+  font-size: 18px;
+  vertical-align: middle;
+}
+</style>

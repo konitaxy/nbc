@@ -78,6 +78,6 @@ const loginout = ()=>{
     vertical-align: middle;
     // align-items: center;
     display: inline-flex;
-    justify-content: end;
+    justify-content: center;
 }
 </style>

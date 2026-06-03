@@ -1,6 +1,6 @@
 <template>
-  <div :style="{ background: userStore.sideMode }" class="bg-white text-center">
-    <div style="height: calc(100vh - 60px); width: 100%;">
+  <div class="console-sidebar-inner text-center">
+    <div class="console-sidebar-scroll">
       <transition
         :duration="{ enter: 800, leave: 100 }"
         mode="out-in"

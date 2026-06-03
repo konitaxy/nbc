@@ -3,7 +3,7 @@
  */
 
 const config = {
-  appName: 'PixelCard.com',
+  appName: 'NEWBEECARD',
   appLogo: '../asserts/logo.png',
   showViteLogo: false
 }

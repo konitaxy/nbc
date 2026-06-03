@@ -122,7 +122,7 @@ export default {
     "cancel": "Cancel",
     "card_refund": "Card Refund",
     "refund_amount": "Refund Amount",
-    "pixel_card": "Pixel Card",
+    "pixel_card": "NEWBEECARD",
     "withdraw_and_refund": "Withdraw and Refund",
     "account": "Account",
     "account_information": "Account Information",
@@ -470,7 +470,7 @@ export default {
         "line1": "Streamline",
         "line2": "your Finances",
         "line3": "with",
-        "line4": "Pixel Cards"
+        "line4": "NEWBEECARD"
       },
       // Form Fields
       "email": "Email",
@@ -601,7 +601,7 @@ export default {
         "manage_limits": "Manage card limits your way"
       },
       "go_big": {
-        "title": "Go Big with PIXEL CARD",
+        "title": "Go Big with NEWBEECARD",
         "subtitle": "User-friendly service with extensive features",
         "api": "API",
         "integrate_into_stack": "Empower your workflow through seamless integration with robust API.",
@@ -616,7 +616,7 @@ export default {
         "trusted_cards_title": "Trusted virtual cards for anything",
         "cards_subtitle": "Debit & credit cards for teams and individuals. Instant issuance.",
         "get_started": "Get started",
-        "copyright": "© PIXEL CARD. All rights reserved.",
+        "copyright": "© NEWBEECARD. All rights reserved.",
         "advertising": "Advertising",
         "platform": "Platform",
         "contact_us": "Contact us",

@@ -466,7 +466,7 @@ lang: {
       "line1": "Streamline",
       "line2": "your Finances",
       "line3": "with",
-      "line4": "Pixel Cards"
+      "line4": "NEWBEECARD"
     },
     // 表单字段
     "email": "邮箱",
@@ -595,7 +595,7 @@ lang: {
         "manage_limits": "自定义额度与权限"
       },
       "go_big": {
-        "title": "与 PIXEL CARD 一起做大做强",
+        "title": "与 NEWBEECARD 一起做大做强",
         "subtitle": "功能丰富且易上手的服务平台",
         "api": "API 接口",
         "integrate_into_stack": "通过强大的 API 无缝集成，助力您的工作流。",
@@ -610,7 +610,7 @@ lang: {
         "trusted_cards_title": "值得信赖的万能虚拟卡",
         "cards_subtitle": "为团队和个人提供的借记卡与信用卡，支持即时发卡。",
         "get_started": "立即开始",
-        "copyright": "© PIXEL CARD. 保留所有权利。",
+        "copyright": "© NEWBEECARD. 保留所有权利。",
         "advertising": "广告投放",
         "platform": "平台功能",
         "contact_us": "联系我们",

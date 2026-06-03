@@ -1,20 +1,22 @@
 <template>
-  <el-container class="layout-cont">
+  <el-container class="layout-cont console-shell">
+    <div class="console-grid-layer"></div>
+    <div class="console-light-band"></div>
     <el-header style="padding: 0;position: sticky; height:70px" class="mb-0 header">
       <Header v-on:expland="changeShadow"/>
     </el-header>
     <el-container :class="[isSider?'openside':'hideside',isMobile ? 'mobile': '']" style="flex-grow: 1;overflow-y: auto;">
       <el-row :class="[isShadowBg?'shadowBg':'']" @click="changeShadow()" />
 
-      <el-aside class="main-cont main-left bg-white" >
+      <el-aside class="main-cont main-left console-sidebar" >
         <!-- <div class="logo-container">
           <img src="@/assets/logo.png" class="logo-img" alt="logo" />
         </div> -->
-        <Aside class="aside bg-light d-flex justify-content-start" />
+        <Aside class="aside console-nav d-flex justify-content-start" />
       </el-aside>
 
       <!-- 分块滑动功能 -->
-      <el-main class="main-cont main-right">
+      <el-main class="main-cont main-right console-main">
         <!-- <transition :duration="{ enter: 800, leave: 100 }" mode="out-in" name="el-fade-in-linear">
         </transition> -->
         

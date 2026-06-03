@@ -10,9 +10,12 @@
           </div>
           <div>
             <div class="row g-0">
-              <div class="col col-8 p-0">
-                <div class="card-container p-8-3">
-                  <img class="card-logo" src="@/assets/logo-tp.png" alt="">
+                <div class="col col-8 p-0">
+                  <div class="card-container p-8-3">
+                  <div class="card-brand-mark">
+                    <img class="card-logo" src="@/assets/NEWBEECARD-logo-black.png" alt="NEWBEECARD">
+                    <div class="card-logo-text">NEWBEECARD</div>
+                  </div>
                   <div class="currency-container d-flex a-center col-3" >
                     <img src="@/assets/flag-us.png" class="currency-icon">
                     <div class="currency-text" >{{userStore.userInfo.wallet.currency == ''?'USD':userStore.userInfo.wallet.currency }}</div>
@@ -35,15 +38,15 @@
      
               </div>
               <el-card class="star-chain-card col-12 pd-0" body-style="padding:20px 0px;" shadow="never">
-                <div slot="header" class="clearfix" style="padding-bottom: 10px;">
+                <div slot="header" class="clearfix virtual-card-title">
                   <span>{{ $t('lang.virtual_card') }}</span>
                 </div>
                 <div class="metrics">
-                    <el-progress  :width="80"type="circle" :percentage="report.rechargeBackRate" :color="customColors"></el-progress>
+                    <el-progress  :width="80"type="circle" :percentage="getVisibleRiskRate(report.rechargeBackRate)" :color="riskColor" :format="() => formatRiskRate(report.rechargeBackRate)"></el-progress>
                     <div class=""><span>{{ $t('lang.chargeback_rate') }}<br/>{{ report.authorizationFailureCount }} / {{ report.authorizationCount }}</span></div>
-                    <el-progress  :width="80"type="circle" :percentage="report.refoundRate" :color="customColors"></el-progress>
+                    <el-progress  :width="80"type="circle" :percentage="getVisibleRiskRate(report.refoundRate)" :color="riskColor" :format="() => formatRiskRate(report.refoundRate)"></el-progress>
                     <div><span>{{ $t('lang.refund_rate') }}<br/>{{ report.refundCount }} / {{ report.authorizationCount }}</span></div>
-                    <el-progress  :width="80"type="circle" :percentage="report.refoundAmountRate" :color="customColors"></el-progress>
+                    <el-progress  :width="80"type="circle" :percentage="getVisibleRiskRate(report.refoundAmountRate)" :color="riskColor" :format="() => formatRiskRate(report.refoundAmountRate)"></el-progress>
                     <div><span>{{ $t('lang.refund_amount_rate') }}<br/>{{ report.cardWithdrawAmount }} / {{ report.cardRechargeAmount }}</span></div>
                 </div>
               </el-card>
@@ -178,13 +181,32 @@ const transferForm = ref({
   receiverCode: '',
   amount: ''
 });
-const customColors = [
-  { color: '#006400', percentage: 20 },
-  { color: '#DFFF00', percentage: 40 },
-  { color: '#FFA500', percentage: 60 },
-  { color: '#FF0000', percentage: 80 },
-  { color: '#FF0000', percentage: 100 },
-]
+const riskColor = (percentage) => {
+  const value = Number(percentage)
+  if (!Number.isFinite(value) || value <= 30) return '#7dffcc'
+  if (value < 70) return '#ffd166'
+  return '#ff5f7d'
+}
+
+const getRiskRate = (numerator, denominator) => {
+  const total = Number(denominator)
+  if (!Number.isFinite(total) || total <= 0) return 0
+  const value = Number(numerator)
+  if (!Number.isFinite(value) || value <= 0) return 0
+  return Math.min(100, Number(((100 * value) / total).toFixed(2)))
+}
+
+const getVisibleRiskRate = (percentage) => {
+  const value = Number(percentage)
+  if (!Number.isFinite(value) || value <= 0) return 3
+  return Math.min(100, value)
+}
+
+const formatRiskRate = (percentage) => {
+  const value = Number(percentage)
+  if (!Number.isFinite(value) || value <= 0) return '0%'
+  return `${value}%`
+}
 const handleCopy = (v) => {
   writeText(v)
   Ellang.success('复制成功')
@@ -201,9 +223,9 @@ onMounted(()=>{
   }).then(res=>{
     if (res.code === 0){
       report.value = res.data
-      report.value.refoundRate = (100*report.value.refundCount/report.value.authorizationCount).toFixed(2)
-      report.value.refoundAmountRate = (100*report.value.cardWithdrawAmount/report.value.cardRechargeAmount).toFixed(2)
-      report.value.rechargeBackRate = (100*(report.value.authorizationFailureCount)/report.value.authorizationCount).toFixed(2)
+      report.value.refoundRate = getRiskRate(report.value.refundCount, report.value.authorizationCount)
+      report.value.refoundAmountRate = getRiskRate(report.value.cardWithdrawAmount, report.value.cardRechargeAmount)
+      report.value.rechargeBackRate = getRiskRate(report.value.authorizationFailureCount, report.value.authorizationCount)
       // if(report.value.Card_Recharge_Success == null){
       //   report.value.Card_Recharge_Success = 0
       // }

@@ -65,8 +65,11 @@
   max-width: 354px;
   aspect-ratio: 1.586 / 1; /* 信用卡比例 */
   padding: clamp(1rem, 5%, 2rem); /* 响应式内边距 */
-  background: linear-gradient(342deg, #385DEE 0%, #21EADF 100%);
-  box-shadow: 0 1px 20px rgba(133, 137, 151, 0.2);
+  background:
+    linear-gradient(135deg, rgba(255, 255, 255, 0.18) 0%, rgba(255, 255, 255, 0) 26%),
+    radial-gradient(circle at 88% 12%, rgba(116, 245, 236, 0.38) 0%, rgba(116, 245, 236, 0) 38%),
+    linear-gradient(45deg, #06306f 0%, #1151a7 34%, #1f7ed8 68%, #5de7df 100%);
+  box-shadow: 0 18px 40px rgba(3, 17, 52, 0.28), inset 0 0 0 1px rgba(221, 252, 255, 0.24);
   border-radius: 16px;
   color: white;
   font-family: sans-serif;
@@ -75,6 +78,29 @@
   justify-content: space-between;
   position: relative;
   overflow: hidden;
+}
+
+.card-container::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(115deg, rgba(255, 255, 255, 0.12) 0%, rgba(255, 255, 255, 0) 32%);
+  opacity: 0.48;
+  pointer-events: none;
+}
+
+.card-container::after {
+  content: "";
+  position: absolute;
+  right: 8%;
+  bottom: 12%;
+  width: 34%;
+  height: 28%;
+  border-radius: 999px;
+  background: radial-gradient(ellipse at center, rgba(222, 254, 255, 0.14) 0%, rgba(222, 254, 255, 0) 68%);
+  opacity: 0.36;
+  transform: rotate(-12deg);
+  pointer-events: none;
 }
 
 /* 响应式字体大小 */
@@ -86,6 +112,8 @@
 
 .card-container .currency-container {
   font-size: clamp(0.7rem, 2.5vw, 1.2rem);
+  position: relative;
+  z-index: 1;
 }
 
 .card-container .currency-icon {
@@ -94,12 +122,38 @@
   margin-right: clamp(4px, 1vw, 10px);
 }
 
-.card-container .card-logo {
+.card-container .card-brand-mark {
   position: absolute;
-  top: 10%;
-  right: 10%;
-  width: clamp(30px, 12vw, 100px);
+  top: 9%;
+  right: 8%;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 4px;
+  text-align: right;
+  z-index: 1;
+}
+
+.card-container .card-logo {
+  width: clamp(42px, 5vw, 50px);
+  max-height: 50px;
+  object-fit: contain;
+  filter: drop-shadow(0 2px 3px rgba(255, 255, 255, 0.12));
   opacity: 1;
+}
+
+.card-container .card-logo-text {
+  color: rgba(3, 12, 23, 0.88);
+  font-size: clamp(0.54rem, 1.4vw, 0.78rem);
+  font-weight: 900;
+  line-height: 1;
+  letter-spacing: 0;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+
+.star-chain-card .virtual-card-title {
+  padding: 0 0 10px 18px;
 }
 .card-actions {
   padding-left: 20px;
@@ -118,11 +172,15 @@
 }
 
 .card-container .balance-amount {
+  position: relative;
+  z-index: 1;
   font-weight: bold;
   font-size: clamp(1.2rem, 5vw, 2.5rem);
 }
 
 .card-container .balance-text {
+  position: relative;
+  z-index: 1;
   font-size: clamp(0.6rem, 2vw, 1rem);
   opacity: 0.8;
 }

@@ -464,7 +464,7 @@ export default {
         "line1": "Tối ưu hóa",
         "line2": "tài chính của bạn",
         "line3": "với",
-        "line4": "Pixel Cards"
+        "line4": "NEWBEECARD"
       },
       "email": "Email",
       "password": "Mật khẩu",
@@ -591,7 +591,7 @@ export default {
         "manage_limits": "Quản lý hạn mức theo nhu cầu"
       },
       "go_big": {
-        "title": "Phát triển lớn mạnh cùng PIXEL CARD",
+        "title": "Phát triển lớn mạnh cùng NEWBEECARD",
         "subtitle": "Dịch vụ thân thiện với người dùng và giàu tính năng.",
         "api": "API",
         "integrate_into_stack": "Tăng tốc quy trình với tích hợp liền mạch qua API mạnh mẽ.",
@@ -606,7 +606,7 @@ export default {
         "trusted_cards_title": "Thẻ ảo đáng tin cậy cho mọi nhu cầu",
         "cards_subtitle": "Thẻ ghi nợ và thẻ tín dụng cho nhóm và cá nhân. Phát hành tức thì.",
         "get_started": "Bắt đầu ngay",
-        "copyright": "© PIXEL CARD. Bảo lưu mọi quyền.",
+        "copyright": "© NEWBEECARD. Bảo lưu mọi quyền.",
         "advertising": "Quảng cáo",
         "platform": "Nền tảng",
         "contact_us": "Liên hệ chúng tôi",
