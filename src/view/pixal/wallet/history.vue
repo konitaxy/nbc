@@ -65,6 +65,8 @@
         :title="$t('lang.wallet_recharge')"
         v-model="dialogs.rechargeDialogVisible"
         fullscreen
+        append-to-body
+        class="recharge-form-dialog"
         destroy-on-close
       >
         <RechargeForm/>

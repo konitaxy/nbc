@@ -86,6 +86,8 @@
           :title="$t('lang.wallet_withdrawal')"
           v-model="dialogs.withdrawDialogVisible"
           fullscreen
+          append-to-body
+          class="recharge-form-dialog"
           destroy-on-close
         >
           <WithdrawForm/>

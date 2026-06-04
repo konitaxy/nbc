@@ -13,7 +13,7 @@
       </div>
   
       <!-- 充值记录表格 -->
-      <el-table :data="tableData" style="width: 100%" show-overflow-tooltip>
+      <el-table :data="tableData" style="width: 100%">
         <el-table-column prop="orderId" :label="$t('lang.order_number')" width="180"></el-table-column>
         <el-table-column :label="$t('lang.account_type')">
           <template #default="scope">
@@ -22,7 +22,17 @@
         </el-table-column>
         <el-table-column prop="accountNumber" :label="$t('lang.remit_account')" width="200">
             <template #default="scope">
-              <span><span v-if="scope.row.accountType">({{ scope.row.accountType }})</span>{{ scope.row.accountNumber }}</span>
+              <el-tooltip
+                :content="formatRemitAccount(scope.row)"
+                placement="top"
+                effect="dark"
+                popper-class="remit-account-tooltip"
+                :show-after="120"
+                :hide-after="0"
+                :offset="8"
+              >
+                <span class="remit-account-cell">{{ formatRemitAccount(scope.row) }}</span>
+              </el-tooltip>
             </template>
         </el-table-column>
         <el-table-column prop="originAmount" :label="$t('lang.remit_amount')"></el-table-column>
@@ -54,6 +64,8 @@
         :title="$t('lang.wallet_recharge')"
         v-model="dialogs.rechargeDialogVisible"
         fullscreen
+        append-to-body
+        class="recharge-form-dialog"
       >
         <RechargeForm/>
       </el-dialog>
@@ -85,6 +97,10 @@ const search = reactive({
 });
 
 const tableData = ref([])
+const formatRemitAccount = (row) => {
+  const accountType = row?.accountType ? `(${row.accountType})` : ''
+  return `${accountType}${row?.accountNumber || ''}`
+}
 
 const getTableData = ()=>{
   listWalletRecharge(search).then(res => {
@@ -147,6 +163,30 @@ const  handleCurrentChange =(val) => {
 
 .operation-bar {
   margin-bottom: 20px;
+}
+
+.remit-account-cell {
+  display: inline-block;
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  vertical-align: middle;
+  white-space: nowrap;
+}
+
+:global(.remit-account-tooltip) {
+  max-width: min(560px, calc(100vw - 32px));
+  border: 1px solid rgba(139, 214, 255, 0.28) !important;
+  border-radius: 10px !important;
+  background: rgba(5, 16, 29, 0.96) !important;
+  box-shadow: 0 18px 40px rgba(0, 0, 0, 0.28);
+  color: #f4fbff !important;
+  font-weight: 700;
+}
+
+:global(.remit-account-tooltip .el-popper__arrow::before) {
+  border-color: rgba(139, 214, 255, 0.28) !important;
+  background: rgba(5, 16, 29, 0.96) !important;
 }
 
 </style>

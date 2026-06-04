@@ -23,6 +23,10 @@
                   <span>{{ $t('lang.clientNo') }}</span>
                   <strong>{{ userStore.userInfo.clientNo }}</strong>
                 </div>
+                <div v-if="loginEmail" class="console-email-pill d-none d-lg-flex">
+                  <i class="bi bi-envelope"></i>
+                  <strong>{{ loginEmail }}</strong>
+                </div>
                 <!-- <i class="bi bi-envelope fs-5 me-4"></i> -->
                 <!-- <i class="bi bi-envelope fs-5 me-4"></i> -->
                 <el-dropdown class="console-dropdown me-2" popper-class="px-2">
@@ -47,6 +51,10 @@
                   </span>
                   <template #dropdown>
                     <el-dropdown-menu>
+                      <el-dropdown-item v-if="loginEmail" disabled class="console-email-dropdown-item justify-content-start">
+                        <span>Email</span>
+                        <strong>{{ loginEmail }}</strong>
+                      </el-dropdown-item>
                       <el-dropdown-item @click="handleGoto('accountInfo')" class="justify-content-start">{{ $t('lang.detail') }}</el-dropdown-item>
                       <el-dropdown-item @click="handleGoto('googleVerify')" class="justify-content-start">{{ $t('lang.auth') }}</el-dropdown-item>
                       <el-dropdown-item ><el-button type="text" class="text-nowrap w-100 justify-content-start" @click="loginout">{{ $t('lang.loginout') }}</el-button></el-dropdown-item>
@@ -100,7 +108,7 @@ export default {
 }
 </script>
 <script setup>
-import {ref,onMounted} from 'vue'
+import {computed, ref,onMounted} from 'vue'
 import { emitter } from '@/utils/bus.js'
 import logoArt from '@/assets/logo.png'
 import avatar from '@/assets/avatar-default.png'
@@ -112,6 +120,9 @@ import { useLanguageStore } from '@/pinia/modules/language';
 const langStore = useLanguageStore()
 const userStore = useUserStore()
 const router = useRouter()
+const loginEmail = computed(() => {
+  return userStore.userInfo.email || userStore.userInfo.userName || userStore.userInfo.username || ''
+})
 const loginout = ()=>{
     userStore.LoginOut()
 }

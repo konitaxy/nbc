@@ -146,6 +146,7 @@
   v-model="dialogs.rechargeDialogVisible"
   class="recharge-form-dialog"
   fullscreen
+  append-to-body
   destroy-on-close
 >
   <RechargeForm/>
@@ -155,6 +156,7 @@
   v-model="dialogs.withdrawDialogVisible"
   destroy-on-close
   fullscreen
+  append-to-body
   class="recharge-form-dialog"
 >
   <WithdrawForm/>
