@@ -48,7 +48,7 @@ import CustomPic from '@/components/customPic/index.vue'
 import Setting from './setting/index.vue'
 import { setUserAuthority } from '@/api/user'
 import { emitter } from '@/utils/bus.js'
-import { computed, ref, onMounted, nextTick } from 'vue'
+import { computed, ref, onMounted, onBeforeUnmount, nextTick } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
 import { useUserStore } from '@/pinia/modules/user'
 import { useRouterStore } from '@/pinia/modules/router'
@@ -110,6 +110,11 @@ onMounted(() => {
   if (userStore.loadingInstance) {
     userStore.loadingInstance.close()
   }
+  userStore.StartWalletBalancePoll()
+})
+
+onBeforeUnmount(() => {
+  userStore.StopWalletBalancePoll()
 })
 
 const userStore = useUserStore()

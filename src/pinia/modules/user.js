@@ -1,4 +1,5 @@
 import { login, getUserInfo, setSelfInfo } from '@/api/user'
+import { getWalletBalance } from '@/api/finance'
 import { iamLogin } from '@/api/iam'
 import { jsonInBlacklist } from '@/api/jwt'
 import router from '@/router/index'
@@ -6,6 +7,9 @@ import { ElLoading, ElMessage } from 'element-plus'
 import { defineStore } from 'pinia'
 import { ref, computed, watch } from 'vue'
 import { useRouterStore } from './router'
+
+let walletBalanceTimer = null
+const WALLET_BALANCE_POLL_MS = 60 * 1000
 
 export const useUserStore = defineStore('user', () => {
   const loadingInstance = ref(null)
@@ -49,6 +53,31 @@ export const useUserStore = defineStore('user', () => {
       setUserInfo(res.data.userInfo)
     }
     return res
+  }
+
+  const RefreshWalletBalance = async() => {
+    if (!token.value) return
+    try {
+      const res = await getWalletBalance()
+      if (res.code === 0 && res.data) {
+        ResetUserInfo({ wallet: res.data })
+      }
+    } catch (_) {
+      // silent fail on background poll
+    }
+  }
+
+  const StartWalletBalancePoll = (intervalMs = WALLET_BALANCE_POLL_MS) => {
+    StopWalletBalancePoll()
+    RefreshWalletBalance()
+    walletBalanceTimer = setInterval(RefreshWalletBalance, intervalMs)
+  }
+
+  const StopWalletBalancePoll = () => {
+    if (walletBalanceTimer) {
+      clearInterval(walletBalanceTimer)
+      walletBalanceTimer = null
+    }
   }
 
   /* 判断用户是否有某个角色 */
@@ -138,6 +167,7 @@ export const useUserStore = defineStore('user', () => {
   }
   /* 登出*/
   const LoginOut = async() => {
+    StopWalletBalancePoll()
     const res = await jsonInBlacklist()
     if (res.code === 0) {
       token.value = ''
@@ -195,6 +225,9 @@ export const useUserStore = defineStore('user', () => {
     NeedInit,
     ResetUserInfo,
     GetUserInfo,
+    RefreshWalletBalance,
+    StartWalletBalancePoll,
+    StopWalletBalancePoll,
     hasRole,
     LoginIn,
     IamLoginIn,

@@ -17,6 +17,14 @@ export const addCardHolder = (data) => {
   })
 }
 
+export const updateCardHolder = (data) => {
+  return service({
+    url: '/card/holder/update',
+    method: 'post',
+    data
+  })
+}
+
 export const listCardBin = (data) => {
   return service({
     url: '/card/cardbin/list',
@@ -135,6 +143,14 @@ export const getCardTransactionRecord = (params) => {
 }
 
 
+
+export const getWalletBalance = () => {
+  return service({
+    url: '/wallet/balance',
+    method: 'get',
+    donNotShowLoading: true
+  })
+}
 
 export const walletRechargeApply = (data) => {
   return service({

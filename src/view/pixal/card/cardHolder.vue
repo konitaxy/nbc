@@ -39,6 +39,11 @@
   </el-table-column>
   <el-table-column prop="cardCount" :label="$t('lang.card_count')" >
   </el-table-column>
+  <el-table-column :label="$t('lang.actions')" width="120" fixed="right">
+    <template #default="{ row }">
+      <el-button type="primary" size="small" @click="handleOpenEditCardHolder(row)">{{ $t('lang.edit') }}</el-button>
+    </template>
+  </el-table-column>
 
 </el-table>
       <el-pagination
@@ -140,6 +145,61 @@
   </template>
 </el-dialog>
 
+  <el-dialog
+    v-model="dialogs.editCardHolderDialogVisible"
+    :title="$t('lang.edit_cardholder')"
+    width="50%"
+    align-center>
+    <el-form label-width="auto">
+      <el-form-item :label="$t('lang.cardholder_first_name')">
+        <el-input v-model="editCardHolderForm.firstName" disabled />
+        <div class="text-muted small mt-1">{{ $t('lang.cardholder_name_readonly_hint') }}</div>
+      </el-form-item>
+      <el-form-item :label="$t('lang.cardholder_last_name')">
+        <el-input v-model="editCardHolderForm.lastName" disabled />
+      </el-form-item>
+
+      <el-form-item :label="$t('lang.billing_country')">
+        <el-select v-model="editCardHolderForm.countryCode" :placeholder="$t('lang.please_select_country')" clearable style="min-width: 200px;">
+          <el-option :label="$t('lang.united_states')" value="USA"></el-option>
+        </el-select>
+      </el-form-item>
+      <el-form-item :label="$t('lang.billing_state_province')">
+        <el-input v-model="editCardHolderForm.state" :placeholder="$t('lang.please_enter_billing_state_province')"></el-input>
+      </el-form-item>
+      <el-form-item :label="$t('lang.billing_city')">
+        <el-input v-model="editCardHolderForm.city" :placeholder="$t('lang.please_enter_billing_city')"></el-input>
+      </el-form-item>
+      <el-form-item :label="$t('lang.billing_address')">
+        <el-input v-model="editCardHolderForm.address" :placeholder="$t('lang.please_enter_billing_address')"></el-input>
+      </el-form-item>
+      <el-form-item :label="$t('lang.billing_postcode')">
+        <el-input v-model="editCardHolderForm.postcode" :placeholder="$t('lang.please_enter_billing_postcode')"></el-input>
+      </el-form-item>
+      <el-form-item :label="$t('lang.phone_number')">
+        <el-input v-model="editCardHolderForm.mobile" :placeholder="$t('lang.please_enter_phone_number')">
+          <template #prefix>
+            <span class="pe-2">{{ editCardHolderForm.mobilePrefix }}</span>
+          </template>
+        </el-input>
+      </el-form-item>
+      <el-form-item :label="$t('lang.email')">
+        <el-input v-model="editCardHolderForm.email" :placeholder="$t('lang.please_enter_email')"></el-input>
+      </el-form-item>
+    </el-form>
+    <template #footer>
+      <div>
+        <el-button @click="dialogs.editCardHolderDialogVisible = false">{{ $t('lang.cancel') }}</el-button>
+        <el-button
+          :loading="loading.updateCardHolderLoading"
+          type="primary"
+          @click="handleUpdateCardHolderConfirm">
+          {{ $t('lang.confirm') }}
+        </el-button>
+      </div>
+    </template>
+  </el-dialog>
+
 </div>
   </template>
   
@@ -147,7 +207,7 @@
   import { reactive, ref,onMounted } from 'vue';
   import { ElMessage,ElMessageBox } from 'element-plus';
   import { formatDate,addYear} from '@/utils/format';
-  import { listCardHolder,syncCard,addCardHolder,listCardBin,createCard,cancelCard,listCard,rechargeCard,withdrawCard } from '@/api/finance';
+  import { listCardHolder,syncCard,addCardHolder,updateCardHolder,listCardBin,createCard,cancelCard,listCard,rechargeCard,withdrawCard } from '@/api/finance';
   import { useUserStore } from '@/pinia/modules/user'
   import CardDetail from './cardDetail.vue'
   import {buildExcel} from '@/utils/excel'
@@ -160,12 +220,14 @@
   const dialogs =reactive({
     activeCardDialogVisible:false,
     addCardHolderDialogVisible:false,
+    editCardHolderDialogVisible:false,
     rechargeCardDialogVisible:false,
     withdrawCardDialogVisible:false,
     cardDetailDialogVisible:false,
   })
   const loading = reactive({
     addCardHolderLoading:false,
+    updateCardHolderLoading:false,
     addCardLoading:false,
     rechargeCardLoading:false,
     withdrawCardLoading:false,
@@ -256,6 +318,48 @@
   const cardHolder = ref({
     mobilePrefix: '+1',
   })
+  const editCardHolderForm = ref({})
+  const handleOpenEditCardHolder = (row) => {
+    editCardHolderForm.value = {
+      cardHolderId: row.cardHolderId,
+      firstName: row.firstName,
+      lastName: row.lastName,
+      email: row.email,
+      mobile: row.mobile,
+      mobilePrefix: row.mobilePrefix || '+1',
+      countryCode: row.countryCode,
+      state: row.state,
+      city: row.city,
+      postcode: row.postcode,
+      address: row.address,
+      region: row.region,
+    }
+    dialogs.editCardHolderDialogVisible = true
+  }
+  const handleUpdateCardHolderConfirm = () => {
+    const form = editCardHolderForm.value
+    const payload = {
+      cardHolderId: form.cardHolderId,
+      email: form.email,
+      mobile: form.mobile,
+      mobilePrefix: String(form.mobilePrefix || '').replace(/^\+/, ''),
+      countryCode: form.countryCode,
+      state: form.state,
+      city: form.city,
+      postcode: form.postcode,
+      address: form.address,
+      region: form.region,
+    }
+    loading.updateCardHolderLoading = true
+    updateCardHolder(payload).then(res => {
+      loading.updateCardHolderLoading = false
+      if (res.code === 0) {
+        ElMessage.success('Success')
+        dialogs.editCardHolderDialogVisible = false
+        getTableData()
+      }
+    })
+  }
   const randomCardHolder = () => {
     const emailAndName = randomEmailAndName()
     const billing = randomVerifiedUsBillingAddress()
