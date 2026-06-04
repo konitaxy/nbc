@@ -11,16 +11,17 @@ func CardTransactionSyncTimer() {
 	if global.GVA_DB == nil {
 		return
 	}
-	const spec = "@every 1m"
+	const cardbinSpec = "@every 1m"
+	const gzySpec = "@every 1h"
 	fs := finance.FinanceService{}
 
-	if _, err := global.GVA_Timer.AddTaskByFunc("CardbinTransactionSync", spec, func() {
+	if _, err := global.GVA_Timer.AddTaskByFunc("CardbinTransactionSync", cardbinSpec, func() {
 		// fs.SyncTranscation()
 	}); err != nil {
 		global.GVA_LOG.Error("register cardbin transaction sync timer failed", zap.Error(err))
 	}
 
-	if _, err := global.GVA_Timer.AddTaskByFunc("GzyTransactionSync", spec, func() {
+	if _, err := global.GVA_Timer.AddTaskByFunc("GzyTransactionSync", gzySpec, func() {
 		fs.SyncGzyTransactions()
 	}); err != nil {
 		global.GVA_LOG.Error("register gzy transaction sync timer failed", zap.Error(err))

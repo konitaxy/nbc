@@ -17,7 +17,7 @@ import (
 
 const gzyTransactionSyncRedisKey = "gzy:last_sync_time"
 
-// SyncGzyTransactions 定时拉取 Photon pagingVccTradeOrder，落库逻辑与 cardbin SyncTranscation 对齐。
+// SyncGzyTransactions 定时拉取 Photon pagingVccTradeOrder（initialize 注册为每 1 小时一次），落库逻辑与 cardbin SyncTranscation 对齐。
 func (fs FinanceService) SyncGzyTransactions() {
 	if strings.TrimSpace(global.GVA_CONFIG.Gzy.APPID) == "" {
 		return

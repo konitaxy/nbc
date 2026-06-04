@@ -12,6 +12,7 @@ import (
 
 	"github.com/shopspring/decimal"
 	"gitlab.com/ucard/global"
+	"gitlab.com/ucard/logredact"
 	"go.uber.org/zap"
 )
 
@@ -246,7 +247,7 @@ func logGzyOpenCardRequest(hreq *http.Request, body []byte) {
 func logGzyOpenCardResponse(statusCode int, body []byte, err error) {
 	fields := []zap.Field{
 		zap.Int("statusCode", statusCode),
-		zap.String("body", string(body)),
+		zap.String("body", logredact.CVVInJSON(string(body))),
 	}
 	if err != nil {
 		fields = append(fields, zap.Error(err))
@@ -267,8 +268,15 @@ func logGzyOpenCardParsed(partnerOrderID string, env *openCardV4Envelope, out *C
 		fields = append(fields,
 			zap.String("requestId", strings.TrimSpace(env.Data.RequestID)),
 			zap.String("dataStatus", strings.TrimSpace(env.Data.Status)),
-			zap.Any("cardDetail", env.Data.CardDetail),
 		)
+		if d := env.Data.CardDetail; d != nil {
+			fields = append(fields,
+				zap.String("cardId", strings.TrimSpace(d.CardID)),
+				zap.String("cardNo", strings.TrimSpace(d.CardNo)),
+				zap.String("cardStatus", strings.TrimSpace(d.CardStatus)),
+				zap.String("expirationDate", strings.TrimSpace(d.ExpirationDate)),
+			)
+		}
 	}
 	if out != nil {
 		fields = append(fields, zap.String("cardId", out.CardID))

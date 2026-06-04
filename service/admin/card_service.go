@@ -59,10 +59,6 @@ func init() {
 			}
 		}
 	}()
-	//每隔 2 分钟 同步一次卡余额
-	go func() {
-
-	}()
 }
 
 func (c *CardService) SaveCardBin(cardBin *finance.CardBin) error {

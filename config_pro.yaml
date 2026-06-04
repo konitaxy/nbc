@@ -36,12 +36,12 @@ db-list:
 email:
   to: 510172593@qq.com
   port: 587
-  from: info@pixelcard.cloud
+  from: info@newbeecard.com
   host: smtp.mandrillapp.com
   reply-to: 
   is-ssl: true
   secret: md-Q3d_3mucxNEqtIzORQgx6A
-  nickname: pixel_finance
+  nickname: newbeecard_finance
 excel:
   dir: ./resource/excel/
 jwt:
@@ -97,9 +97,9 @@ zap:
   stacktrace-key: stacktrace
   log-in-console: true
 domain:
-  referral: "https://pixelcard.cloud"
-  artist: "https://pixelcard.cloud"
-  admin: "https://admin.pixelcard.com"
+  referral: "https://newbeecard.com"
+  artist: "https://newbeecard.com"
+  admin: "https://admin.newbeecard.com"
 carbin:
   base-url: "https://api.cardbin.io"
   app-id: "1894343052164249928"
@@ -112,7 +112,7 @@ gzy:
   pub-key: "MIGfMA0GCSqGSIb3DQEBAQUAA4GNADCBiQKBgQCADQLJ9Heg2DL5V2FJiok1PPtkaVQexRaNtkZda/ILqzlWIqvlzpp1akEeZ39C7F2bfIA984J5mttFQwGHJUw5A1S7tx/hR7KWRbxfv+EnRjrqD/uptQ6hTxFWzVMT8wjk+wFkMXu7/mrs8kmLN39ArKUMiOE1K19beLjy7nmCxQIDAQAB"
 tron:
   enabled: true
-  address: "TWzuHmgNnoMZDBAx6LNrkz1kxesqBqAoKU" # T 开头收款地址
+  address: "" # T 开头收款地址
   api-base-url: "https://api.trongrid.io"
   api-key: "5d7ffc45-5ad0-43a1-827a-e4ba9ac6f1a8" # 可选 TronGrid API Key
   contract-address: "TR7NHqjeKQxGTCi8q8ZY4pL8otSzgjLj6t" # USDT-TRC20；留空则监听全部 TRC20 转入

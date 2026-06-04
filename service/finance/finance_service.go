@@ -1500,9 +1500,9 @@ func (f *FinanceService) SyncCardDetail(orderID, cardID string) (err error) {
 						return err
 					}
 				}
-				global.GVA_LOG.Info("card Create success", zap.Any("card", card))
+				global.GVA_LOG.Info("card Create success", ZapPixielCard(card))
 				if card.Balance.IsZero() {
-					global.GVA_LOG.Info("card Zero balance success "+res.AvailableBalance.String(), zap.Any("card", card))
+					global.GVA_LOG.Info("card Zero balance success "+res.AvailableBalance.String(), ZapPixielCard(card))
 				}
 				wh := finance.WalletHistory{
 					ClientID:        card.ClientID,

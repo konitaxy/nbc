@@ -28,12 +28,12 @@ func (e *ProfileRouter) InitProfileRouter(Router *gin.RouterGroup) {
 		profileRouterWithoutRecord.GET("iam/list", iamApi.GetIAMUserList)
 		profileRouterWithoutRecord.GET("iam/user", iamApi.GetIAMUser)
 		profileRouterWithoutRecord.GET("iam/roles/list", iamApi.GetAllRoles)
+		profileRouterWithoutRecord.GET("balance", api.Balance) // 钱包余额
 
 	}
 
 	{
 		profileRouter.POST("changePassword", api.ChangePassword)
-		profileRouter.POST("balance", api.ChangePassword)
 		profileRouter.POST("verifySetting", api.VerifySetting)
 		profileRouter.GET("tocp", api.GetTOTPSecret)
 		profileRouter.POST("tocp", api.ConfirmTOTPBind)

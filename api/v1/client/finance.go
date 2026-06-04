@@ -247,7 +247,10 @@ func (f *FinanceApi) WalletWithdrawApply(c *gin.Context) {
 
 func (f *FinanceApi) WalletRechargeConfirm(c *gin.Context) {
 	var req request.RechargeRequest
-	_ = c.ShouldBindJSON(&req)
+	if err := c.ShouldBindJSON(&req); err != nil {
+		response.FailWithMessage(err.Error(), c)
+		return
+	}
 	if err := utils.Verify(req, utils.RechargeApply); err != nil {
 		response.FailWithMessage(err.Error(), c)
 		return
@@ -263,7 +266,10 @@ func (f *FinanceApi) WalletRechargeConfirm(c *gin.Context) {
 
 func (f *FinanceApi) WalletRechargeApply(c *gin.Context) {
 	var req request.RechargeRequest
-	_ = c.ShouldBindJSON(&req)
+	if err := c.ShouldBindJSON(&req); err != nil {
+		response.FailWithMessage(err.Error(), c)
+		return
+	}
 	if err := utils.Verify(req, utils.RechargeApply); err != nil {
 		response.FailWithMessage(err.Error(), c)
 		return

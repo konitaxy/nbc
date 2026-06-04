@@ -7,11 +7,11 @@ import (
 )
 
 type RechargeRequest struct {
-	Amount   decimal.Decimal   `json:"amount"`
-	Currency constant.Currency `json:"currency"`
-	Type     string
-	ClientID uint
-	ClientNo string
+	Amount       decimal.Decimal       `json:"amount"`
+	Currency     constant.Currency     `json:"currency"`
+	RechargeType constant.RechargeType `json:"rechargeType"`
+	ClientID     uint
+	ClientNo     string
 }
 
 type RechargeSearchParams struct {

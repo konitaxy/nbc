@@ -60,20 +60,21 @@ func (e *FinanceRouter) InitWalletRouter(Router *gin.RouterGroup) {
 	// profileRouter := Router.Group("artor").Use(middleware.OperationRecord())
 	withoutRecord := Router.Group("wallet").Use(middleware.FreezeAuth())
 	router := Router.Group("wallet").Use(middleware.OperationRecord()).Use(middleware.FreezeAuth()).Use(middleware.OtpAuth())
-	api := v1.ApiGroupApp.FrontApiGroup.FinanceApi
+	financeApi := v1.ApiGroupApp.FrontApiGroup.FinanceApi
+	clientApi := v1.ApiGroupApp.FrontApiGroup.ClientApi
 
 	{
-		router.POST("recharge/apply", api.WalletRechargeApply)
-		router.POST("withdraw/apply", api.WalletWithdrawApply)
-
-		router.POST("recharge/confirm", api.WalletRechargeConfirm)
+		router.POST("recharge/apply", financeApi.WalletRechargeApply)
+		router.POST("withdraw/apply", financeApi.WalletWithdrawApply)
+		router.POST("recharge/confirm", financeApi.WalletRechargeConfirm)
 	}
 
 	{
-		withoutRecord.POST("recharge/list", api.ListRechargeRecord)
-		withoutRecord.POST("withdraw/list", api.ListWithdrawRecord)
-		withoutRecord.POST("history", api.ListWalletHistory)
-		withoutRecord.POST("report", api.WalletReport)
+		withoutRecord.GET("balance", clientApi.Balance)
+		withoutRecord.POST("recharge/list", financeApi.ListRechargeRecord)
+		withoutRecord.POST("withdraw/list", financeApi.ListWithdrawRecord)
+		withoutRecord.POST("history", financeApi.ListWalletHistory)
+		withoutRecord.POST("report", financeApi.WalletReport)
 	}
 
 }

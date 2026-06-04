@@ -36,12 +36,12 @@ db-list:
 email:
   to: 510172593@qq.com
   port: 587
-  from: info@pixelcard.cloud
+  from: info@newbeecard.com
   host: smtp.mandrillapp.com
   reply-to: 
   is-ssl: true
   secret: md-Q3d_3mucxNEqtIzORQgx6A
-  nickname: pixel_finance
+  nickname: newbeecard_finance
 excel:
   dir: ./resource/excel/
 jwt:

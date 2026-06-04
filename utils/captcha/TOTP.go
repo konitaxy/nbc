@@ -9,7 +9,7 @@ import (
 
 func GenerateTOTP(email string) (string, string) {
 	key, err := totp.Generate(totp.GenerateOpts{
-		Issuer:      "Pixel_Card",
+		Issuer:      "Newbeecard.com",
 		AccountName: email,
 	})
 	if err != nil {

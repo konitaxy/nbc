@@ -24,6 +24,10 @@ const redisKeyWalletRechargePayAmount = "wallet:recharge:pay_amount:"
 
 // PrepareBlockchainWalletRecharge 生成唯一应付金额（整数 + 0.001~0.099 随机后缀），有效期 2 小时。
 func (f *FinanceService) PrepareBlockchainWalletRecharge(req request.RechargeRequest, clientID, iamID uint) (*response.WalletRechargePrepareResp, error) {
+	rt := strings.TrimSpace(string(req.RechargeType))
+	if rt != "" && !strings.EqualFold(rt, string(constant.RechargeType_BLOCKCHAIN)) {
+		return nil, fmt.Errorf("unsupported rechargeType: %s", rt)
+	}
 	base := req.Amount
 	if err := validateIntegerRechargeAmount(base); err != nil {
 		return nil, err
@@ -136,19 +140,24 @@ func ReleasePayAmountReservation(pay decimal.Decimal) error {
 }
 
 func resolveTronDepositAddress() (string, error) {
+	if global.GVA_DB == nil {
+		return "", fmt.Errorf("tron deposit address not configured")
+	}
+
+	// 管理端财务-链上收款地址 chain_watch_address（enabled）
+	var row finance.ChainWatchAddress
+	err := global.GVA_DB.Where("chain_type = ? AND enabled = ?", constant.ChainType_TRON, true).
+		Order("id ASC").First(&row).Error
+	if err == nil && strings.TrimSpace(row.Address) != "" {
+		return strings.TrimSpace(row.Address), nil
+	}
+	if err != nil && !errors.Is(err, gorm.ErrRecordNotFound) {
+		return "", err
+	}
+
+	// config.yaml 兜底（本地/迁移用）
 	if a := strings.TrimSpace(global.GVA_CONFIG.Tron.Address); a != "" {
 		return a, nil
-	}
-	if global.GVA_DB != nil {
-		var row finance.ChainWatchAddress
-		err := global.GVA_DB.Where("chain_type = ? AND enabled = ?", constant.ChainType_TRON, true).
-			Order("id ASC").First(&row).Error
-		if err == nil && strings.TrimSpace(row.Address) != "" {
-			return strings.TrimSpace(row.Address), nil
-		}
-		if err != nil && !errors.Is(err, gorm.ErrRecordNotFound) {
-			return "", err
-		}
 	}
 	return "", fmt.Errorf("tron deposit address not configured")
 }

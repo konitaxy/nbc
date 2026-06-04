@@ -656,20 +656,18 @@ func (a *ClientApi) SendVerifyCode(c *gin.Context) {
 
 }
 func (a *ClientApi) Balance(c *gin.Context) {
-	id := utils.GetUserID(c)
-	if w, err := clientService.GetBalance(id); err == nil {
+	_, TenantID, _ := utils.GetUserAndTenantID(c)
+	w, err := clientService.GetBalance(TenantID)
+	if err == nil {
 		response.OkWithData(w, c)
-	} else {
-		if errors.Is(err, gorm.ErrRecordNotFound) {
-			response.FailWithMessage("wallet not found", c)
-		} else {
-			response.FailWithMessage("get balance failed", c)
-		}
-		global.GVA_LOG.Error("get balance failed", zap.Any("err", err))
-		response.FailWithMessage("get balance failed", c)
-
+		return
 	}
-
+	if errors.Is(err, gorm.ErrRecordNotFound) {
+		response.FailWithMessage("wallet not found", c)
+		return
+	}
+	global.GVA_LOG.Error("get balance failed", zap.Error(err))
+	response.FailWithMessage("get balance failed", c)
 }
 func (a *ClientApi) ChangePassword(c *gin.Context) {
 

@@ -106,7 +106,7 @@ const teml = `<!DOCTYPE html>
 
 func SendEmail(to []string, subject, body string) error {
 	m := gomail.NewMessage()
-	m.SetHeader("From", fmt.Sprintf("%s <%s>", "Pixelcard.cloud", global.GVA_CONFIG.Email.From))
+	m.SetHeader("From", fmt.Sprintf("%s <%s>", "Newbeecard.com", global.GVA_CONFIG.Email.From))
 	m.SetHeader("To", to...)
 	m.SetHeader("Subject", subject)
 	// m.SetHeader("Cc", global.GVA_CONFIG.Email.From)
