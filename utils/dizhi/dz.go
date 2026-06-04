@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"math/rand"
 	"net/http"
 	"net/url"
 	"strings"
@@ -18,6 +19,14 @@ import (
 const defaultDzAPIURL = "https://www.meiguodizhi.com/api/v1/dz"
 
 const dzMethodAddress = "address"
+
+var usAddressStates = []string{
+	"alaska",
+	"delaware",
+	"montana",
+	"oregon",
+	"south-dakota",
+}
 
 // Client 地址生成 API（meiguodizhi.com /dz）。
 type Client struct {
@@ -65,16 +74,16 @@ type dzResponse struct {
 	Status  string  `json:"status"`
 }
 
-// ResolvePath 根据地区代号解析 dz path；空或 us 为 /，其它为 /{code}-address（如 hk → /hk-address）。
+// ResolvePath 根据地区代号解析 dz path；空或 us 为 /usa-address/{state}，state 从 alaska、delaware、montana、oregon、south-dakota 中随机选一个；其它为 /{code}-address（如 hk → /hk-address）。
 func ResolvePath(regionCode string) string {
 	code := strings.ToLower(strings.TrimSpace(regionCode))
 	if code == "" || code == "us" {
-		return "/"
+		return "/usa-address/" + usAddressStates[rand.Intn(len(usAddressStates))]
 	}
 	return "/" + code + "-address"
 }
 
-// FetchAddress 拉取一条随机地址。method 固定 address；regionCode 为空为美国 path=/，传入 hk 等为 path=/hk-address。
+// FetchAddress 拉取一条随机地址。method 固定 address；regionCode 为空为美国 path=/usa-address/{state}，传入 hk 等为 path=/hk-address。
 func (c *Client) FetchAddress(regionCode string) (*Address, error) {
 	if c == nil {
 		c = NewClient()

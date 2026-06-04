@@ -110,8 +110,6 @@ func watchTronAddress(row finance.ChainWatchAddress) (int, error) {
 		all = append(all, trx...)
 	}
 
-	logInboundTransfers(address, lastMS, all, zap.String("chain", string(constant.ChainType_TRON)))
-
 	seenKey := redisKeyChainInboundLastSyncMS + "seen:" + string(constant.ChainType_TRON) + ":" + address
 	var newCount int
 	var maxTS int64 = lastMS

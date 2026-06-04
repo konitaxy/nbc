@@ -18,7 +18,7 @@ func (u *user) TableName() string {
 
 func (u *user) Initialize() error {
 	entities := []system.SysUser{
-		{UUID: uuid.NewV4(), Username: "admin", Password: "e10adc3949ba59abbe56e057f20f883e", NickName: "超级管理员", HeaderImg: "https://i.pinimg.com/originals/09/97/dd/0997ddb8019c30e5c89eef4fc39f11fd.jpg", AuthorityId: "888", Phone: "18060479363", Email: "jojo@melong.sg"},
+		{UUID: uuid.NewV4(), Username: "admin", Password: "e10adc3949ba59abbe56e057f20f883e", NickName: "超级管理员", HeaderImg: "https://i.pinimg.com/originals/09/97/dd/0997ddb8019c30e5c89eef4fc39f11fd.jpg", AuthorityId: "888", Phone: "18060479363", Email: "jojo@melong.sg", InviteCode: "888888"},
 		// {UUID: uuid.NewV4(), Username: "admin", Password: "e10adc3949ba59abbe56e057f20f883e", NickName: "超级管理员", HeaderImg: "https://i.pinimg.com/originals/09/97/dd/0997ddb8019c30e5c89eef4fc39f11fd.jpg", AuthorityId: "888", Phone: "18060479363", Email: "jojo@melong.sg"},
 	}
 	if err := global.GVA_DB.Create(&entities).Error; err != nil {

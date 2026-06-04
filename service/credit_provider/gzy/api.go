@@ -226,6 +226,56 @@ func (g *Gzy) newRequest(method, reqURL string, body []byte) (req *http.Request,
 	return req, nil
 }
 
+func httpHeadersMap(h http.Header) map[string]string {
+	out := make(map[string]string, len(h))
+	for k, vs := range h {
+		out[k] = strings.Join(vs, ",")
+	}
+	return out
+}
+
+func logGzyOpenCardRequest(hreq *http.Request, body []byte) {
+	global.GVA_LOG.Info("gzy openCard HTTP request",
+		zap.String("method", hreq.Method),
+		zap.String("url", hreq.URL.String()),
+		zap.Any("headers", httpHeadersMap(hreq.Header)),
+		zap.String("body", string(body)),
+	)
+}
+
+func logGzyOpenCardResponse(statusCode int, body []byte, err error) {
+	fields := []zap.Field{
+		zap.Int("statusCode", statusCode),
+		zap.String("body", string(body)),
+	}
+	if err != nil {
+		fields = append(fields, zap.Error(err))
+	}
+	global.GVA_LOG.Info("gzy openCard HTTP response", fields...)
+}
+
+func logGzyOpenCardParsed(partnerOrderID string, env *openCardV4Envelope, out *CreateCardResponse) {
+	if env == nil {
+		return
+	}
+	fields := []zap.Field{
+		zap.String("partnerOrderId", partnerOrderID),
+		zap.String("code", env.Code),
+		zap.String("msg", env.Msg),
+	}
+	if env.Data != nil {
+		fields = append(fields,
+			zap.String("requestId", strings.TrimSpace(env.Data.RequestID)),
+			zap.String("dataStatus", strings.TrimSpace(env.Data.Status)),
+			zap.Any("cardDetail", env.Data.CardDetail),
+		)
+	}
+	if out != nil {
+		fields = append(fields, zap.String("cardId", out.CardID))
+	}
+	global.GVA_LOG.Info("gzy openCard parsed result", fields...)
+}
+
 // walletAccountSingleV4Envelope GET /wallet/openApi/v4/account/single 应答外层。
 type walletAccountSingleV4Envelope struct {
 	Code   string          `json:"code"`
@@ -493,26 +543,22 @@ func (g *Gzy) CreateCard(req CreateCardRequest) (*CreateCardResponse, error) {
 	}
 
 	reqURL := strings.TrimRight(g.BaseURL, "/") + pathOpenCard
-	if global.GVA_CONFIG.System.Env == "dev" {
-		global.GVA_LOG.Info("gzy openCard request wire",
-			zap.String("url", reqURL),
-			zap.Any("wire", wire),
-			zap.String("body", string(jsonBytes)),
-		)
-	}
 
 	hreq, err := g.newRequest("POST", reqURL, jsonBytes)
 	if err != nil {
 		return nil, err
 	}
+	logGzyOpenCardRequest(hreq, jsonBytes)
 
 	resp, err := g.client.Do(hreq)
 	if err != nil {
+		global.GVA_LOG.Error("gzy openCard HTTP transport failed", zap.Error(err))
 		return nil, fmt.Errorf("gzy CreateCard: %w", err)
 	}
 	defer resp.Body.Close()
 
 	respBody, err := readBody(resp)
+	logGzyOpenCardResponse(resp.StatusCode, respBody, err)
 	if err != nil {
 		return nil, err
 	}
@@ -524,9 +570,6 @@ func (g *Gzy) CreateCard(req CreateCardRequest) (*CreateCardResponse, error) {
 	if err := json.Unmarshal(respBody, &parsed); err != nil {
 		return nil, fmt.Errorf("gzy CreateCard: decode response: %w", err)
 	}
-	if parsed.Code != "0000" {
-		return nil, gzyAPIFailure(parsed.Code, parsed.Msg)
-	}
 	out := &CreateCardResponse{
 		PartnerOrderID: req.PartnerOrderID,
 	}
@@ -537,6 +580,10 @@ func (g *Gzy) CreateCard(req CreateCardRequest) (*CreateCardResponse, error) {
 		if parsed.Data.CardDetail != nil {
 			out.CardID = strings.TrimSpace(parsed.Data.CardDetail.CardID)
 		}
+	}
+	logGzyOpenCardParsed(req.PartnerOrderID, &parsed, out)
+	if parsed.Code != "0000" {
+		return nil, gzyAPIFailure(parsed.Code, parsed.Msg)
 	}
 	if strings.EqualFold(out.Status, "failed") {
 		msg := strings.TrimSpace(parsed.Msg)

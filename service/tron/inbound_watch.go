@@ -1,15 +1,12 @@
 package tron
 
 import (
-	"encoding/json"
 	"errors"
 	"strings"
-	"time"
 
 	"gitlab.com/ucard/global"
 	"gitlab.com/ucard/model/constant"
 	"gitlab.com/ucard/model/finance"
-	"go.uber.org/zap"
 	"gorm.io/gorm"
 )
 
@@ -47,33 +44,4 @@ func ensureConfigAddressInDB() error {
 		Remark:          "from config.yaml",
 	}
 	return global.GVA_DB.Create(&row).Error
-}
-
-func logInboundTransfers(address string, sinceMS int64, list []InboundTransfer, fields ...zap.Field) {
-	fs := []zap.Field{
-		zap.String("address", address),
-		zap.Int64("sinceMs", sinceMS),
-		zap.Int("count", len(list)),
-	}
-	fs = append(fs, fields...)
-	global.GVA_LOG.Info("tron inbound fetch", fs...)
-	if len(list) == 0 {
-		return
-	}
-	for i, tx := range list {
-		b, _ := json.Marshal(tx)
-		global.GVA_LOG.Info("tron inbound record",
-			zap.Int("no", i+1),
-			zap.String("txId", tx.TransactionID),
-			zap.String("kind", tx.Kind),
-			zap.String("from", tx.From),
-			zap.String("to", tx.To),
-			zap.String("amount", tx.Amount.String()),
-			zap.String("symbol", tx.Symbol),
-			zap.String("contract", tx.ContractAddress),
-			zap.Int64("blockTimestamp", tx.BlockTimestamp),
-			zap.String("time", time.UnixMilli(tx.BlockTimestamp).UTC().Format(time.RFC3339)),
-			zap.ByteString("detail", b),
-		)
-	}
 }

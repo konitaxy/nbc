@@ -16,12 +16,9 @@ func TronInboundTimer() {
 	}
 	const spec = "@every 1m"
 	if _, err := global.GVA_Timer.AddTaskByFunc("ChainInboundWatch", spec, func() {
-		n, err := tron.WatchInboundFromDB()
-		if err != nil {
+		if _, err := tron.WatchInboundFromDB(); err != nil {
 			global.GVA_LOG.Error("chain inbound watch failed", zap.Error(err))
-			return
 		}
-		global.GVA_LOG.Info("chain inbound watch completed", zap.Int("newTransfers", n))
 	}); err != nil {
 		global.GVA_LOG.Error("register tron inbound timer failed", zap.Error(err))
 	}
