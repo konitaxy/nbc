@@ -202,6 +202,66 @@ func (FinanceService) AddCardHolder(holder *finance.CardHolder) error {
 	return global.GVA_DB.Save(holder).Error
 }
 
+func mergeCardHolderUpdate(holder *finance.CardHolder, req *request.UpdateCardHolderReq) {
+	if strings.TrimSpace(req.Region) != "" {
+		holder.Region = strings.TrimSpace(req.Region)
+	}
+	if strings.TrimSpace(req.FirstName) != "" {
+		holder.FirstName = strings.TrimSpace(req.FirstName)
+	}
+	if strings.TrimSpace(req.LastName) != "" {
+		holder.LastName = strings.TrimSpace(req.LastName)
+	}
+	if strings.TrimSpace(req.Email) != "" {
+		holder.Email = strings.TrimSpace(req.Email)
+	}
+	if strings.TrimSpace(req.MobilePrefix) != "" {
+		holder.MobilePrefix = strings.TrimSpace(req.MobilePrefix)
+	}
+	if strings.TrimSpace(req.Mobile) != "" {
+		holder.Mobile = strings.TrimSpace(req.Mobile)
+	}
+	if strings.TrimSpace(req.BirthDate) != "" {
+		holder.BirthDate = strings.TrimSpace(req.BirthDate)
+	}
+	if strings.TrimSpace(req.CountryCode) != "" {
+		holder.CountryCode = strings.TrimSpace(req.CountryCode)
+	}
+	if strings.TrimSpace(req.State) != "" {
+		holder.State = strings.TrimSpace(req.State)
+	}
+	if strings.TrimSpace(req.City) != "" {
+		holder.City = strings.TrimSpace(req.City)
+	}
+	if strings.TrimSpace(req.Postcode) != "" {
+		holder.Postcode = strings.TrimSpace(req.Postcode)
+	}
+	if strings.TrimSpace(req.Address) != "" {
+		holder.Address = strings.TrimSpace(req.Address)
+	}
+}
+
+func (FinanceService) UpdateCardHolder(req *request.UpdateCardHolderReq, clientID uint) error {
+	holder, err := FinanceService{}.GetCardHolderByID(strings.TrimSpace(req.CardHolderId), clientID)
+	if err != nil || holder.ID == 0 {
+		return fmt.Errorf("cardholder not found")
+	}
+	mergeCardHolderUpdate(&holder, req)
+	extra := gzy.CardHolderEditExtra{
+		CardholderNameAbbreviation: req.CardholderNameAbbreviation,
+		CertType:                   req.CertType,
+		Portrait:                   req.Portrait,
+		ReverseSide:                req.ReverseSide,
+		CertCountryCode:            req.CertCountryCode,
+		CertID:                     req.CertId,
+	}
+	gReq := gzy.CardHolderEditRequestFromFinanceHolder(&holder, extra)
+	if _, err := gzy.NewGzy().EditCardHolder(gReq); err != nil {
+		return err
+	}
+	return global.GVA_DB.Save(&holder).Error
+}
+
 func (FinanceService) GetCardHolderByID(holderID string, clientID uint) (holder finance.CardHolder, err error) {
 	err = global.GVA_DB.First(&holder, "card_holder_id = ? and client_id = ?", holderID, clientID).Error
 	return

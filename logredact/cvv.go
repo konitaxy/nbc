@@ -6,41 +6,60 @@ import (
 	"strings"
 )
 
-const CVV = "****"
+const Redacted = "****"
 
-var cvvJSONFieldRe = regexp.MustCompile(`(?i)("cvv"\s*:\s*)"[^"]*"`)
+// 兼容旧名
+const CVV = Redacted
 
-// CVVInJSON 将 JSON 文本中的 cvv 字段值替换为 ****。
-func CVVInJSON(raw string) string {
+var sensitiveJSONFieldRe = regexp.MustCompile(
+	`(?i)("(?:cvv|expirationDate|expiration_date|expiry|expirey)"\s*:\s*)"[^"]*"`,
+)
+
+// CardSensitiveInJSON 将 JSON 中的卡敏感字段（cvv、有效期等）替换为 ****。
+func CardSensitiveInJSON(raw string) string {
 	raw = strings.TrimSpace(raw)
 	if raw == "" {
 		return raw
 	}
 	var v interface{}
 	if err := json.Unmarshal([]byte(raw), &v); err != nil {
-		return cvvJSONFieldRe.ReplaceAllString(raw, `${1}"`+CVV+`"`)
+		return sensitiveJSONFieldRe.ReplaceAllString(raw, `${1}"`+Redacted+`"`)
 	}
-	redactCVVWalk(v)
+	redactSensitiveWalk(v)
 	b, err := json.Marshal(v)
 	if err != nil {
-		return cvvJSONFieldRe.ReplaceAllString(raw, `${1}"`+CVV+`"`)
+		return sensitiveJSONFieldRe.ReplaceAllString(raw, `${1}"`+Redacted+`"`)
 	}
 	return string(b)
 }
 
-func redactCVVWalk(v interface{}) {
+// CVVInJSON 兼容旧调用；同时脱敏 expirationDate / expiry 等字段。
+func CVVInJSON(raw string) string {
+	return CardSensitiveInJSON(raw)
+}
+
+func redactSensitiveWalk(v interface{}) {
 	switch x := v.(type) {
 	case map[string]interface{}:
 		for k, val := range x {
-			if strings.EqualFold(strings.TrimSpace(k), "cvv") {
-				x[k] = CVV
+			if isSensitiveCardJSONKey(k) {
+				x[k] = Redacted
 			} else {
-				redactCVVWalk(val)
+				redactSensitiveWalk(val)
 			}
 		}
 	case []interface{}:
 		for i := range x {
-			redactCVVWalk(x[i])
+			redactSensitiveWalk(x[i])
 		}
+	}
+}
+
+func isSensitiveCardJSONKey(k string) bool {
+	switch strings.ToLower(strings.TrimSpace(k)) {
+	case "cvv", "expirationdate", "expiration_date", "expiry", "expirey":
+		return true
+	default:
+		return false
 	}
 }

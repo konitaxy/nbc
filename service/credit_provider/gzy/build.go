@@ -110,6 +110,45 @@ func buildPagingVccCardholderQuery(req GetCardHoldersPageRequest) url.Values {
 	return v
 }
 
+// buildPagingVccCardQuery 构造 GET /vcc/openApi/v4/pagingVccCard 的 query。
+func buildPagingVccCardQuery(req PagingVccCardRequest) url.Values {
+	v := url.Values{}
+	if req.PageIndex > 0 {
+		v.Set("pageIndex", fmt.Sprintf("%d", req.PageIndex))
+	}
+	if req.PageSize > 0 {
+		v.Set("pageSize", fmt.Sprintf("%d", req.PageSize))
+	}
+	if s := strings.TrimSpace(req.MemberID); s != "" {
+		v.Set("memberId", s)
+	}
+	if s := strings.TrimSpace(req.MatrixAccount); s != "" {
+		v.Set("matrixAccount", s)
+	}
+	if s := strings.TrimSpace(req.CardBin); s != "" {
+		v.Set("cardBin", s)
+	}
+	if s := strings.TrimSpace(req.CreatedAtStart); s != "" {
+		v.Set("createdAtStart", s)
+	}
+	if s := strings.TrimSpace(req.CreatedAtEnd); s != "" {
+		v.Set("createdAtEnd", s)
+	}
+	if s := strings.TrimSpace(req.CardType); s != "" {
+		v.Set("cardType", s)
+	}
+	if s := strings.TrimSpace(req.CardFormFactor); s != "" {
+		v.Set("cardFormFactor", s)
+	}
+	if s := strings.TrimSpace(req.CardStatus); s != "" {
+		v.Set("cardStatus", s)
+	}
+	if s := strings.TrimSpace(req.Nickname); s != "" {
+		v.Set("nickname", s)
+	}
+	return v
+}
+
 // buildQueryCardTransactionsV4Query 构造 GET /vcc/openApi/v4/pagingVccTradeOrder 的 query。
 func buildQueryCardTransactionsV4Query(req QueryCardTransactionsRequest) url.Values {
 	v := url.Values{}

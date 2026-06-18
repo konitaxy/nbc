@@ -183,6 +183,34 @@ type CardHolderApplyResponse struct {
 	Reason                 string `json:"reason,omitempty"`
 }
 
+// CardHolderEditRequest POST /vcc/openApi/v4/editCardholder 请求体（cardholderId 必填，其余按需传）。
+type CardHolderEditRequest struct {
+	CardholderID               string `json:"cardholderId"`
+	FirstName                  string `json:"firstName,omitempty"`
+	LastName                   string `json:"lastName,omitempty"`
+	CardholderNameAbbreviation string `json:"cardholderNameAbbreviation,omitempty"`
+	Email                      string `json:"email,omitempty"`
+	Mobile                     string `json:"mobile,omitempty"`
+	MobilePrefix               string `json:"mobilePrefix,omitempty"`
+	DateOfBirth                string `json:"dateOfBirth,omitempty"`
+	CertType                   string `json:"certType,omitempty"`
+	Portrait                   string `json:"portrait,omitempty"`
+	ReverseSide                string `json:"reverseSide,omitempty"`
+	NationalityCountryCode     string `json:"nationalityCountryCode,omitempty"`
+	ResidentialAddress         string `json:"residentialAddress,omitempty"`
+	ResidentialCity            string `json:"residentialCity,omitempty"`
+	ResidentialCountryCode     string `json:"residentialCountryCode,omitempty"`
+	ResidentialPostalCode      string `json:"residentialPostalCode,omitempty"`
+	ResidentialState           string `json:"residentialState,omitempty"`
+	CertCountryCode            string `json:"certCountryCode,omitempty"`
+	CertID                     string `json:"certId,omitempty"`
+}
+
+// CardHolderEditResponse 对应 editCardholder 返回的 data（vccEditCardholderRespDetail）。
+type CardHolderEditResponse struct {
+	CardholderID string `json:"cardholderId"`
+}
+
 // Photon 钱包账户类型（account/single query accountType）。
 const (
 	WalletAccountTypeAvailable = "FT10001" // 可用金额
@@ -706,6 +734,48 @@ type CardholdersPageResponse struct {
 	Total     int64                `json:"total"`
 	Pages     int                  `json:"pages,omitempty"`
 	List      []CardholderPageItem `json:"list"`
+}
+
+// PagingVccCardRequest GET /vcc/openApi/v4/pagingVccCard 查询参数（均为可选，按业务传）。
+type PagingVccCardRequest struct {
+	PageIndex      int64
+	PageSize       int64
+	MemberID       string
+	MatrixAccount  string
+	CardBin        string // 多值逗号分隔
+	CreatedAtStart string
+	CreatedAtEnd   string
+	CardType       string // share | recharge
+	CardFormFactor string // virtual_card | physical_card
+	CardStatus     string
+	Nickname       string // 卡昵称模糊
+}
+
+// CardPageItem 对应 pagingVccCard 返回的 data[] 单条（OpenApiPageCardResp）。
+type CardPageItem struct {
+	CardID         string          `json:"cardId,omitempty"`
+	MemberID       string          `json:"memberId,omitempty"`
+	MatrixAccount  string          `json:"matrixAccount,omitempty"`
+	CardBin        string          `json:"cardBin,omitempty"`
+	CardCurrency   string          `json:"cardCurrency,omitempty"`
+	CardScheme     string          `json:"cardScheme,omitempty"`
+	CardStatus     string          `json:"cardStatus,omitempty"`
+	CardType       string          `json:"cardType,omitempty"`
+	CardFormFactor string          `json:"cardFormFactor,omitempty"`
+	CreatedAt      string          `json:"createdAt,omitempty"`
+	MaskCardNo     string          `json:"maskCardNo,omitempty"`
+	Nickname       string          `json:"nickname,omitempty"`
+	CardBalance    decimal.Decimal `json:"cardBalance,omitempty"`
+}
+
+// CardsPageResponse pagingVccCard 分页结果。
+type CardsPageResponse struct {
+	Numbers   int32          `json:"numbers"`
+	PageIndex int64          `json:"pageIndex"`
+	PageSize  int64          `json:"pageSize"`
+	Total     int64          `json:"total"`
+	Pages     int            `json:"pages,omitempty"`
+	List      []CardPageItem `json:"list"`
 }
 type CreateCardRequest struct {
 	PartnerOrderID  string `json:"partner_order_id"` // 商户请求ID → v4 requestId

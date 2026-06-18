@@ -47,8 +47,15 @@ func init() {
 			gc := gzy.NewGzy()
 			if time.Now().UnixMilli() > global.GVA_CONFIG.Gzy.ExpiresAt {
 				if res, err := gc.GetToken(global.GVA_CONFIG.Gzy.APPID, global.GVA_CONFIG.Gzy.APPSecret); err != nil {
-					global.GVA_LOG.Error("gzy 获取 token 失败", zap.Error(err))
+					retryIn := gzy.RecordTokenFetchFailure()
+					global.GVA_LOG.Error("gzy 获取 token 失败",
+						zap.Error(err),
+						zap.Int("consecutiveFailures", gzy.TokenFailureCount()),
+						zap.Duration("nextRetryIn", retryIn),
+					)
+					clock.Reset(retryIn)
 				} else {
+					gzy.RecordTokenFetchSuccess()
 					global.GVA_CONFIG.Gzy.AccessToken = res.AccessToken
 					global.GVA_CONFIG.Gzy.ExpiresAt = res.ExpiresIn
 					clock.Reset(120 * time.Second)

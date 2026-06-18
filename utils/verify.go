@@ -35,6 +35,8 @@ var (
 
 	AddCardHolderVerify = Rules{"Region": {NotEmpty()}, "FirstName": {NotEmpty()}, "LastName": {NotEmpty()}, "Email": {NotEmpty()}, "MobilePrefix": {NotEmpty()}, "Mobile": {NotEmpty()}, "BirthDate": {NotEmpty()}, "CountryCode": {NotEmpty()}, "State": {NotEmpty()}, "City": {NotEmpty()}, "Postcode": {NotEmpty()}, "Address": {NotEmpty()}}
 
+	UpdateCardHolderVerify = Rules{"CardHolderId": {NotEmpty()}}
+
 	OpenCardVerify  = Rules{"CardBin": {NotEmpty()}, "CardBinId": {NotEmpty()}, "Amount": {NotEmpty()}, "CardType": {NotEmpty()}}
 	CardGroupVerify = Rules{"Name": {NotEmpty()}}
 )

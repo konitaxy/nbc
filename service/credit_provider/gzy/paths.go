@@ -26,9 +26,11 @@ const (
 
 	pathBalanceHistory = pathVccOpenAPIv4 + "/queryBalanceHistory"
 
-	pathAddCardholder       = pathVccOpenAPIv4 + "/addCardholder" // POST 添加用卡人
+	pathAddCardholder       = pathVccOpenAPIv4 + "/addCardholder"  // POST 添加用卡人
+	pathEditCardholder      = pathVccOpenAPIv4 + "/editCardholder" // POST 更新用卡人
 	pathCardholderDetail    = pathVccOpenAPIv4 + "/queryCardholderDetail"
 	pathPagingVccCardholder = pathVccOpenAPIv4 + "/pagingVccCardholder" // GET 用卡人分页列表
+	pathPagingVccCard       = pathVccOpenAPIv4 + "/pagingVccCard"       // GET 卡列表分页
 
 	pathFreezeCard = pathVccOpenAPIv4 + "/freezeCard"
 

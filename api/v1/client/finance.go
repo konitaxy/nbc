@@ -213,6 +213,25 @@ func (f *FinanceApi) AddCardHolder(c *gin.Context) {
 	}
 }
 
+func (f *FinanceApi) UpdateCardHolder(c *gin.Context) {
+	var req request.UpdateCardHolderReq
+	if err := c.ShouldBindJSON(&req); err != nil {
+		response.FailWithMessage(err.Error(), c)
+		return
+	}
+	if err := utils.Verify(req, utils.UpdateCardHolderVerify); err != nil {
+		response.FailWithMessage(err.Error(), c)
+		return
+	}
+	_, clientID, _ := utils.GetUserAndTenantID(c)
+	if err := financeService.UpdateCardHolder(&req, clientID); err != nil {
+		global.GVA_LOG.Error("update card holder failed", zap.Error(err))
+		response.FailWithServiceError(c, err)
+		return
+	}
+	response.OkWithMessage("Success", c)
+}
+
 func (f *FinanceApi) WalletWithdrawApply(c *gin.Context) {
 	var req finance.WalletWithdraw
 	_ = c.ShouldBindJSON(&req)

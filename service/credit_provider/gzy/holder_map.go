@@ -39,6 +39,56 @@ func CardHolderApplyRequestFromFinanceHolder(h *finance.CardHolder) CardHolderAp
 	}
 }
 
+// CardHolderEditRequestFromFinanceHolder 将本地持卡人模型映射为 Photon editCardholder 请求体。
+func CardHolderEditRequestFromFinanceHolder(h *finance.CardHolder, extra CardHolderEditExtra) CardHolderEditRequest {
+	if h == nil {
+		return CardHolderEditRequest{}
+	}
+	cc := countryToPhotonNationalityCode(h.CountryCode)
+	abbr := strings.TrimSpace(extra.CardholderNameAbbreviation)
+	if abbr == "" {
+		abbr = strings.TrimSpace(strings.ToUpper(h.LastName) + "/" + strings.ToUpper(h.FirstName))
+		if abbr == "/" {
+			abbr = ""
+		}
+	}
+	certCC := strings.TrimSpace(extra.CertCountryCode)
+	if certCC == "" {
+		certCC = cc
+	}
+	return CardHolderEditRequest{
+		CardholderID:               strings.TrimSpace(h.CardHolderID),
+		FirstName:                  strings.TrimSpace(h.FirstName),
+		LastName:                   strings.TrimSpace(h.LastName),
+		CardholderNameAbbreviation: abbr,
+		Email:                      strings.TrimSpace(h.Email),
+		Mobile:                     strings.TrimSpace(h.Mobile),
+		MobilePrefix:               strings.TrimSpace(h.MobilePrefix),
+		DateOfBirth:                strings.TrimSpace(h.BirthDate),
+		CertType:                   strings.TrimSpace(extra.CertType),
+		Portrait:                   strings.TrimSpace(extra.Portrait),
+		ReverseSide:                strings.TrimSpace(extra.ReverseSide),
+		NationalityCountryCode:     cc,
+		ResidentialAddress:         strings.TrimSpace(h.Address),
+		ResidentialCity:            strings.TrimSpace(h.City),
+		ResidentialCountryCode:     cc,
+		ResidentialPostalCode:      strings.TrimSpace(h.Postcode),
+		ResidentialState:           strings.TrimSpace(h.State),
+		CertCountryCode:            certCC,
+		CertID:                     strings.TrimSpace(extra.CertID),
+	}
+}
+
+// CardHolderEditExtra 本地未持久化的证件等字段，编辑时由请求传入。
+type CardHolderEditExtra struct {
+	CardholderNameAbbreviation string
+	CertType                   string
+	Portrait                   string
+	ReverseSide                string
+	CertCountryCode            string
+	CertID                     string
+}
+
 func countryToPhotonNationalityCode(country string) string {
 	c := strings.ToUpper(strings.TrimSpace(country))
 	switch c {

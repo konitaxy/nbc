@@ -274,7 +274,6 @@ func logGzyOpenCardParsed(partnerOrderID string, env *openCardV4Envelope, out *C
 				zap.String("cardId", strings.TrimSpace(d.CardID)),
 				zap.String("cardNo", strings.TrimSpace(d.CardNo)),
 				zap.String("cardStatus", strings.TrimSpace(d.CardStatus)),
-				zap.String("expirationDate", strings.TrimSpace(d.ExpirationDate)),
 			)
 		}
 	}
@@ -429,8 +428,59 @@ func (g *Gzy) ApplyCardHolder(req CardHolderApplyRequest) (*CardHolderApplyRespo
 	return &out, nil
 }
 
+func (g *Gzy) EditCardHolder(req CardHolderEditRequest) (*CardHolderEditResponse, error) {
+	if strings.TrimSpace(req.CardholderID) == "" {
+		return nil, fmt.Errorf("gzy editCardholder: cardholderId 不能为空")
+	}
+	bodyBytes, err := json.Marshal(req)
+	if err != nil {
+		return nil, fmt.Errorf("gzy editCardholder: marshal: %w", err)
+	}
+	reqURL := strings.TrimRight(g.BaseURL, "/") + pathEditCardholder
+	hreq, err := g.newRequest("POST", reqURL, bodyBytes)
+	if err != nil {
+		return nil, err
+	}
+	resp, err := g.client.Do(hreq)
+	if err != nil {
+		return nil, fmt.Errorf("gzy editCardholder: %w", err)
+	}
+	defer resp.Body.Close()
+	body, err := readBody(resp)
+	if err != nil {
+		return nil, err
+	}
+	if err := httpPhotonOrBodyError(resp.StatusCode, body); err != nil {
+		return nil, err
+	}
+	var env editCardholderV4Envelope
+	if err := json.Unmarshal(body, &env); err != nil {
+		return nil, fmt.Errorf("gzy editCardholder: decode: %w", err)
+	}
+	if strings.TrimSpace(env.Code) != "0000" {
+		return nil, gzyAPIFailure(strings.TrimSpace(env.Code), strings.TrimSpace(env.Msg))
+	}
+	if len(bytes.TrimSpace(env.Data)) == 0 || string(bytes.TrimSpace(env.Data)) == "null" {
+		return nil, fmt.Errorf("gzy editCardholder: 响应缺少 data")
+	}
+	var out CardHolderEditResponse
+	if err := json.Unmarshal(env.Data, &out); err != nil {
+		return nil, fmt.Errorf("gzy editCardholder: decode data: %w", err)
+	}
+	return &out, nil
+}
+
 // addCardholderV4Envelope POST /vcc/openApi/v4/addCardholder 应答外层。
 type addCardholderV4Envelope struct {
+	Code   string          `json:"code"`
+	Msg    string          `json:"msg"`
+	Data   json.RawMessage `json:"data"`
+	Method string          `json:"method,omitempty"`
+	Path   string          `json:"path,omitempty"`
+}
+
+// editCardholderV4Envelope POST /vcc/openApi/v4/editCardholder 应答外层。
+type editCardholderV4Envelope struct {
 	Code   string          `json:"code"`
 	Msg    string          `json:"msg"`
 	Data   json.RawMessage `json:"data"`
@@ -471,6 +521,58 @@ func (g *Gzy) GetCardHolderDetail(req GetCardHolderDetailRequest) (*CardholderDe
 	}
 
 	return &out, nil
+}
+
+// PagingVccCard GET /vcc/openApi/v4/pagingVccCard 查询卡列表。
+func (g *Gzy) PagingVccCard(req PagingVccCardRequest) (*CardsPageResponse, error) {
+	q := buildPagingVccCardQuery(req)
+	reqURL := strings.TrimRight(g.BaseURL, "/") + pathPagingVccCard
+	if enc := q.Encode(); enc != "" {
+		reqURL += "?" + enc
+	}
+	hreq, err := g.newRequest(http.MethodGet, reqURL, nil)
+	if err != nil {
+		return nil, err
+	}
+	resp, err := g.client.Do(hreq)
+	if err != nil {
+		return nil, fmt.Errorf("gzy pagingVccCard: %w", err)
+	}
+	defer resp.Body.Close()
+	body, err := readBody(resp)
+	if err != nil {
+		return nil, err
+	}
+	if err := httpPhotonOrBodyError(resp.StatusCode, body); err != nil {
+		return nil, err
+	}
+	var env pagingVccCardV4Envelope
+	if err := json.Unmarshal(body, &env); err != nil {
+		return nil, fmt.Errorf("gzy pagingVccCard: decode: %w", err)
+	}
+	if strings.TrimSpace(env.Code) != "0000" {
+		return nil, gzyAPIFailure(strings.TrimSpace(env.Code), strings.TrimSpace(env.Msg))
+	}
+	var rows []CardPageItem
+	if len(env.Data) > 0 && string(bytes.TrimSpace(env.Data)) != "null" {
+		if err := json.Unmarshal(env.Data, &rows); err != nil {
+			return nil, fmt.Errorf("gzy pagingVccCard: decode data: %w", err)
+		}
+	}
+	out := &CardsPageResponse{
+		Numbers:   env.Numbers,
+		PageIndex: env.PageIndex,
+		PageSize:  env.PageSize,
+		Total:     env.Total,
+		List:      rows,
+	}
+	if out.Numbers == 0 && len(rows) > 0 {
+		out.Numbers = int32(len(rows))
+	}
+	if out.PageSize > 0 && out.Total > 0 {
+		out.Pages = int((out.Total + out.PageSize - 1) / out.PageSize)
+	}
+	return out, nil
 }
 
 func (g *Gzy) GetCardHoldersPage(req GetCardHoldersPageRequest) (*CardholdersPageResponse, error) {
@@ -522,6 +624,19 @@ func (g *Gzy) GetCardHoldersPage(req GetCardHoldersPageRequest) (*CardholdersPag
 		out.Pages = int((out.Total + out.PageSize - 1) / out.PageSize)
 	}
 	return out, nil
+}
+
+// pagingVccCardV4Envelope GET /vcc/openApi/v4/pagingVccCard 应答外层。
+type pagingVccCardV4Envelope struct {
+	Code      string          `json:"code"`
+	Msg       string          `json:"msg"`
+	Data      json.RawMessage `json:"data"`
+	Numbers   int32           `json:"numbers"`
+	PageIndex int64           `json:"pageIndex"`
+	PageSize  int64           `json:"pageSize"`
+	Total     int64           `json:"total"`
+	Method    string          `json:"method,omitempty"`
+	Path      string          `json:"path,omitempty"`
 }
 
 // pagingVccCardholderV4Envelope GET /vcc/openApi/v4/pagingVccCardholder 应答外层。

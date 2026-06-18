@@ -97,6 +97,29 @@ type CardHolderSearchParams struct {
 	ClientID uint   `json:"clientId"`
 }
 
+// UpdateCardHolderReq 更新持卡人；cardHolderId 必填，其余字段按需传（空值表示不修改）。
+type UpdateCardHolderReq struct {
+	CardHolderId               string `json:"cardHolderId"`
+	Region                     string `json:"region,omitempty"`
+	FirstName                  string `json:"firstName,omitempty"`
+	LastName                   string `json:"lastName,omitempty"`
+	Email                      string `json:"email,omitempty"`
+	MobilePrefix               string `json:"mobilePrefix,omitempty"`
+	Mobile                     string `json:"mobile,omitempty"`
+	BirthDate                  string `json:"birthDate,omitempty"`
+	CountryCode                string `json:"countryCode,omitempty"`
+	State                      string `json:"state,omitempty"`
+	City                       string `json:"city,omitempty"`
+	Postcode                   string `json:"postcode,omitempty"`
+	Address                    string `json:"address,omitempty"`
+	CardholderNameAbbreviation string `json:"cardholderNameAbbreviation,omitempty"`
+	CertType                   string `json:"certType,omitempty"`
+	Portrait                   string `json:"portrait,omitempty"`
+	ReverseSide                string `json:"reverseSide,omitempty"`
+	CertCountryCode            string `json:"certCountryCode,omitempty"`
+	CertId                     string `json:"certId,omitempty"`
+}
+
 type OpenCardReq struct {
 	CardHolderId   string          `json:"cardHolderId"`   // 持卡人ID (卡段需要持卡人时,才需要传)
 	CardBinId      string          `json:"cardBinId"`      // 卡段ID

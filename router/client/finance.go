@@ -27,6 +27,7 @@ func (e *FinanceRouter) InitFinanceRouter(Router *gin.RouterGroup) {
 		profileRouter.POST("cancel", api.CancelCard)
 		profileRouter.POST("sync", api.SyncCard)
 		profileRouter.POST("holder/add", api.AddCardHolder)
+		profileRouter.POST("holder/update", api.UpdateCardHolder)
 		profileRouter.POST("recharge", api.RechargeCard)
 		profileRouter.POST("withdraw", api.WithdrawCard)
 		profileRouter.POST("adjustLimit", api.ChangeSubAuthLimit)
