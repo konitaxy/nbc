@@ -21,7 +21,27 @@ func (f *FinanceService) AddChainWatchAddress(req request.ChainWatchAddressAddRe
 		return nil, errors.New("address is required")
 	}
 	var exist finance.ChainWatchAddress
-	if err := global.GVA_DB.Where("chain_type = ? AND address = ?", chainType, address).First(&exist).Error; err == nil {
+	if err := global.GVA_DB.Unscoped().Where("chain_type = ? AND address = ?", chainType, address).First(&exist).Error; err == nil {
+		if exist.DeletedAt.Valid {
+			exist.ChainType = chainType
+			exist.Address = address
+			exist.ContractAddress = strings.TrimSpace(req.ContractAddress)
+			exist.WatchTRX = req.WatchTRX
+			exist.Enabled = req.Enabled
+			exist.Remark = strings.TrimSpace(req.Remark)
+			if err := global.GVA_DB.Unscoped().Model(&exist).Updates(map[string]interface{}{
+				"chain_type":       exist.ChainType,
+				"address":          exist.Address,
+				"contract_address": exist.ContractAddress,
+				"watch_trx":        exist.WatchTRX,
+				"enabled":          exist.Enabled,
+				"remark":           exist.Remark,
+				"deleted_at":       nil,
+			}).Error; err != nil {
+				return nil, err
+			}
+			return &exist, nil
+		}
 		return nil, errors.New("address already exists")
 	} else if !errors.Is(err, gorm.ErrRecordNotFound) {
 		return nil, err

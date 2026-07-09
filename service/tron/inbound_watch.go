@@ -4,6 +4,7 @@ import (
 	"errors"
 	"strings"
 
+	"github.com/go-sql-driver/mysql"
 	"gitlab.com/ucard/global"
 	"gitlab.com/ucard/model/constant"
 	"gitlab.com/ucard/model/finance"
@@ -27,21 +28,45 @@ func ensureConfigAddressInDB() error {
 	if address == "" || global.GVA_DB == nil {
 		return nil
 	}
+	chainType := string(constant.ChainType_TRON)
+	contract := strings.TrimSpace(cfg.ContractAddress)
+
+	// Unscoped：软删记录仍占唯一索引 idx_chain_address，普通查询会误判为不存在并重复插入。
 	var row finance.ChainWatchAddress
-	err := global.GVA_DB.Where("chain_type = ? AND address = ?", constant.ChainType_TRON, address).First(&row).Error
+	err := global.GVA_DB.Unscoped().
+		Where("chain_type = ? AND address = ?", chainType, address).
+		First(&row).Error
 	if err == nil {
-		return nil
+		return global.GVA_DB.Unscoped().Model(&row).Updates(map[string]interface{}{
+			"contract_address": contract,
+			"watch_trx":        cfg.WatchTRX,
+			"enabled":          true,
+			"deleted_at":       nil,
+		}).Error
 	}
 	if !errors.Is(err, gorm.ErrRecordNotFound) {
 		return err
 	}
+
 	row = finance.ChainWatchAddress{
-		ChainType:       string(constant.ChainType_TRON),
+		ChainType:       chainType,
 		Address:         address,
-		ContractAddress: strings.TrimSpace(cfg.ContractAddress),
+		ContractAddress: contract,
 		WatchTRX:        cfg.WatchTRX,
 		Enabled:         true,
 		Remark:          "from config.yaml",
 	}
-	return global.GVA_DB.Create(&row).Error
+	err = global.GVA_DB.Create(&row).Error
+	if err != nil && isDuplicateEntryError(err) {
+		return nil
+	}
+	return err
+}
+
+func isDuplicateEntryError(err error) bool {
+	var mysqlErr *mysql.MySQLError
+	if errors.As(err, &mysqlErr) && mysqlErr.Number == 1062 {
+		return true
+	}
+	return strings.Contains(err.Error(), "Duplicate entry")
 }
