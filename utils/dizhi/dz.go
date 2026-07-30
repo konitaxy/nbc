@@ -22,10 +22,7 @@ const dzMethodAddress = "address"
 
 var usAddressStates = []string{
 	"alaska",
-	"delaware",
 	"montana",
-	"oregon",
-	"south-dakota",
 }
 
 // Client 地址生成 API（meiguodizhi.com /dz）。
@@ -134,7 +131,7 @@ func AddressToCardHolder(a *Address, regionCode string) (*finance.CardHolder, er
 	if a == nil {
 		return nil, fmt.Errorf("dizhi: address is nil")
 	}
-	first, last := splitFullName(a.FullName)
+	first, last := splitFullNameByRegion(a.FullName, regionCode)
 	birth, err := normalizeBirthDate(a.Birthday)
 	if err != nil {
 		return nil, err
@@ -173,13 +170,31 @@ func FetchCardHolder(regionCode string) (*finance.CardHolder, error) {
 
 func holderRegionCountry(regionCode string) (region, country string) {
 	switch strings.ToLower(strings.TrimSpace(regionCode)) {
-	case "hk":
-		return "HK", "HKG"
+	case "hk", "hkg":
+		return string(constant.Region_HK), string(constant.CountryCode_HK)
 	default:
-		return string(constant.Region_US), string(constant.CountryCode_USA)
+		// 与前端国籍选项 value=USA 保持一致
+		return "USA", string(constant.CountryCode_USA)
 	}
 }
 
+func isHKRegion(regionCode string) bool {
+	switch strings.ToLower(strings.TrimSpace(regionCode)) {
+	case "hk", "hkg":
+		return true
+	default:
+		return false
+	}
+}
+
+func splitFullNameByRegion(full, regionCode string) (first, last string) {
+	if isHKRegion(regionCode) {
+		return splitHKFullName(full)
+	}
+	return splitFullName(full)
+}
+
+// splitFullName 西式：名在前、姓在后（最后一个词为姓）。
 func splitFullName(full string) (first, last string) {
 	full = strings.TrimSpace(full)
 	parts := strings.Fields(full)
@@ -192,6 +207,31 @@ func splitFullName(full string) (first, last string) {
 	last = parts[len(parts)-1]
 	first = strings.Join(parts[:len(parts)-1], " ")
 	return first, last
+}
+
+// splitHKFullName 港式：姓为第一个字/词，其余为名。返回 (名 firstName, 姓 lastName)。
+func splitHKFullName(full string) (first, last string) {
+	full = strings.TrimSpace(full)
+	if full == "" {
+		return "Unknown", "Unknown"
+	}
+	parts := strings.Fields(full)
+	if len(parts) >= 2 {
+		last = parts[0]
+		first = strings.Join(parts[1:], " ")
+		return first, last
+	}
+	runes := []rune(parts[0])
+	if len(runes) >= 2 && isCJKRune(runes[0]) {
+		last = string(runes[0])
+		first = string(runes[1:])
+		return first, last
+	}
+	return parts[0], parts[0]
+}
+
+func isCJKRune(r rune) bool {
+	return r >= 0x4E00 && r <= 0x9FFF
 }
 
 func normalizeBirthDate(s string) (string, error) {

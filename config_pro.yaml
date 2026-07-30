@@ -105,16 +105,11 @@ carbin:
   app-id: "1894343052164249928"
   app-secret: "b2434d156a154e8cabf64cd43e557303"
 gzy:
-  base-url: "https://x-api1.uat.photontech.cc"
-  app-id: "YZUlDDx0"
-  app-secret: "7640d2327649325776d2d2450d5776610d4532f2"
-  account-id: "FA-USD2072931020247740416"
-  pub-key: "MIGfMA0GCSqGSIb3DQEBAQUAA4GNADCBiQKBgQCe+ALBn3axphlEZETwqGdYtpWPXgmHjJsQmDPYRYQqwDOn5mO8/LB62ZMVq7lfaoT1O4EWdNRO+oPKWjTDXBgLp+cia0wt3cyAIHI2Hrd6UKK7Riryg1UaGfitI1H5eG5IDnTVTOFlm9tKUWaHUB4cxuzJwjgnRT5CH2h+ky8U8wIDAQAB"
-  # base-url: "https://x-api.photonpay.com"
-  # app-id: "rOAnetlu"
-  # app-secret: "20fd050505a4dbaaa4aa7faa76fdaaa49eaaaa6c"
-  # account-id: "FA-USD2053821377059823616"
-  # pub-key: "MIGfMA0GCSqGSIb3DQEBAQUAA4GNADCBiQKBgQCDM4UpMB4KD8d3I/INpzMSxSYSTzI9xzZ3eGJL+hpHhL9rTDrdCXMBrwVXgX2VOpvRjCSZQaro5c8yR80X6m6sPEQDM1U58RvEq+vh9Ez9XQB1wLRGeeFgikKRvP8gomH2a/+3AyHS0hF1txbgC0KxxhD+Wj3YHitkudxjdlB4lwIDAQAB"
+  base-url: "https://x-api.photonpay.com"
+  app-id: "9wrv8XZJ"
+  app-secret: "3f322b0132c5162b39038d329cd0c5c532c00110"
+  account-id: "FA-USD1854112244770611200"
+  pub-key: "MIGfMA0GCSqGSIb3DQEBAQUAA4GNADCBiQKBgQCG0Ih6fs7Vym2iBv4n5gouJSoZaGABCy3voDnPiAQOCgjdWJtSH/D3QokDE8LbGcsX4KVPpHXAunjyBWPfkGpRgwySNN2Mjxd9xCO4YDGjB89n/Fy4+UygcTC5/eJiIs3I4mQd+gonJJL5FYfHO3jDPQc+ZlWJsAFkqlBDa4uvmQIDAQAB"
 tron:
   enabled: true
   address: "" # T 开头收款地址

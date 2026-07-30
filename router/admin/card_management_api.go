@@ -26,6 +26,7 @@ func (s *CardManagerRouter) InitCardManagerRouter(Router *gin.RouterGroup) {
 		cardManagerRouterWithoutRecord.POST("cardBin/list", cardManagerApi.ListCardBin)
 		cardManagerRouterWithoutRecord.POST("list", cardManagerApi.ListCards)
 		cardManagerRouterWithoutRecord.POST("gzy/list", cardManagerApi.GzyListCards)
+		cardManagerRouter.POST("gzy/matrix/create", cardManagerApi.GzyCreateMatrixAccount)
 		cardManagerRouterWithoutRecord.POST("transaction/list", cardManagerApi.ListCardTransaction)
 		cardManagerRouter.POST("sync", cardManagerApi.SyncCard) //后端充值
 		cardManagerRouter.POST("sandbox/transaction", cardManagerApi.SandBoxTransaction) // 光子沙箱交易模拟

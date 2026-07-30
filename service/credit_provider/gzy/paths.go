@@ -19,6 +19,9 @@ const (
 	pathWalletOpenAPIv4 = "/wallet/openApi/v4"
 	pathAccountSingle   = pathWalletOpenAPIv4 + "/account/single" // GET 实时金额（单账户）
 
+	pathMatrixOpenAPIv4       = "/matrix/openApi/v4"
+	pathCreateMatrixAccount   = pathMatrixOpenAPIv4 + "/createMatrixAccount" // POST 创建 matrix 账户
+
 	// DefaultGzyAccountID 光子易默认钱包账户 ID（openCard / preRecharge 等未配置 gzy.account-id 时使用）。
 	DefaultGzyAccountID = "FA-USD2052566705788575744"
 

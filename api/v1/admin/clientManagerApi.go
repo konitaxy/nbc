@@ -168,6 +168,16 @@ func (*ClientManagerApi) ReviewClient(c *gin.Context) {
 				cl.ClientStatus = constant.ClientStatus_Active
 			}
 			clientService.Save(&cl)
+			if req.ClientReviewStatus == constant.ClientReviewStatusStatus_Completed {
+				userClientSvc := service.ServiceGroupApp.UsersServiceGroup.ClientService
+				if err := userClientSvc.CreateGzyMatrixAccountForClient(&cl); err != nil {
+					global.GVA_LOG.Error("create gzy matrix account after review failed",
+						zap.Uint("clientId", cl.ID),
+						zap.String("email", cl.Email),
+						zap.Error(err),
+					)
+				}
+			}
 			response.Ok(c)
 		} else {
 			global.GVA_LOG.Error("Review failed!", zap.Error(err))

@@ -120,6 +120,10 @@ func (*CardService) ListCardBin(search request.CardBinSearchParams) (total int64
 		conditions = append(conditions, "card_model = ?")
 		args = append(args, search.CardModel)
 	}
+	if search.Region != "" {
+		conditions = append(conditions, "region = ?")
+		args = append(args, search.Region)
+	}
 	if search.BinStatus != nil {
 		conditions = append(conditions, "bin_status = ?")
 		args = append(args, *search.BinStatus)

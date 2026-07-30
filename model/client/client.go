@@ -37,7 +37,9 @@ type Client struct {
 	VerifySetting      common.MapStringBool        `gorm:"column:verify_setting;type:json" json:"verifySetting,omitempty" form:"verifySetting,omitempty"`
 	PIN                string                      `gorm:"column:pin;type:varchar(10)" json:"-" form:"-"`
 	BindPin            bool                        `gorm:"column:bind_pin;type:tinyint(1);default:0" json:"bindPin" form:"bindPin"`
-	IsTest             bool                        `gorm:"column:is_test;type:tinyint(1);default:0;index" json:"isTest" form:"isTest"`
+	IsTest         bool                 `gorm:"column:is_test;type:tinyint(1);default:0;index" json:"isTest" form:"isTest"`
+	// MatrixAccount 光子易 Matrix 账户号（审核通过创建成功后保存）
+	MatrixAccount string `gorm:"column:matrix_account;type:varchar(64);index" json:"matrixAccount,omitempty" form:"matrixAccount,omitempty"`
 	// 子账号列表
 }
 

@@ -837,10 +837,10 @@ func (f *FinanceApi) WithdrawCard(c *gin.Context) {
 		response.FailWithMessage("card not exist or inactive", c)
 		return
 	} else {
-		if card.Balance.Sub(req.Amount).LessThan(decimal.NewFromInt(1)) {
-			response.FailWithMessage("A minimum balance of $1 USD is required on this card", c)
-			return
-		}
+		// if card.Balance.Sub(req.Amount).LessThan(decimal.NewFromInt(1)) {
+		// 	response.FailWithMessage("A minimum balance of $1 USD is required on this card", c)
+		// 	return
+		// }
 		if cb, _ := cardService.GetCardBinByCardBinId(card.CardBinID); cb.ID == 0 {
 			response.FailWithMessage("card bin not exist", c)
 			return

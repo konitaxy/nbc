@@ -17,6 +17,7 @@ type Region string
 
 const (
 	Region_US Region = "US"
+	Region_HK Region = "HK"
 	Region_CN Region = "CN"
 	Region_EU Region = "EU"
 	Region_AP Region = "AP"
@@ -33,6 +34,8 @@ type CountryCode string
 
 const (
 	CountryCode_USA CountryCode = "USA"
+	CountryCode_HK  CountryCode = "HK"
+	CountryCode_HKG CountryCode = "HKG" // legacy; prefer CountryCode_HK
 	CountryCode_CHN CountryCode = "CHN"
 	CountryCode_EUR CountryCode = "EUR"
 )

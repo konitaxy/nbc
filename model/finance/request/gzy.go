@@ -14,3 +14,8 @@ type GzyCardListReq struct {
 	CardStatus     string `json:"cardStatus"`
 	Nickname       string `json:"nickname"`
 }
+
+// GzyCreateMatrixAccountReq 光子易创建 Matrix 账户（POST /matrix/openApi/v4/createMatrixAccount）。
+type GzyCreateMatrixAccountReq struct {
+	MatrixAccountName string `json:"matrixAccountName"`
+}

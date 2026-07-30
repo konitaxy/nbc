@@ -11,6 +11,7 @@ type CardBinSearchParams struct {
 	CardBin   string `json:"cardBin" form:"cardBin"`
 	CardModel string `json:"cardModel" form:"cardModel"`
 	CardBinID string `json:"cardBinID" form:"cardBinID"`
+	Region    string `json:"region" form:"region"`
 	Blocked   bool   `json:"blocked" form:"blocked"`
 	BinStatus *bool  `json:"binStatus" form:"binStatus"`
 }

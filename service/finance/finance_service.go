@@ -194,6 +194,7 @@ func (FinanceService) FetchCardHolderFromDizhi(regionCode string) (*finance.Card
 
 func (FinanceService) AddCardHolder(holder *finance.CardHolder) error {
 	gReq := gzy.CardHolderApplyRequestFromFinanceHolder(holder)
+	gReq.CardholderNameAbbreviation = ""
 	resp, err := gzy.NewGzy().ApplyCardHolder(gReq)
 	if err != nil {
 		return err

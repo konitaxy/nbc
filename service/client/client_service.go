@@ -14,7 +14,9 @@ import (
 	"gitlab.com/ucard/model/common"
 	"gitlab.com/ucard/model/constant"
 	"gitlab.com/ucard/model/system"
+	"gitlab.com/ucard/service/credit_provider/gzy"
 	"gitlab.com/ucard/utils/captcha"
+	"go.uber.org/zap"
 	"gorm.io/gorm"
 )
 
@@ -153,6 +155,55 @@ func (*ClientService) Create(er *client.Client) error {
 		}
 		return nil
 	})
+}
+
+// MatrixAccountNameFromEmail 取邮箱 @ 前的本地部分作为 Matrix 账户昵称（最长 64）。
+func MatrixAccountNameFromEmail(email string) string {
+	email = strings.TrimSpace(strings.ToLower(email))
+	at := strings.IndexByte(email, '@')
+	if at <= 0 {
+		return ""
+	}
+	name := email[:at]
+	if len(name) > 64 {
+		name = name[:64]
+	}
+	return name
+}
+
+// CreateGzyMatrixAccountForClient 审核通过后为客户在光子易创建 Matrix 账户，名称取邮箱前缀，并回写 matrix_account。
+func (*ClientService) CreateGzyMatrixAccountForClient(cl *client.Client) error {
+	if cl == nil || cl.ID == 0 {
+		return fmt.Errorf("invalid client")
+	}
+	if strings.TrimSpace(cl.MatrixAccount) != "" {
+		return nil
+	}
+	name := MatrixAccountNameFromEmail(cl.Email)
+	if name == "" {
+		return fmt.Errorf("empty email prefix for matrix account name")
+	}
+	resp, err := gzy.NewGzy().CreateMatrixAccount(gzy.CreateMatrixAccountRequest{
+		MatrixAccountName: name,
+	})
+	if err != nil {
+		return err
+	}
+	account := strings.TrimSpace(resp.MatrixAccount)
+	if account == "" {
+		return fmt.Errorf("gzy createMatrixAccount returned empty matrixAccount")
+	}
+	if err := global.GVA_DB.Model(cl).Update("matrix_account", account).Error; err != nil {
+		return err
+	}
+	cl.MatrixAccount = account
+	global.GVA_LOG.Info("gzy matrix account created",
+		zap.Uint("clientId", cl.ID),
+		zap.String("email", cl.Email),
+		zap.String("matrixAccountName", name),
+		zap.String("matrixAccount", account),
+	)
+	return nil
 }
 
 var consoleMenu = make([]system.SysMenu, 0)

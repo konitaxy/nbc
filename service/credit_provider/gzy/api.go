@@ -470,6 +470,54 @@ func (g *Gzy) EditCardHolder(req CardHolderEditRequest) (*CardHolderEditResponse
 	return &out, nil
 }
 
+// CreateMatrixAccount POST /matrix/openApi/v4/createMatrixAccount 单一会员下创建 matrix 账户。
+func (g *Gzy) CreateMatrixAccount(req CreateMatrixAccountRequest) (*CreateMatrixAccountResponse, error) {
+	name := strings.TrimSpace(req.MatrixAccountName)
+	if name == "" {
+		return nil, fmt.Errorf("gzy createMatrixAccount: matrixAccountName 不能为空")
+	}
+	bodyStruct := CreateMatrixAccountRequest{MatrixAccountName: name}
+	bodyBytes, err := json.Marshal(bodyStruct)
+	if err != nil {
+		return nil, fmt.Errorf("gzy createMatrixAccount: marshal: %w", err)
+	}
+	reqURL := strings.TrimRight(g.BaseURL, "/") + pathCreateMatrixAccount
+	hreq, err := g.newRequest(http.MethodPost, reqURL, bodyBytes)
+	if err != nil {
+		return nil, err
+	}
+	resp, err := g.client.Do(hreq)
+	if err != nil {
+		return nil, fmt.Errorf("gzy createMatrixAccount: %w", err)
+	}
+	defer resp.Body.Close()
+	body, err := readBody(resp)
+	if err != nil {
+		return nil, err
+	}
+	if err := httpPhotonOrBodyError(resp.StatusCode, body); err != nil {
+		return nil, err
+	}
+	var env createMatrixAccountV4Envelope
+	if err := json.Unmarshal(body, &env); err != nil {
+		return nil, fmt.Errorf("gzy createMatrixAccount: decode: %w", err)
+	}
+	if strings.TrimSpace(env.Code) != "0000" {
+		return nil, gzyAPIFailure(strings.TrimSpace(env.Code), strings.TrimSpace(env.Msg))
+	}
+	if len(bytes.TrimSpace(env.Data)) == 0 || string(bytes.TrimSpace(env.Data)) == "null" {
+		return nil, fmt.Errorf("gzy createMatrixAccount: 响应缺少 data")
+	}
+	var out CreateMatrixAccountResponse
+	if err := json.Unmarshal(env.Data, &out); err != nil {
+		return nil, fmt.Errorf("gzy createMatrixAccount: decode data: %w", err)
+	}
+	if strings.TrimSpace(out.MatrixAccount) == "" {
+		return nil, fmt.Errorf("gzy createMatrixAccount: 响应缺少 data.matrixAccount")
+	}
+	return &out, nil
+}
+
 // addCardholderV4Envelope POST /vcc/openApi/v4/addCardholder 应答外层。
 type addCardholderV4Envelope struct {
 	Code   string          `json:"code"`
@@ -481,6 +529,15 @@ type addCardholderV4Envelope struct {
 
 // editCardholderV4Envelope POST /vcc/openApi/v4/editCardholder 应答外层。
 type editCardholderV4Envelope struct {
+	Code   string          `json:"code"`
+	Msg    string          `json:"msg"`
+	Data   json.RawMessage `json:"data"`
+	Method string          `json:"method,omitempty"`
+	Path   string          `json:"path,omitempty"`
+}
+
+// createMatrixAccountV4Envelope POST /matrix/openApi/v4/createMatrixAccount 应答外层。
+type createMatrixAccountV4Envelope struct {
 	Code   string          `json:"code"`
 	Msg    string          `json:"msg"`
 	Data   json.RawMessage `json:"data"`

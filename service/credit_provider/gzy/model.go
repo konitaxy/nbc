@@ -211,6 +211,16 @@ type CardHolderEditResponse struct {
 	CardholderID string `json:"cardholderId"`
 }
 
+// CreateMatrixAccountRequest POST /matrix/openApi/v4/createMatrixAccount 请求体。
+type CreateMatrixAccountRequest struct {
+	MatrixAccountName string `json:"matrixAccountName"` // 必填，matrix 账户昵称，最长 64
+}
+
+// CreateMatrixAccountResponse 对应 createMatrixAccount 返回的 data（createMatrixAccountRespDetail）。
+type CreateMatrixAccountResponse struct {
+	MatrixAccount string `json:"matrixAccount"` // 如 MI1654046138229198848
+}
+
 // Photon 钱包账户类型（account/single query accountType）。
 const (
 	WalletAccountTypeAvailable = "FT10001" // 可用金额
