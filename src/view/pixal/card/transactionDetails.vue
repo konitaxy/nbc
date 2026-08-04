@@ -1,5 +1,5 @@
 <template>
-    <div class="form-white">
+    <div class="tx-detail-panel">
         <el-form :inline="true" class="demo-form-inline">
             <el-form-item>
                 <el-input v-model="search.cardNoSuffix" :placeholder="$t('lang.please_enter_last_four_digits_of_card_number')" clearable></el-input>
@@ -254,6 +254,45 @@ const handleCurrentChange = (val) => {
   </script>
   
   <style scoped>
+  .tx-detail-panel {
+    padding: 0;
+    background: transparent;
+    border-radius: 0;
+    color: inherit;
+  }
+  .tx-detail-panel :deep(.el-table),
+  .tx-detail-panel :deep(.el-table__expanded-cell),
+  .tx-detail-panel :deep(.el-table__body-wrapper),
+  .tx-detail-panel :deep(.el-table__header-wrapper),
+  .tx-detail-panel :deep(.el-table__inner-wrapper),
+  .tx-detail-panel :deep(.el-table__body),
+  .tx-detail-panel :deep(.el-table__header),
+  .tx-detail-panel :deep(.el-table__empty-block),
+  .tx-detail-panel :deep(.el-table th),
+  .tx-detail-panel :deep(.el-table tr),
+  .tx-detail-panel :deep(.el-table .el-table__row),
+  .tx-detail-panel :deep(.el-table td.el-table__cell),
+  .tx-detail-panel :deep(.el-table th.el-table__cell) {
+    background-color: transparent !important;
+  }
+  .tx-detail-panel :deep(.el-table) {
+    --el-table-bg-color: transparent;
+    --el-table-tr-bg-color: transparent;
+    --el-table-header-bg-color: rgba(8, 24, 43, 0.74);
+    --el-table-row-hover-bg-color: rgba(68, 213, 255, 0.08);
+    --el-table-border-color: rgba(139, 214, 255, 0.16);
+    --el-table-text-color: rgba(232, 247, 255, 0.84);
+    --el-table-header-text-color: #f4fbff;
+    color: rgba(232, 247, 255, 0.84);
+  }
+  .tx-detail-panel :deep(.el-pagination),
+  .tx-detail-panel :deep(.el-pagination button),
+  .tx-detail-panel :deep(.el-pager li),
+  .tx-detail-panel :deep(.el-select .el-select__wrapper),
+  .tx-detail-panel :deep(.el-pagination .el-select .el-select__wrapper) {
+    background-color: transparent !important;
+    color: rgba(232, 247, 255, 0.84);
+  }
   .container {
     padding: 20px;
   }

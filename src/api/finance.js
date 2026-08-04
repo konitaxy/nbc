@@ -17,6 +17,15 @@ export const addCardHolder = (data) => {
   })
 }
 
+export const fetchCardHolderAddress = (region = 'us') => {
+  return service({
+    url: '/card/holder/random-address',
+    method: 'get',
+    params: { region },
+    donNotShowLoading: true,
+  })
+}
+
 export const updateCardHolder = (data) => {
   return service({
     url: '/card/holder/update',
@@ -149,6 +158,31 @@ export const getWalletBalance = () => {
     url: '/wallet/balance',
     method: 'get',
     donNotShowLoading: true
+  })
+}
+
+export const getGzyShareBalance = (data = {}) => {
+  return service({
+    url: '/wallet/gzy/share',
+    method: 'post',
+    data,
+    donNotShowLoading: true
+  })
+}
+
+export const gzyShareRecharge = (data) => {
+  return service({
+    url: '/wallet/gzy/recharge',
+    method: 'post',
+    data
+  })
+}
+
+export const gzyShareWithdraw = (data) => {
+  return service({
+    url: '/wallet/gzy/withdraw',
+    method: 'post',
+    data
   })
 }
 

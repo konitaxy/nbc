@@ -12,42 +12,12 @@
       style="max-width: 150px;">
     </el-input>
     <el-input 
+      class="hide-on-mobile"
       :placeholder="$t('lang.please_enter_notes')" 
       v-model="search.remark" 
       :sm="2" :md="2" :lg="2"
       style="max-width: 180px;">
     </el-input>
-    <el-select 
-     v-if="$userStore.hasRole(100)"
-      v-model="search.iamUserId" 
-      @change="handleListCard"
-      :placeholder="$t('lang.select_belong_to')" 
-      filterable
-      clearable>
-      <el-option v-for="item in iamUsers" :key="item.ID" :label="item.nickname || item.email" :value="item.ID"></el-option>
-    </el-select>
-    <!-- 搜索栏 - 主卡选择 -->
-    <el-select 
-      v-model="search.primaryCardId" 
-      @change="handleListCard"
-      :placeholder="$t('lang.select_primary_card')" 
-      filterable
-      clearable>
-      <el-option v-for="item in allMasterCards" :key="item.ID" :label="item.cardNo" :value="item.cardId"></el-option>
-    </el-select>
-    <!-- 搜索栏 - 卡状态 -->
-    <el-select 
-      v-model="search.cardStatus" 
-      @change="handleListCard"
-      :placeholder="$t('lang.select_card_status')" 
-      clearable>
-      <el-option :label="$t('lang.pending')" value="Pending"></el-option>
-      <el-option :label="$t('lang.active')" value="Active"></el-option>
-      <el-option :label="$t('lang.suspend')" value="Suspend"></el-option>
-      <el-option :label="$t('lang.failure')" value="Failure"></el-option>
-      <el-option :label="$t('lang.terminated')" value="Closed"></el-option>
-    </el-select>
-
     <el-select 
       v-model="search.groupId" 
       @change="handleListCard"
@@ -56,6 +26,7 @@
       <el-option v-for="item in cardGroups" :label="item.name" :value="item.ID"></el-option>
     </el-select>
     <el-select 
+      class="hide-on-mobile"
       v-model="search.cardBrand" 
       @change="handleListCard"
       :placeholder="$t('lang.card_brand')" 
@@ -67,6 +38,7 @@
 
   <!-- 搜索栏 - 日期范围 -->
   <el-date-picker
+    class="hide-on-mobile col col-lg-3"
     v-model="search.timeRange"
     type="daterange"
     format="YYYY-MM-DD"
@@ -74,30 +46,9 @@
     :range-separator="$t('lang.to')" 
     :start-placeholder="$t('lang.start_time')" 
     :end-placeholder="$t('lang.end_time')"
-    @change="handleListCard"
-    class="col col-lg-3">
+    @change="handleListCard">
   </el-date-picker>
 
-
-
-
-  <!-- 搜索栏 - 余额区间 -->
-  <div style="flex-wrap: nowrap; display: flex; align-items: center; overflow: auto;">
-    <span style="padding-right: 5px;">{{ $t('lang.balance_range') }}:</span> <!-- "余额区间" -->
-    <el-input-number 
-      v-model="search.minBalance" 
-      :min="0" 
-      :max="100000" 
-      :controls="false">
-    </el-input-number>
-    <span>&nbsp;{{ $t('lang.to') }}&nbsp;</span> <!-- "至" -->
-    <el-input-number 
-      v-model="search.maxBalance" 
-      :min="search.minBalance" 
-      :max="100000"  
-      :controls="false">
-    </el-input-number>
-  </div>
  
 
   <!-- 搜索栏 - 按钮组 -->
@@ -106,6 +57,32 @@
     <el-button v-if="$userStore.hasRole(5)" type="primary" icon="plus" @click="handleActiveCard">{{ $t('lang.open_card') }}</el-button>
     <el-button v-if="$userStore.hasRole(5)" type="danger" icon="delete" @click="handleBatchCancelCard">{{ $t('lang.batch_cancel_cards') }}</el-button>
     <el-button v-if="$userStore.hasRole(6)" type="primary" icon="download" @click="onExport">{{ $t('lang.export') }}</el-button>
+  </div>
+  <div class="share-balance-row">
+    <span class="share-balance-label">{{ $t('lang.share_card_balance') }}：</span>
+    <span v-if="shareBalanceLoading" class="share-balance-value">...</span>
+    <span v-else class="share-balance-value">{{ shareBalanceText }}</span>
+    <el-button
+      class="share-balance-btn"
+      type="primary"
+      icon="refresh"
+      :loading="shareBalanceLoading"
+      @click="fetchShareBalance">
+    </el-button>
+    <el-button
+      v-if="$userStore.hasRole(5)"
+      class="share-balance-btn"
+      type="primary"
+      @click="openShareRechargeDialog">
+      {{ $t('lang.recharge') }}
+    </el-button>
+    <el-button
+      v-if="$userStore.hasRole(5)"
+      class="share-balance-btn"
+      type="primary"
+      @click="openShareWithdrawDialog">
+      {{ $t('lang.withdraw') }}
+    </el-button>
   </div>
 </div>
 
@@ -168,7 +145,11 @@
   <!-- 表格列 - 卡币种 -->
   <el-table-column prop="currency" :label="$t('lang.card_currency')" width="100"></el-table-column>
   <!-- 表格列 - 创建时间 -->
-  <el-table-column prop="activeDate" :label="$t('lang.creation_time')" width="150"></el-table-column>
+  <el-table-column prop="activeDate" :label="$t('lang.creation_time')" width="120">
+    <template #default="{ row }">
+      {{ formatDateYYYYMMDD(row.activeDate) }}
+    </template>
+  </el-table-column>
 
   <!-- 表格列 - 卡品牌 -->
   <el-table-column prop="cardBrand" :label="$t('lang.card_brand')" width="120"></el-table-column>
@@ -314,7 +295,11 @@
         </el-table-column>
 
         <!-- 表格列 - 创建时间 -->
-        <el-table-column prop="activeDate" :label="$t('lang.creation_time')" width="150"></el-table-column>
+        <el-table-column prop="activeDate" :label="$t('lang.creation_time')" width="120">
+          <template #default="{ row }">
+            {{ formatDateYYYYMMDD(row.activeDate) }}
+          </template>
+        </el-table-column>
 
         <!-- 表格列 - 卡币种 -->
         <el-table-column prop="currency" :label="$t('lang.card_currency')" width="100"></el-table-column>
@@ -373,100 +358,66 @@
   </el-tabs>
   
     <!-- 开卡对话框 -->
-    <el-dialog :title="$t('lang.open_card')" v-model="dialogs.activeCardDialogVisible" width="50%" align-center>
-        <el-form :model="activeCardForm" label-width="140px">
-            <div class="row">
-            <div class="col">
-            
-            <el-form-item :label="$t('lang.card_type')">
-              <el-radio-group v-model="filters.cardModel" @change="filterResult"> 
-                <el-radio v-for="item in filterParams.cardModel" :value="item">{{ getCardModelLabel(item) }}</el-radio>
+    <el-dialog
+      class="open-card-dialog"
+      :title="$t('lang.open_card')"
+      v-model="dialogs.activeCardDialogVisible"
+      width="520px"
+      align-center>
+        <el-form :model="activeCardForm" label-position="top" class="open-card-form">
+            <el-form-item :label="$t('lang.region')">
+              <el-radio-group v-model="filters.region" @change="filterResult" class="open-card-region">
+                <el-radio v-for="item in regionOptions" :key="item" :value="item">{{ item }}</el-radio>
               </el-radio-group>
             </el-form-item>
-
-            <el-form-item :label="$t('lang.card_currency')">
-              <el-radio-group v-model="filters.currency" @change="filterResult"> 
-                <el-radio v-for="item in filterParams.currency" :value="item">{{item}}</el-radio>
-              </el-radio-group>
-            </el-form-item>
-
-            <!-- <el-form-item :label="$t('lang.card_brand')">
-              <el-radio-group v-model="filters.brand" @change="filterResult"> 
-                <el-radio v-for="item in filterParams.brand" :value="item">{{item}}</el-radio>
-              </el-radio-group>
-            </el-form-item> -->
-
 
             <el-form-item :label="$t('lang.card_brand')">
-              <el-radio-group v-model="filters.brand" @change="filterResult">
+              <el-radio-group v-model="filters.brand" @change="filterResult" class="open-card-brands">
                 <el-radio-button :class="`card-bg card-${item}`" v-for="item in filterParams.brand" :key="item" :value="item">
                 </el-radio-button>
               </el-radio-group>
             </el-form-item>
             
               <el-form-item :label="$t('lang.card_bin')">
-                <el-radio-group v-model="cardForm.card"> 
-                  <el-radio v-for="item in cardList" :value="item"><el-tag type="success">{{item.cardBin}}</el-tag></el-radio>
+                <el-radio-group v-model="cardForm.card" class="open-card-bins">
+                  <el-radio v-for="item in cardList" :key="item.cardBinId || item.cardBin" :value="item">
+                    <el-tag type="success">{{item.cardBin}}</el-tag>
+                  </el-radio>
                 </el-radio-group>
               </el-form-item>
             
-            <div v-if="cardForm.card">
-              <el-form-item>
-                <el-input type="textarea" autosize disabled v-model="cardForm.card.supportPlatform" class="bg-body-secondary text-secondary note-bg">
-                </el-input>
-              </el-form-item>
-              
+            <div v-if="cardForm.card" class="open-card-fields">
               <el-form-item :label="$t('lang.wallet_balance')">
-                <p>{{ userStore.userInfo.wallet == null ? '0' : userStore.userInfo.wallet.balance }} USD</p>
+                <p class="open-card-balance">{{ userStore.userInfo.wallet == null ? '0' : userStore.userInfo.wallet.balance }} USD</p>
               </el-form-item>
               <template v-if="cardForm.card && cardForm.card.cardModel === 'SHARE'">
-                <el-form-item :label="$t('lang.share_card')">
-                  <el-radio-group v-model="cardForm.shareCardType" @change="handleShareCardTypeChange">
-                    <el-radio value="MasterCard">{{ $t('lang.master_card') }}</el-radio>
-                    <el-radio value="SubCard">{{ $t('lang.sub_card') }}</el-radio>
-                  </el-radio-group>
+                <el-form-item :label="$t('lang.auth_limit_flag')">
+                  <el-checkbox :model-value="cardForm.authLimitFlag === 'N'" @change="(val) => cardForm.authLimitFlag = val ? 'N' : 'Y'">{{ $t('lang.no_limit') }}</el-checkbox>
                 </el-form-item>
-                <el-form-item v-if="cardForm.shareCardType === 'SubCard'" :label="$t('lang.primary_card')">
-                  <el-select v-model="cardForm.primaryCardId" clearable :placeholder="$t('lang.select_primary_card')">
-                    <el-option v-for="item in filteredMasterCards" :key="item.ID" :value="item.cardId" :label="item.cardNo"></el-option>
-                  </el-select>
+                <el-form-item :label="$t('lang.total_auth_limit')">
+                  <el-input-number class="w-100" v-model="cardForm.totalAuthLimit" :min="0" :controls="false" :placeholder="$t('lang.please_enter_total_auth_limit')" :disabled="cardForm.authLimitFlag === 'N'"></el-input-number>
                 </el-form-item>
-                <template v-if="cardForm.shareCardType === 'SubCard' && cardForm.primaryCardId">
-                  <el-form-item :label="$t('lang.auth_limit_flag')">
-                    <el-checkbox :model-value="cardForm.authLimitFlag === 'N'" @change="(val) => cardForm.authLimitFlag = val ? 'N' : 'Y'">{{ $t('lang.no_limit') }}</el-checkbox>
-                  </el-form-item>
-                  <el-form-item :label="$t('lang.total_auth_limit')">
-                    <el-input-number v-model="cardForm.totalAuthLimit" :min="0" :controls="false" :placeholder="$t('lang.please_enter_total_auth_limit')" :disabled="cardForm.authLimitFlag === 'N'"></el-input-number>
-                  </el-form-item>
-                </template>
               </template>
-              <el-form-item v-if="!(cardForm.card && cardForm.card.cardModel === 'SHARE' && cardForm.shareCardType === 'SubCard' && cardForm.primaryCardId)" :label="$t('lang.recharge_amount')" required>
-                  <el-input-number v-model="cardForm.amount" :min="cardForm.card.createRechargeLimit" :placeholder="`>${cardForm.card.createRechargeLimit} ${cardForm.card.currency}`" :controls="false">
-                  </el-input-number>
-              </el-form-item>
-              <el-form-item :label="$t('lang.notes')">
-                <el-input v-model="cardForm.remark" type="textarea" :rows="2" :placeholder="$t('lang.please_enter_notes')"></el-input>
-              </el-form-item>
               <el-form-item :label="$t('lang.open_card_number')">
-                <el-input-number v-model="cardForm.number" :max="10" :min="1" controls-position="right" :placeholder="$t('lang.open_card_number')"></el-input-number>
+                <el-input-number class="w-100" v-model="cardForm.number" :max="10" :min="1" controls-position="right" :placeholder="$t('lang.open_card_number')"></el-input-number>
               </el-form-item>
               <el-form-item :label="$t('lang.card_group_name')">
-                <el-select v-model="cardForm.groupId" clearable>
-                    <el-option v-for="item in cardGroups" :label="item.name" :value="item.ID"></el-option>
+                <el-select v-model="cardForm.groupId" clearable class="w-100">
+                    <el-option v-for="item in cardGroups" :key="item.ID" :label="item.name" :value="item.ID"></el-option>
                 </el-select>
               </el-form-item>
-              <el-form-item v-if="!(cardForm.card && cardForm.card.cardModel === 'SHARE' && cardForm.shareCardType === 'MasterCard')" :label="$t('lang.card_holder')">
-                <el-select v-model="cardForm.cardHolderId">
-                  <el-option v-for="item in holders" :value="item.cardHolderId" :label="`${item.firstName} ${item.lastName}`"></el-option>
-                </el-select>
-                <el-link @click="dialogs.addCardHolderDialogVisible = true;cardHolder={mobilePrefix: '+1'}" icon="plus" style="color:#01ad5a; margin-left: 5px; ">{{ $t('lang.add_new_cardholder') }}</el-link>
+              <el-form-item :label="$t('lang.card_holder')">
+                <div class="open-card-holder-row">
+                  <el-select v-model="cardForm.cardHolderId" class="w-100">
+                    <el-option v-for="item in filteredHolders" :key="item.cardHolderId" :value="item.cardHolderId" :label="`${item.firstName} ${item.lastName}`"></el-option>
+                  </el-select>
+                  <el-link @click="openAddCardHolderDialog" icon="plus" class="open-card-add-holder">{{ $t('lang.add_new_cardholder') }}</el-link>
+                </div>
               </el-form-item>
             </div>
-            </div>
-        </div>
         </el-form>
       <template #footer>
-        <span class="dialog-footer">
+        <div class="open-card-footer">
           <el-button @click="dialogs.activeCardDialogVisible = false">{{ $t('lang.cancel') }}</el-button>
           <el-button 
             :disabled="!cardForm.card"  
@@ -475,7 +426,7 @@
             @click="handleActiveCardConfirm">
             {{ $t('lang.create') }}
           </el-button>
-        </span>
+        </div>
       </template>
     </el-dialog>
 
@@ -487,9 +438,9 @@
     align-center>
     <el-form  label-width="auto">
       <el-form-item :label="$t('lang.nationality') + ' *'">
-        <el-select v-model="cardHolder.region" :placeholder="$t('lang.please_select_nationality')" clearable style="min-width: 180px;">
-            <!-- <el-option :label="$t('lang.china')" value="CHN"></el-option> -->
+        <el-select v-model="cardHolder.region" :placeholder="$t('lang.please_select_nationality')" clearable style="min-width: 180px;" @change="onCardHolderRegionChange">
             <el-option :label="$t('lang.united_states')" value="USA"></el-option>
+            <el-option :label="$t('lang.hong_kong')" value="HK"></el-option>
         </el-select>
       </el-form-item>
 
@@ -505,18 +456,19 @@
       </div>
     </el-form-item>
     
-    <el-form-item :label="$t('lang.cardholder_first_name') + ' *'">
-      <el-input v-model="cardHolder.lastName" :placeholder="$t('lang.please_enter_cardholder_first_name')"></el-input>
+    <el-form-item :label="$t('lang.cardholder_last_name') + ' *'">
+      <el-input v-model="cardHolder.lastName" :placeholder="$t('lang.please_enter_cardholder_last_name')"></el-input>
     </el-form-item>
 
-      <el-form-item :label="$t('lang.cardholder_last_name') + ' *'">
-        <el-input v-model="cardHolder.firstName" :placeholder="$t('lang.please_enter_cardholder_last_name')"></el-input>
+      <el-form-item :label="$t('lang.cardholder_first_name') + ' *'">
+        <el-input v-model="cardHolder.firstName" :placeholder="$t('lang.please_enter_cardholder_first_name')"></el-input>
       </el-form-item>
 
     <!-- 账单地国家 -->
     <el-form-item :label="$t('lang.billing_country') + ' *'">
       <el-select v-model="cardHolder.countryCode" :placeholder="$t('lang.please_select_country')" clearable style="min-width: 200px;">
           <el-option :label="$t('lang.united_states')" value="USA"></el-option>
+          <el-option :label="$t('lang.hong_kong')" value="HK"></el-option>
       </el-select>
     </el-form-item>
 
@@ -767,18 +719,78 @@
       <el-button type="primary" @click="handleSetGroupConfirm">确定</el-button>
     </template>
   </el-dialog>
+
+  <!-- 共享卡余额充值（gzy matrix transfer_in + 扣系统钱包） -->
+  <el-dialog
+    v-model="dialogs.shareRechargeDialogVisible"
+    :title="$t('lang.share_card_balance') + ' - ' + $t('lang.recharge')"
+    width="400px"
+    align-center
+    destroy-on-close>
+    <el-form label-width="auto">
+      <el-form-item :label="$t('lang.wallet_balance')">
+        <span>{{ userStore.userInfo.wallet == null ? '0' : userStore.userInfo.wallet.balance }} USD</span>
+      </el-form-item>
+      <el-form-item :label="$t('lang.recharge_amount')" required>
+        <el-input-number
+          class="w-100"
+          v-model="shareRechargeForm.transferAmount"
+          :min="0.01"
+          :precision="2"
+          :controls="false"
+          :placeholder="$t('lang.recharge_amount')">
+        </el-input-number>
+      </el-form-item>
+    </el-form>
+    <template #footer>
+      <el-button @click="dialogs.shareRechargeDialogVisible = false">{{ $t('lang.cancel') }}</el-button>
+      <el-button type="primary" :loading="loading.shareRechargeLoading" @click="handleShareRechargeConfirm">
+        {{ $t('lang.confirm') }}
+      </el-button>
+    </template>
+  </el-dialog>
+
+  <!-- 共享卡余额提现（gzy matrix transfer_out + 入账系统钱包） -->
+  <el-dialog
+    v-model="dialogs.shareWithdrawDialogVisible"
+    :title="$t('lang.share_card_balance') + ' - ' + $t('lang.withdraw')"
+    width="400px"
+    align-center
+    destroy-on-close>
+    <el-form label-width="auto">
+      <el-form-item :label="$t('lang.share_card_balance')">
+        <span>{{ shareBalanceText }}</span>
+      </el-form-item>
+      <el-form-item :label="$t('lang.withdrawal_amount')" required>
+        <el-input-number
+          class="w-100"
+          v-model="shareWithdrawForm.transferAmount"
+          :min="0.01"
+          :precision="2"
+          :controls="false"
+          :placeholder="$t('lang.withdrawal_amount')">
+        </el-input-number>
+      </el-form-item>
+    </el-form>
+    <template #footer>
+      <el-button @click="dialogs.shareWithdrawDialogVisible = false">{{ $t('lang.cancel') }}</el-button>
+      <el-button type="primary" :loading="loading.shareWithdrawLoading" @click="handleShareWithdrawConfirm">
+        {{ $t('lang.confirm') }}
+      </el-button>
+    </template>
+  </el-dialog>
 </div>
   </template>
   
   <script setup>
-  import { reactive, ref,onMounted, computed,h, watch } from 'vue';
+  import { reactive, ref,onMounted, computed,h } from 'vue';
   import { ElMessage,ElMessageBox,ElSelect,ElOption } from 'element-plus';
-  import { formatDate,addYear} from '@/utils/format';
-  import { setCardGroup,listCardGroup,listCardHolder,remarkCard,syncCard,addCardHolder,listCardBin,createCard,cancelCard,listCard,rechargeCard,withdrawCard,adjustSubCardLimit } from '@/api/finance';
+  import { formatDate, formatDateYYYYMMDD, addYear} from '@/utils/format';
+  import { setCardGroup,listCardGroup,listCardHolder,remarkCard,syncCard,addCardHolder,fetchCardHolderAddress,listCardBin,createCard,cancelCard,listCard,rechargeCard,withdrawCard,adjustSubCardLimit,getGzyShareBalance,gzyShareRecharge,gzyShareWithdraw } from '@/api/finance';
   import { getIamUserList } from '@/api/iam';
   import { useUserStore } from '@/pinia/modules/user'
   import CardDetail from './cardDetail.vue'
-  import { randomEmailAndName, randomUsPhoneForBilling, randomVerifiedUsBillingAddress, randomBirth } from '@/utils/random'
+  import { randomBirth, randomHKMobile } from '@/utils/random'
   import {buildExcel} from '@/utils/excel'
   import { buildCancelListPayload, applyCancelCardResult } from '@/utils/cancelCard'
   import { useCardPreRecharge } from '@/composables/useCardPreRecharge'
@@ -827,6 +839,8 @@
     cardDetailDialogVisible:false,
     remarkCardDialogVisible:false,
     setCardGroupDialogVisible:false,
+    shareRechargeDialogVisible:false,
+    shareWithdrawDialogVisible:false,
   })
 
   const currCard = ref()
@@ -844,17 +858,17 @@
     withdrawCardLoading:false,
     adjustLimitLoading:false,
     syncCardLoading:false,
+    shareRechargeLoading:false,
+    shareWithdrawLoading:false,
   })
   const activeTab = ref('active')
+  const regionOptions = ['US', 'HK', 'CN']
   const filters = reactive({
-    currency:'',
     brand:'',
-    cardModel:'',
+    region:'US',
   })
   const filterParams = reactive({
-    currency:[],
     brand:[],
-    cardModel:[],
   })
   const cardList = ref([])
   const search = reactive({
@@ -898,23 +912,11 @@
     cardBinId: '',
     cardBin:'',
     number: 1,
-    shareCardType: '',
-    primaryCardId: '',
     totalAuthLimit: '',
     authLimitFlag: 'Y'
   })
 
   const allMasterCards = ref([])
-  // 开卡子卡主卡列表：在 allMasterCards 上按当前卡 BIN 过滤
-  const filteredMasterCards = computed(() => {
-    if (!cardForm.value.card || !cardForm.value.card.cardBin) {
-      return allMasterCards.value
-    }
-    return allMasterCards.value.filter((card) => {
-      return card.cardBin === cardForm.value.card.cardBin ||
-        card.belongCardbin?.cardBin === cardForm.value.card.cardBin
-    })
-  })
   const handleListCard = () => {
     listCard(search).then(res => { 
       if (res.code === 0){
@@ -969,6 +971,80 @@
       }
     })
   }
+  const shareBalance = ref(null)
+  const shareBalanceLoading = ref(false)
+  const shareBalanceText = computed(() => {
+    if (!shareBalance.value) return '--'
+    const amount = shareBalance.value.realTimeBalance ?? '--'
+    const currency = shareBalance.value.currency || 'USD'
+    return `${amount} ${currency}`
+  })
+  const fetchShareBalance = () => {
+    shareBalanceLoading.value = true
+    getGzyShareBalance({ currency: 'USD' }).then(res => {
+      if (res.code === 0) {
+        shareBalance.value = res.data || null
+      }
+    }).finally(() => {
+      shareBalanceLoading.value = false
+    })
+  }
+  const shareRechargeForm = reactive({
+    transferAmount: null,
+  })
+  const shareWithdrawForm = reactive({
+    transferAmount: null,
+  })
+  const openShareRechargeDialog = () => {
+    shareRechargeForm.transferAmount = null
+    dialogs.shareRechargeDialogVisible = true
+  }
+  const openShareWithdrawDialog = () => {
+    shareWithdrawForm.transferAmount = null
+    dialogs.shareWithdrawDialogVisible = true
+  }
+  const handleShareRechargeConfirm = () => {
+    const amount = Number(shareRechargeForm.transferAmount)
+    if (!amount || amount <= 0) {
+      ElMessage.warning(t('lang.recharge_amount'))
+      return
+    }
+    loading.shareRechargeLoading = true
+    gzyShareRecharge({
+      currency: 'USD',
+      transferAmount: String(amount),
+    }).then(res => {
+      if (res.code === 0) {
+        ElMessage.success(t('lang.success') || 'Success')
+        dialogs.shareRechargeDialogVisible = false
+        fetchShareBalance()
+        userStore.GetUserInfo()
+      }
+    }).finally(() => {
+      loading.shareRechargeLoading = false
+    })
+  }
+  const handleShareWithdrawConfirm = () => {
+    const amount = Number(shareWithdrawForm.transferAmount)
+    if (!amount || amount <= 0) {
+      ElMessage.warning(t('lang.withdrawal_amount'))
+      return
+    }
+    loading.shareWithdrawLoading = true
+    gzyShareWithdraw({
+      currency: 'USD',
+      transferAmount: String(amount),
+    }).then(res => {
+      if (res.code === 0) {
+        ElMessage.success(t('lang.success') || 'Success')
+        dialogs.shareWithdrawDialogVisible = false
+        fetchShareBalance()
+        userStore.GetUserInfo()
+      }
+    }).finally(() => {
+      loading.shareWithdrawLoading = false
+    })
+  }
   onMounted(()=>{
     handleListCardBin()
     handleListCardHolder()
@@ -976,13 +1052,7 @@
     handleListIamUsers()
     handleListAllMasterCards()
     handleListCard()
-    
-  })
-  // 监听卡BIN变化，清空主卡选择
-  watch(() => cardForm.value.card?.cardBin, (newCardBin, oldCardBin) => {
-    if (newCardBin && newCardBin !== oldCardBin) {
-      cardForm.value.primaryCardId = ''
-    }
+    fetchShareBalance()
   })
   const handleTabChange = ()=>{
     if(activeTab.value === 'active'){
@@ -992,23 +1062,50 @@
     }
     
   }
-  const randomCardHolder = () => {
-    const emailAndName = randomEmailAndName()
-    const billing = randomVerifiedUsBillingAddress()
+  const openAddCardHolderDialog = () => {
+    const isHK = filters.region === 'HK'
     cardHolder.value = {
-      region: 'USA',
-      countryCode: 'USA',
-      firstName: emailAndName[0],
-      lastName: emailAndName[1],
-      email: emailAndName[2],
-      mobilePrefix: '+1',
-      mobile: randomUsPhoneForBilling(billing),
-      birthDate: randomBirth(),
-      state: billing.state,
-      city: billing.city,
-      postcode: billing.postcode,
-      address: billing.address
+      region: isHK ? 'HK' : 'USA',
+      countryCode: isHK ? 'HK' : 'USA',
+      mobilePrefix: isHK ? '+852' : '+1',
     }
+    dialogs.addCardHolderDialogVisible = true
+  }
+  const onCardHolderRegionChange = (region) => {
+    if (region === 'HK') {
+      cardHolder.value.countryCode = 'HK'
+      cardHolder.value.mobilePrefix = '+852'
+    } else {
+      cardHolder.value.region = 'USA'
+      cardHolder.value.countryCode = 'USA'
+      cardHolder.value.mobilePrefix = '+1'
+    }
+    // 切换身份后重新随机生成姓名与账单地址
+    randomCardHolder()
+  }
+  const randomCardHolder = () => {
+    const isHK = cardHolder.value.region === 'HK'
+    const region = isHK ? 'hk' : 'us'
+    fetchCardHolderAddress(region).then(res => {
+      if (res.code !== 0 || !res.data) {
+        return
+      }
+      const data = res.data
+      cardHolder.value = {
+        region: isHK ? 'HK' : 'USA',
+        countryCode: isHK ? (data.countryCode === 'HKG' ? 'HK' : (data.countryCode || 'HK')) : (data.countryCode || 'USA'),
+        firstName: data.firstName,
+        lastName: data.lastName,
+        email: data.email,
+        mobilePrefix: isHK ? '+852' : (data.mobilePrefix || '+1'),
+        mobile: isHK ? randomHKMobile() : data.mobile,
+        birthDate: data.birthDate,
+        state: data.state,
+        city: data.city,
+        postcode: data.postcode,
+        address: data.address,
+      }
+    })
   }
   const handleRefresh = (row) => {
     row.loading = true
@@ -1033,23 +1130,37 @@
       cardBins.value = res.data.list
       if(res.data.total > 0){
         filterParams.brand = [...new Set(res.data.list.map(item => item.cardBrand))]
-        filterParams.currency = [...new Set(res.data.list.map(item => item.currency))]
-        filterParams.cardModel = [...new Set(res.data.list.map(item => item.cardModel))]
-        
       }
     })
+  }
+  const matchHolderRegion = (holderRegion, cardRegion) => {
+    const h = String(holderRegion || '').toUpperCase()
+    const c = String(cardRegion || '').toUpperCase()
+    if (!c) return true
+    if (c === 'US') return h === 'US' || h === 'USA'
+    if (c === 'HK') return h === 'HK' || h === 'HKG'
+    if (c === 'CN') return h === 'CN' || h === 'CHN'
+    return h === c
+  }
+  const filteredHolders = computed(() => {
+    return holders.value.filter(item =>
+      matchHolderRegion(item.region, filters.region) &&
+      String(item.matrixAccount || '').trim() !== ''
+    )
+  })
+  const selectDefaultCardHolder = () => {
+    const list = filteredHolders.value
+    cardForm.value.cardHolderId = list.length > 0 ? list[0].cardHolderId : ''
   }
   const filterResult = (list) =>{
     cardList.value = cardBins.value.filter(card => {
       let match = true;
-      if (filters.cardModel && card.cardModel !== filters.cardModel) match = false;
+      if (filters.region && card.region !== filters.region) match = false;
       if (filters.brand && card.cardBrand !== filters.brand) match = false;
-      if (filters.currency && card.currency !== filters.currency) match = false;
       return match;
     })
     cardForm.value.card = {}
-    // 当卡BIN改变时，清空已选择的主卡
-    cardForm.value.primaryCardId = ''
+    selectDefaultCardHolder()
   }
   const getCardTypeLabel = (cardLevel) => {
     if (cardLevel === 'SubCard') {
@@ -1074,12 +1185,17 @@
     
   })
   const cardHolder = ref({
+    region: 'USA',
+    countryCode: 'USA',
     mobilePrefix: '+1',
   })
   
   const handleAddCardHoderConfirm = ()=>{
     loading.addCardHolderLoading = true
-    addCardHolder(cardHolder.value).then(res=>{
+    addCardHolder({
+      ...cardHolder.value,
+      matrixAccount: userStore.userInfo?.matrixAccount || '',
+    }).then(res=>{
       loading.addCardHolderLoading = false
       if(res.code === 0){
         ElMessage.success('Success')
@@ -1096,34 +1212,34 @@
     loading.addCardLoading = true;
     const form = {
       cardBinId: cardForm.value.card.cardBinId,
-      cardBin:cardForm.value.card.cardBin,
+      cardBin: cardForm.value.card.cardBin,
       cardModel: cardForm.value.card.cardModel,
-      amount: cardForm.value.amount,
-      number:cardForm.value.number,
-      remark:cardForm.value.remark,
-      groupId:cardForm.value.groupId
+      amount: 0,
+      number: cardForm.value.number,
+      remark: cardForm.value.remark,
+      groupId: cardForm.value.groupId,
+      cardHolderId: cardForm.value.cardHolderId,
     }
-    // 如果选择的是共享卡主卡，不需要传递cardHolderId
-    if (!(cardForm.value.card && cardForm.value.card.cardModel === 'SHARE' && cardForm.value.shareCardType === 'MasterCard')) {
-      form.cardHolderId = cardForm.value.cardHolderId
-    }
-    // 如果选择了共享卡，并且选择了子卡，添加相关字段
-    if (cardForm.value.card && cardForm.value.card.cardModel === 'SHARE' && cardForm.value.shareCardType === 'SubCard' && cardForm.value.primaryCardId) {
-      form.primaryCardId = cardForm.value.primaryCardId
+    // 共享卡固定开子卡：不传主卡，仅传授权额度
+    if (cardForm.value.card && cardForm.value.card.cardModel === 'SHARE') {
       form.totalAuthLimit = cardForm.value.totalAuthLimit
       form.authLimitFlag = cardForm.value.authLimitFlag
     }
-    if(form.cardBin == null || form.cardBinId == null){
+    if (form.cardBin == null || form.cardBinId == null) {
       ElMessage.error('Please select card bin')
+      loading.addCardLoading = false
       return
     }
-    createCard(form).then(res =>{
-      if(res.code === 0){
+    createCard(form).then(res => {
+      if (res.code === 0) {
         ElMessage.success('Create Card Success')
         dialogs.activeCardDialogVisible = false
         getTableData()
+        fetchShareBalance()
       }
-      loading.addCardLoading = false;
+      loading.addCardLoading = false
+    }).catch(() => {
+      loading.addCardLoading = false
     })
   }
   const cardView = ref({})
@@ -1136,34 +1252,21 @@
     console.log('点击了快速开卡按钮')
   };
   
-  const handleShareCardTypeChange = (value) => {
-    // 当选择类型改变时，清空主卡相关字段
-    if (value === 'MasterCard') {
-      cardForm.value.primaryCardId = ''
-      cardForm.value.totalAuthLimit = ''
-      cardForm.value.authLimitFlag = 'Y'
-      cardForm.value.cardHolderId = '' // 选择主卡时清空持卡人
-    }
-  }
   const handleActiveCard = () => {
-    // 重置主卡相关字段
-    cardForm.value.shareCardType = ''
-    cardForm.value.primaryCardId = ''
     cardForm.value.totalAuthLimit = ''
     cardForm.value.authLimitFlag = 'Y'
+    filters.region = 'US'
+    filters.brand = ''
     // 查找默认的 cardBin 并设置为默认选中
-    const defaultCard = cardBins.value.find(item => item.isDefault)
-    if (defaultCard) {
-      // 设置筛选条件为默认卡的属性
-      filters.cardModel = defaultCard.cardModel
-      filters.currency = defaultCard.currency
-      filters.brand = defaultCard.cardBrand
-      // 根据筛选条件过滤 cardList
+    const defaultCard = cardBins.value.find(item => item.isDefault && (!item.region || item.region === 'US'))
+      || cardBins.value.find(item => item.isDefault)
+    filterResult()
+    if (defaultCard && (!defaultCard.region || defaultCard.region === filters.region)) {
+      filters.brand = defaultCard.cardBrand || ''
       filterResult()
-      // 设置默认选中的卡
       cardForm.value.card = defaultCard
     }
-    handleListAllMasterCards()
+    selectDefaultCardHolder()
     dialogs.activeCardDialogVisible = true
   }
   const batchFreezeCards = () => {
@@ -1488,6 +1591,44 @@ const handleSetGroupConfirm = () =>{
     margin: 0px
   }
 }
+.share-balance-row {
+  flex: 0 0 100%;
+  width: 100%;
+  display: flex;
+  align-items: center;
+  flex-wrap: nowrap;
+  gap: 6px;
+  margin-top: 4px;
+  white-space: nowrap;
+  overflow-x: auto;
+  .share-balance-label {
+    color: #e8eef8;
+    font-size: 13px;
+  }
+  .share-balance-value {
+    color: #ffffff;
+    font-size: 14px;
+    font-weight: 600;
+  }
+  .share-balance-btn {
+    height: 24px !important;
+    padding: 0 8px !important;
+    font-size: 12px !important;
+    min-height: 24px !important;
+    margin: 0 !important;
+    color: #fff !important;
+    --el-button-text-color: #fff;
+    --el-button-hover-text-color: #fff;
+    --el-button-active-text-color: #fff;
+    :deep(.el-icon) {
+      font-size: 12px;
+      color: #fff !important;
+    }
+    :deep(span) {
+      color: #fff !important;
+    }
+  }
+}
 
 .balance-range {
   margin-bottom: 20px;
@@ -1515,4 +1656,97 @@ const handleSetGroupConfirm = () =>{
   margin-left: 5px;
 }
 
+.open-card-form {
+  :deep(.el-form-item) {
+    margin-bottom: 14px;
+  }
+  :deep(.el-form-item__label) {
+    margin-bottom: 6px;
+    line-height: 1.3;
+  }
+  :deep(.el-select),
+  :deep(.el-input-number) {
+    max-width: none;
+    width: 100%;
+  }
+}
+
+.open-card-brands {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+@media (max-width: 768px) {
+  .open-card-brands {
+    flex-wrap: nowrap;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    padding-bottom: 4px;
+    width: 100%;
+    scrollbar-width: none;
+    -ms-overflow-style: none;
+
+    &::-webkit-scrollbar {
+      display: none;
+      width: 0;
+      height: 0;
+    }
+
+    :deep(.el-radio-button) {
+      flex: 0 0 auto;
+    }
+  }
+
+  .open-card-footer {
+    .el-button {
+      flex: 1;
+      margin: 0;
+    }
+  }
+}
+
+.open-card-bins {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 12px;
+  width: 100%;
+
+  :deep(.el-radio) {
+    margin-right: 0;
+    height: auto;
+    white-space: nowrap;
+  }
+}
+
+.open-card-balance {
+  margin: 0;
+  font-weight: 600;
+}
+
+.open-card-holder-row {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  width: 100%;
+}
+
+.open-card-add-holder {
+  color: #01ad5a;
+  align-self: flex-start;
+}
+
+.open-card-footer {
+  display: flex;
+  gap: 10px;
+  justify-content: flex-end;
+
+  .el-button {
+    min-width: 96px;
+  }
+}
+
+.w-100 {
+  width: 100%;
+}
 </style>

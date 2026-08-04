@@ -69,6 +69,58 @@
     .recharge-form-dialog.el-dialog {
       width: 100% ;
     }
+    .open-card-dialog.el-dialog {
+        width: calc(100vw - 24px) !important;
+        margin: 12px auto !important;
+        max-height: calc(100vh - 24px);
+        display: flex;
+        flex-direction: column;
+    }
+    .open-card-dialog .el-dialog__body {
+        padding: 12px 16px;
+        overflow-y: auto;
+        flex: 1;
+    }
+    .open-card-dialog .el-dialog__footer {
+        padding: 12px 16px 16px;
+    }
+    .open-card-dialog .open-card-footer {
+        display: flex;
+        gap: 10px;
+    }
+    .open-card-dialog .open-card-footer .el-button {
+        flex: 1;
+        margin: 0;
+    }
+    .open-card-dialog .open-card-bins {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 10px;
+    }
+    .open-card-dialog .open-card-brands {
+        display: flex;
+        flex-direction: row;
+        flex-wrap: nowrap;
+        align-items: center;
+        gap: 10px;
+        width: 100%;
+        overflow-x: auto;
+        -webkit-overflow-scrolling: touch;
+        padding-bottom: 4px;
+        scrollbar-width: none; /* Firefox */
+        -ms-overflow-style: none; /* IE/Edge */
+    }
+    .open-card-dialog .open-card-brands::-webkit-scrollbar {
+        display: none; /* Chrome/Safari */
+        width: 0;
+        height: 0;
+    }
+    .open-card-dialog .open-card-brands .el-radio-button {
+        flex: 0 0 auto;
+    }
+    .card-management .search-bar .hide-on-mobile {
+        display: none !important;
+    }
     .el-transfer {
         .el-transfer-panel {
             width: 40%;

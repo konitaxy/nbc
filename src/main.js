@@ -1,12 +1,16 @@
 import { createApp } from 'vue'
 import 'element-plus/dist/index.css'
 import './style/element_visiable.scss'
-import ElementPlus from 'element-plus'
+import ElementPlus, { ElDialog, ElDrawer } from 'element-plus'
 import 'bootstrap/dist/css/bootstrap.min.css'
 import 'bootstrap-icons/font/bootstrap-icons.css'
 
 import en from 'element-plus/dist/locale/en.mjs'
 import zhCn from 'element-plus/dist/locale/zh-cn.mjs'
+
+// Dialogs/drawers inside layout sit under sticky header; teleport to body by default.
+ElDialog.props.appendToBody = { type: Boolean, default: true }
+ElDrawer.props.appendToBody = { type: Boolean, default: true }
 
 // import vn from 'element-plus/dist/locale/vi.mjs'
 
@@ -34,7 +38,7 @@ app
   .use(store)
   .use(auth)
   .use(router)
-  .use(ElementPlus, { locale: en })
+  .use(ElementPlus, { locale: en, zIndex: 3000 })
   .use(i18n)
   const languageStore = useLanguageStore()
   const userStore = useUserStore()

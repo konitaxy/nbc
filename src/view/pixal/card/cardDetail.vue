@@ -29,8 +29,9 @@
               
                 <el-button type="danger" @click="handleCancelCard()">{{ $t('lang.terminate_card') }}</el-button>
                           <div class="mt-3">
-                          <div class="mt-3">
+                          <div class="mt-3 d-flex flex-wrap gap-2">
                 <el-button type="primary" @click="handleCopyDetails">{{ $t('lang.copy_details') }}</el-button>
+                <el-button type="success" :loading="loading.randomAddressLoading" @click="handleRandomAddress">{{ $t('lang.random_address') }}</el-button>
           </div>
               </div>
              
@@ -185,7 +186,7 @@ export default {
 </script>
 <script setup>
 import { ref, reactive, defineProps, onMounted } from 'vue'
-import { staticsCard, cancelCard, rechargeCard, showCardDetail, listCardBin } from '@/api/finance';
+import { staticsCard, cancelCard, rechargeCard, showCardDetail, listCardBin, fetchCardHolderAddress } from '@/api/finance';
 import { ElMessage, ElMessageBox } from 'element-plus';
 import { buildCancelListPayload, applyCancelCardResult } from '@/utils/cancelCard'
 import { useCardPreRecharge } from '@/composables/useCardPreRecharge'
@@ -210,6 +211,7 @@ const dialogs =reactive({
   })
 const loading = reactive({
   rechargeCardLoading:false,
+  randomAddressLoading:false,
 })
 const card = ref(props.card)
 
@@ -315,17 +317,65 @@ const handleRechargeCardConfirm = ()=>{
       applyCancelCardResult(res, { t, ElMessage })
     })
   }
-  const handleCopyDetails = () => {
+  const copyDetailsWithHolder = (holder) => {
+    if (!holder) {
+      ElMessage.warning(t('lang.no_cardholder'))
+      return
+    }
     const cardNumber = card.value.cardNo
     const cvv = card.value.cvv
     const expiry = card.value.expirey
-    const cardholder = card.value.Holder.firstName + ' ' + card.value.Holder.lastName
-    const billingAddress = `${card.value.Holder.countryCode}, ${card.value.Holder.state}, ${card.value.Holder.city}, ${card.value.Holder.address}, ${card.value.Holder.postcode}`
+    const cardholder = `${holder.firstName || ''} ${holder.lastName || ''}`.trim()
+    const billingParts = [holder.countryCode, holder.state, holder.city, holder.address, holder.postcode]
+      .filter((part) => part != null && String(part).trim() !== '')
+    const billingAddress = billingParts.join(', ')
     const details = `${cardNumber}\nCVV ${cvv} Expiration date ${expiry}\nHolder Name: ${cardholder}\nAddress: ${billingAddress}`
     clipboard.writeText(details).then(() => {
       ElMessage.success(t('lang.copy_success'))
     }).catch(() => {
       ElMessage.error(t('lang.copy_failed'))
+    })
+  }
+  const handleCopyDetails = () => {
+    copyDetailsWithHolder(card.value.Holder)
+  }
+  const resolveCardDzRegion = () => {
+    const bin = cardBins.value.find(item => item.cardBinId === card.value.cardBinId)
+      || card.value.bin
+      || card.value.belongCardbin
+    const r = String(bin?.region || card.value.Holder?.region || '').toUpperCase()
+    if (r === 'HK' || r === 'HKG') return 'hk'
+    if (r === 'CN' || r === 'CHN') return 'cn'
+    return 'us'
+  }
+  const handleRandomAddress = () => {
+    if (!card.value.Holder) {
+      ElMessage.warning(t('lang.no_cardholder'))
+      return
+    }
+    const region = resolveCardDzRegion()
+    loading.randomAddressLoading = true
+    fetchCardHolderAddress(region).then(res => {
+      loading.randomAddressLoading = false
+      if (res.code !== 0 || !res.data) {
+        ElMessage.error(t('lang.random_address_failed'))
+        return
+      }
+      const data = res.data
+      const updatedHolder = {
+        ...card.value.Holder,
+        countryCode: data.countryCode || card.value.Holder.countryCode,
+        state: data.state,
+        city: data.city,
+        address: data.address,
+        postcode: data.postcode,
+      }
+      card.value.Holder = updatedHolder
+      // 用刚生成的地址直接复制详情
+      copyDetailsWithHolder(updatedHolder)
+    }).catch(() => {
+      loading.randomAddressLoading = false
+      ElMessage.error(t('lang.random_address_failed'))
     })
   }
 </script>
@@ -350,9 +400,10 @@ const handleRechargeCardConfirm = ()=>{
   padding: 1rem;
 }
 .data-item {
-  background-color: #f8f8f8;
+  background-color: #000;
   border-radius: 12px;
   padding: 1rem;
+  color: #fff;
 }
 
 @media (max-width: 768px) {

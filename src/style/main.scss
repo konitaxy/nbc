@@ -2489,16 +2489,18 @@ $asideHight: 100vh;
 .el-overlay {
     background-color: rgba(2, 8, 18, 0.66) !important;
     backdrop-filter: blur(4px);
+    /* Above sticky console header (80) and mobile nav mask (998); EP still raises nested overlays via inline style. */
+    z-index: var(--el-index-popper, 3000);
 }
 
 .el-overlay:has(.recharge-form-dialog),
 .el-overlay:has(.el-dialog.is-fullscreen) {
-    z-index: 2000 !important;
+    z-index: 3100 !important;
 }
 
 .recharge-form-dialog.el-dialog,
 .el-dialog.is-fullscreen {
-    z-index: 2001 !important;
+    z-index: 3101 !important;
 }
 
 .el-dialog,

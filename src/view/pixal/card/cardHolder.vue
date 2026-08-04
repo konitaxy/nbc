@@ -12,7 +12,7 @@
                 <el-button type="primary" icon="search" @click="getTableData">{{ $t('lang.search') }}</el-button>
             </el-form-item>
             <el-form-item label="">
-                <el-button type="primary" @click="dialogs.addCardHolderDialogVisible = true;cardHolder={mobilePrefix: '+1'}" icon="plus" >{{ $t('lang.add_new_cardholder') }}</el-button>
+                <el-button type="primary" @click="openAddCardHolderDialog" icon="plus" >{{ $t('lang.add_new_cardholder') }}</el-button>
             </el-form-item>
         </el-form>
         
@@ -65,9 +65,9 @@
     align-center>
     <el-form  label-width="auto">
       <el-form-item :label="$t('lang.nationality') + ' *'">
-        <el-select v-model="cardHolder.region" :placeholder="$t('lang.please_select_nationality')" clearable style="min-width: 180px;">
-            <!-- <el-option :label="$t('lang.china')" value="CHN"></el-option> -->
+        <el-select v-model="cardHolder.region" :placeholder="$t('lang.please_select_nationality')" clearable style="min-width: 180px;" @change="onCardHolderRegionChange">
             <el-option :label="$t('lang.united_states')" value="USA"></el-option>
+            <el-option :label="$t('lang.hong_kong')" value="HK"></el-option>
         </el-select>
       </el-form-item>
 
@@ -83,18 +83,19 @@
       </div>
     </el-form-item>
     
-    <el-form-item :label="$t('lang.cardholder_first_name') + ' *'">
-      <el-input v-model="cardHolder.lastName" :placeholder="$t('lang.please_enter_cardholder_first_name')"></el-input>
+    <el-form-item :label="$t('lang.cardholder_last_name') + ' *'">
+      <el-input v-model="cardHolder.lastName" :placeholder="$t('lang.please_enter_cardholder_last_name')"></el-input>
     </el-form-item>
 
-      <el-form-item :label="$t('lang.cardholder_last_name') + ' *'">
-        <el-input v-model="cardHolder.firstName" :placeholder="$t('lang.please_enter_cardholder_last_name')"></el-input>
+      <el-form-item :label="$t('lang.cardholder_first_name') + ' *'">
+        <el-input v-model="cardHolder.firstName" :placeholder="$t('lang.please_enter_cardholder_first_name')"></el-input>
       </el-form-item>
 
     <!-- 账单地国家 -->
     <el-form-item :label="$t('lang.billing_country') + ' *'">
       <el-select v-model="cardHolder.countryCode" :placeholder="$t('lang.please_select_country')" clearable style="min-width: 200px;">
           <el-option :label="$t('lang.united_states')" value="USA"></el-option>
+          <el-option :label="$t('lang.hong_kong')" value="HK"></el-option>
       </el-select>
     </el-form-item>
 
@@ -151,17 +152,18 @@
     width="50%"
     align-center>
     <el-form label-width="auto">
+      <el-form-item :label="$t('lang.cardholder_last_name')">
+        <el-input v-model="editCardHolderForm.lastName" disabled />
+      </el-form-item>
       <el-form-item :label="$t('lang.cardholder_first_name')">
         <el-input v-model="editCardHolderForm.firstName" disabled />
         <div class="text-muted small mt-1">{{ $t('lang.cardholder_name_readonly_hint') }}</div>
-      </el-form-item>
-      <el-form-item :label="$t('lang.cardholder_last_name')">
-        <el-input v-model="editCardHolderForm.lastName" disabled />
       </el-form-item>
 
       <el-form-item :label="$t('lang.billing_country')">
         <el-select v-model="editCardHolderForm.countryCode" :placeholder="$t('lang.please_select_country')" clearable style="min-width: 200px;">
           <el-option :label="$t('lang.united_states')" value="USA"></el-option>
+          <el-option :label="$t('lang.hong_kong')" value="HK"></el-option>
         </el-select>
       </el-form-item>
       <el-form-item :label="$t('lang.billing_state_province')">
@@ -207,12 +209,12 @@
   import { reactive, ref,onMounted } from 'vue';
   import { ElMessage,ElMessageBox } from 'element-plus';
   import { formatDate,addYear} from '@/utils/format';
-  import { listCardHolder,syncCard,addCardHolder,updateCardHolder,listCardBin,createCard,cancelCard,listCard,rechargeCard,withdrawCard } from '@/api/finance';
+  import { listCardHolder,syncCard,addCardHolder,updateCardHolder,fetchCardHolderAddress,listCardBin,createCard,cancelCard,listCard,rechargeCard,withdrawCard } from '@/api/finance';
   import { useUserStore } from '@/pinia/modules/user'
   import CardDetail from './cardDetail.vue'
   import {buildExcel} from '@/utils/excel'
   import { buildCancelListPayload, applyCancelCardResult } from '@/utils/cancelCard'
-  import { randomEmailAndName, randomUsPhoneForBilling, randomVerifiedUsBillingAddress, randomBirth } from '@/utils/random'
+  import { randomBirth, randomHKMobile } from '@/utils/random'
   import { useI18n } from 'vue-i18n'
   const { t } = useI18n()
 
@@ -316,6 +318,8 @@
     
   })
   const cardHolder = ref({
+    region: 'USA',
+    countryCode: 'USA',
     mobilePrefix: '+1',
   })
   const editCardHolderForm = ref({})
@@ -327,7 +331,7 @@
       email: row.email,
       mobile: row.mobile,
       mobilePrefix: row.mobilePrefix || '+1',
-      countryCode: row.countryCode,
+      countryCode: row.countryCode === 'HKG' ? 'HK' : row.countryCode,
       state: row.state,
       city: row.city,
       postcode: row.postcode,
@@ -360,23 +364,49 @@
       }
     })
   }
-  const randomCardHolder = () => {
-    const emailAndName = randomEmailAndName()
-    const billing = randomVerifiedUsBillingAddress()
+  const openAddCardHolderDialog = () => {
     cardHolder.value = {
       region: 'USA',
       countryCode: 'USA',
-      firstName: emailAndName[0],
-      lastName: emailAndName[1],
-      email: emailAndName[2],
       mobilePrefix: '+1',
-      mobile: randomUsPhoneForBilling(billing),
-      birthDate: randomBirth(),
-      state: billing.state,
-      city: billing.city,
-      postcode: billing.postcode,
-      address: billing.address
     }
+    dialogs.addCardHolderDialogVisible = true
+  }
+  const onCardHolderRegionChange = (region) => {
+    if (region === 'HK') {
+      cardHolder.value.countryCode = 'HK'
+      cardHolder.value.mobilePrefix = '+852'
+    } else {
+      cardHolder.value.region = 'USA'
+      cardHolder.value.countryCode = 'USA'
+      cardHolder.value.mobilePrefix = '+1'
+    }
+    // 切换身份后重新随机生成姓名与账单地址
+    randomCardHolder()
+  }
+  const randomCardHolder = () => {
+    const isHK = cardHolder.value.region === 'HK'
+    const region = isHK ? 'hk' : 'us'
+    fetchCardHolderAddress(region).then(res => {
+      if (res.code !== 0 || !res.data) {
+        return
+      }
+      const data = res.data
+      cardHolder.value = {
+        region: isHK ? 'HK' : 'USA',
+        countryCode: isHK ? (data.countryCode === 'HKG' ? 'HK' : (data.countryCode || 'HK')) : (data.countryCode || 'USA'),
+        firstName: data.firstName,
+        lastName: data.lastName,
+        email: data.email,
+        mobilePrefix: isHK ? '+852' : (data.mobilePrefix || '+1'),
+        mobile: isHK ? randomHKMobile() : data.mobile,
+        birthDate: data.birthDate,
+        state: data.state,
+        city: data.city,
+        postcode: data.postcode,
+        address: data.address,
+      }
+    })
   }
   
   const handleAddCardHoderConfirm = ()=>{

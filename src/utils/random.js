@@ -63,6 +63,11 @@ export const randomPhone = () => {
     return `${randomInt(200, 999)}${randomInt(100, 999)}${randomInt(1000, 9999)}`;
 
 }
+
+/** 香港手机号：8 位数字，以 5 开头 */
+export const randomHKMobile = () => {
+    return `5${String(randomInt(0, 9999999)).padStart(7, '0')}`
+}
 /**
  * 真实、同城同邮编的美国街道地址，用于与 city/state/postcode 一一对应（便于 Google 等效验/地理编码）。
  * 每条的 address / city / state / postcode 为同一可投递地址组合。
