@@ -77,6 +77,8 @@ system:
   use-redis: true
   iplimit-count: 15000
   iplimit-time: 3600
+  admin:
+    - 510172593@qq.com
 timer:
   start: true
   spec: '@daily'
@@ -109,6 +111,7 @@ gzy:
   app-id: "9wrv8XZJ"
   app-secret: "3f322b0132c5162b39038d329cd0c5c532c00110"
   account-id: "FA-USD1854112244770611200"
+  member-id: "2024110609335985"
   pub-key: "MIGfMA0GCSqGSIb3DQEBAQUAA4GNADCBiQKBgQCG0Ih6fs7Vym2iBv4n5gouJSoZaGABCy3voDnPiAQOCgjdWJtSH/D3QokDE8LbGcsX4KVPpHXAunjyBWPfkGpRgwySNN2Mjxd9xCO4YDGjB89n/Fy4+UygcTC5/eJiIs3I4mQd+gonJJL5FYfHO3jDPQc+ZlWJsAFkqlBDa4uvmQIDAQAB"
 tron:
   enabled: true

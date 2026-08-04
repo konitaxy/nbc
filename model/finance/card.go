@@ -9,22 +9,23 @@ import (
 
 type CardHolder struct {
 	global.GVA_MODEL
-	ClientID     uint   `gorm:"column:client_id;not null;index" json:"clientId" form:"clientId"`
-	IAMID        uint   `gorm:"column:iam_id;not null;index" json:"iamId" form:"iamId"`
-	CardHolderID string `gorm:"column:card_holder_id;not null;index" json:"cardHolderId" form:"cardHolderId"`
-	Region       string `gorm:"column:region;not null" json:"region" form:"region"`
-	FirstName    string `gorm:"column:first_name;not null" json:"firstName" form:"firstName"`
-	LastName     string `gorm:"column:last_name;not null" json:"lastName" form:"lastName"`
-	Email        string `gorm:"column:email;not null;index" json:"email" form:"email"`
-	MobilePrefix string `gorm:"column:mobile_prefix;not null" json:"mobilePrefix" form:"mobilePrefix"`
-	Mobile       string `gorm:"column:mobile;not null" json:"mobile" form:"mobile"`
-	BirthDate    string `gorm:"column:birth_date;not null" json:"birthDate" form:"birthDate"`
-	CountryCode  string `gorm:"column:country_code;not null" json:"countryCode" form:"countryCode"`
-	State        string `gorm:"column:state" json:"state,omitempty" form:"state,omitempty"`
-	City         string `gorm:"column:city" json:"city,omitempty" form:"city,omitempty"`
-	Postcode     string `gorm:"column:postcode" json:"postcode,omitempty" form:"postcode,omitempty"`
-	Address      string `gorm:"column:address" json:"address,omitempty" form:"address,omitempty"`
-	CardCount    uint   `gorm:"-" json:"cardCount" form:"cardCount"`
+	ClientID      uint   `gorm:"column:client_id;not null;index" json:"clientId" form:"clientId"`
+	IAMID         uint   `gorm:"column:iam_id;not null;index" json:"iamId" form:"iamId"`
+	CardHolderID  string `gorm:"column:card_holder_id;not null;index" json:"cardHolderId" form:"cardHolderId"`
+	MatrixAccount string `gorm:"column:matrix_account;type:varchar(64);index" json:"matrixAccount,omitempty" form:"matrixAccount,omitempty"` // 创建在矩阵账户下时写入
+	Region        string `gorm:"column:region;not null" json:"region" form:"region"`
+	FirstName     string `gorm:"column:first_name;not null" json:"firstName" form:"firstName"`
+	LastName      string `gorm:"column:last_name;not null" json:"lastName" form:"lastName"`
+	Email         string `gorm:"column:email;not null;index" json:"email" form:"email"`
+	MobilePrefix  string `gorm:"column:mobile_prefix;not null" json:"mobilePrefix" form:"mobilePrefix"`
+	Mobile        string `gorm:"column:mobile;not null" json:"mobile" form:"mobile"`
+	BirthDate     string `gorm:"column:birth_date;not null" json:"birthDate" form:"birthDate"`
+	CountryCode   string `gorm:"column:country_code;not null" json:"countryCode" form:"countryCode"`
+	State         string `gorm:"column:state" json:"state,omitempty" form:"state,omitempty"`
+	City          string `gorm:"column:city" json:"city,omitempty" form:"city,omitempty"`
+	Postcode      string `gorm:"column:postcode" json:"postcode,omitempty" form:"postcode,omitempty"`
+	Address       string `gorm:"column:address" json:"address,omitempty" form:"address,omitempty"`
+	CardCount     uint   `gorm:"-" json:"cardCount" form:"cardCount"`
 }
 
 // TableName 返回数据库表名

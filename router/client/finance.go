@@ -72,6 +72,9 @@ func (e *FinanceRouter) InitWalletRouter(Router *gin.RouterGroup) {
 
 	{
 		withoutRecord.GET("balance", clientApi.Balance)
+		withoutRecord.POST("gzy/share", financeApi.GzyAccountSingle)
+		withoutRecord.POST("gzy/recharge", financeApi.GzyShareRecharge)
+		withoutRecord.POST("gzy/withdraw", financeApi.GzyShareWithdraw)
 		withoutRecord.POST("recharge/list", financeApi.ListRechargeRecord)
 		withoutRecord.POST("withdraw/list", financeApi.ListWithdrawRecord)
 		withoutRecord.POST("history", financeApi.ListWalletHistory)

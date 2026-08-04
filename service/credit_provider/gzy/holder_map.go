@@ -18,6 +18,7 @@ func CardHolderApplyRequestFromFinanceHolder(h *finance.CardHolder) CardHolderAp
 		abbr = ""
 	}
 	return CardHolderApplyRequest{
+		MatrixAccount:              strings.TrimSpace(h.MatrixAccount),
 		FirstName:                  strings.TrimSpace(h.FirstName),
 		LastName:                   strings.TrimSpace(h.LastName),
 		CardholderNameAbbreviation: abbr,

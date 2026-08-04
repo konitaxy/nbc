@@ -221,6 +221,27 @@ type CreateMatrixAccountResponse struct {
 	MatrixAccount string `json:"matrixAccount"` // 如 MI1654046138229198848
 }
 
+// Matrix 资金划转方向（POST /matrix/openApi/v4/transfer）。
+const (
+	MatrixTransferTypeIn  = "transfer_in"  // 会员 → matrix
+	MatrixTransferTypeOut = "transfer_out" // matrix → 会员
+)
+
+// MatrixTransferRequest POST /matrix/openApi/v4/transfer 请求体。
+type MatrixTransferRequest struct {
+	Currency       string          `json:"currency"`       // 必填，如 USD
+	MatrixAccount  string          `json:"matrixAccount"`  // 必填，matrix 账户号
+	TransferAmount decimal.Decimal `json:"transferAmount"` // 必填，转账金额
+	TransferType   string          `json:"transferType"`   // 必填：transfer_in | transfer_out
+	MemberID       string          `json:"memberId"`       // 由 ResolveMemberID 填入配置 gzy.member-id
+}
+
+// MatrixTransferResponse POST /matrix/openApi/v4/transfer 成功时的业务结果（线网 data 可为空）。
+type MatrixTransferResponse struct {
+	Code string `json:"code"`
+	Msg  string `json:"msg"`
+}
+
 // Photon 钱包账户类型（account/single query accountType）。
 const (
 	WalletAccountTypeAvailable = "FT10001" // 可用金额
@@ -233,10 +254,10 @@ const (
 // 传 accountNo 时精确查该账户，忽略 currency、accountType、matrixAccount；否则 currency 必填（ISO4217）。
 type GetBalanceRequest struct {
 	Currency      string `json:"currency" form:"currency"`           // ISO4217，如 USD
-	AccountNo     string `json:"accountNo" form:"accountNo"`           // 系统内部账户编号
-	MemberID      string `json:"memberId" form:"memberId"`             // 会员号；matrix 可指定连接会员
-	AccountType   string `json:"accountType" form:"accountType"`       // 默认 FT10001
-	MatrixAccount string `json:"matrixAccount" form:"matrixAccount"`   // matrix 账户号
+	AccountNo     string `json:"accountNo" form:"accountNo"`         // 系统内部账户编号
+	MemberID      string `json:"memberId" form:"memberId"`           // 会员号；matrix 可指定连接会员
+	AccountType   string `json:"accountType" form:"accountType"`     // 默认 FT10001
+	MatrixAccount string `json:"matrixAccount" form:"matrixAccount"` // matrix 账户号
 }
 
 // WalletAccountSingleRequest 与 GetBalanceRequest 相同，语义更贴近 Photon 文档。
@@ -366,13 +387,45 @@ type CancelCardResponse struct {
 	TransactionID  string `json:"transaction_id"`
 }
 type ChangeSubAuthLimitRequest struct {
-	PartnerOrderID string          `json:"partner_order_id"` // 商户请求ID
-	CardID         string          `json:"card_id"`          // 卡ID
-	UpdateAmount   decimal.Decimal `json:"update_amount"`    // 正数为增加限额,负数为减少限额
+	PartnerOrderID string          `json:"partner_order_id"` // 商户请求ID → v4 requestId
+	CardID         string          `json:"card_id"`          // 卡ID → v4 cardId
+	UpdateAmount   decimal.Decimal `json:"update_amount"`    // 正数为增加限额,负数为减少限额 → transactionLimit + changeType
 }
 type ChangeSubAuthLimitResponse struct {
 	PartnerOrderID string `json:"partner_order_id"` // 商户请求ID
 	CardID         string `json:"card_id"`          // 卡ID
+}
+
+// UpdateCardRequest POST /vcc/openApi/v4/updateCard 请求体。
+type UpdateCardRequest struct {
+	CardID                     string           `json:"cardId"`
+	RequestID                  string           `json:"requestId"`
+	CardFormFactor             string           `json:"cardFormFactor,omitempty"`
+	Nickname                   string           `json:"nickname,omitempty"`
+	MaxOnDaily                 *decimal.Decimal `json:"maxOnDaily,omitempty"`
+	MaxOnMonthly               *decimal.Decimal `json:"maxOnMonthly,omitempty"`
+	MaxOnPercent               *decimal.Decimal `json:"maxOnPercent,omitempty"`
+	TransactionLimit           *decimal.Decimal `json:"transactionLimit,omitempty"`
+	TransactionLimitChangeType string           `json:"transactionLimitChangeType,omitempty"` // increase | decrease
+	TransactionLimitType       string           `json:"transactionLimitType,omitempty"`       // limited | unlimited
+}
+
+// UpdateCardResponse 对应 updateCard 返回的 data（vccUpdateCardRespDetail）。
+type UpdateCardResponse struct {
+	CardID                    string          `json:"cardId"`
+	CardStatus                string          `json:"cardStatus"`
+	CardType                  string          `json:"cardType"`
+	CreatedAt                 string          `json:"createdAt"`
+	MatrixAccount             string          `json:"matrixAccount"`
+	MemberID                  string          `json:"memberId"`
+	MaskCardNo                string          `json:"maskCardNo"`
+	MaxOnDaily                int64           `json:"maxOnDaily"`
+	MaxOnMonthly              int64           `json:"maxOnMonthly"`
+	MaxOnPercent              int64           `json:"maxOnPercent"`
+	TotalTransactionLimit     decimal.Decimal `json:"totalTransactionLimit"`
+	TransactionLimitType      string          `json:"transactionLimitType"`
+	AvailableTransactionLimit decimal.Decimal `json:"availableTransactionLimit"`
+	CardBalance               decimal.Decimal `json:"cardBalance"`
 }
 type CardFrozenRequest struct {
 	PartnerOrderID string `json:"partner_order_id"` // 商户请求流水号 → v4 requestId
@@ -618,15 +671,15 @@ type VccTradeOrderResp struct {
 
 // IssuingCardStatusNotify 卡状态变更 Webhook 请求体（issuing_card / card_status_update）。
 type IssuingCardStatusNotify struct {
-	MemberID        string `json:"memberId,omitempty"`
-	MatrixAccount   string `json:"matrixAccount,omitempty"`
-	CardID          string `json:"cardId,omitempty"`
-	CardNumber      string `json:"cardNumber,omitempty"`
-	CardholderID    string `json:"cardholderId,omitempty"`
-	CardStatus      string `json:"cardStatus,omitempty"`
-	ProduceStatus   string `json:"produceStatus,omitempty"`
-	TrackingNumber  string `json:"trackingNumber,omitempty"`
-	UpdatedAt       string `json:"updatedAt,omitempty"`
+	MemberID       string `json:"memberId,omitempty"`
+	MatrixAccount  string `json:"matrixAccount,omitempty"`
+	CardID         string `json:"cardId,omitempty"`
+	CardNumber     string `json:"cardNumber,omitempty"`
+	CardholderID   string `json:"cardholderId,omitempty"`
+	CardStatus     string `json:"cardStatus,omitempty"`
+	ProduceStatus  string `json:"produceStatus,omitempty"`
+	TrackingNumber string `json:"trackingNumber,omitempty"`
+	UpdatedAt      string `json:"updatedAt,omitempty"`
 }
 
 // IssuingSettlementNotify 发卡交易结算 Webhook 请求体（issuing_settlement）。
@@ -650,9 +703,9 @@ type IssuingSettlementNotify struct {
 
 // Photon 发卡交易 Webhook 请求头（文档字段名含 CATAGORY 拼写）。
 const (
-	HeaderPDNotificationCategory       = "X-PD-NOTIFICATION-CATAGORY"
-	HeaderPDNotificationType             = "X-PD-NOTIFICATION-TYPE"
-	HeaderPDSign                         = "X-PD-SIGN"
+	HeaderPDNotificationCategory          = "X-PD-NOTIFICATION-CATAGORY"
+	HeaderPDNotificationType              = "X-PD-NOTIFICATION-TYPE"
+	HeaderPDSign                          = "X-PD-SIGN"
 	NotificationCategoryIssuing           = "issuing"
 	NotificationCategoryIssuingSettlement = "issuing_settlement"
 	NotificationCategoryIssuingCard       = "issuing_card"
@@ -790,6 +843,7 @@ type CardsPageResponse struct {
 type CreateCardRequest struct {
 	PartnerOrderID  string `json:"partner_order_id"` // 商户请求ID → v4 requestId
 	AccountID       string `json:"account_id"`       // 光子易账户 ID → v4 accountId；空则用配置 gzy.account-id
+	MemberID        string `json:"member_id"`        // 光子易会员号 → v4 memberId；共享卡可由 account/single 回填
 	CardBin         string `json:"card_bin"`         // 真实 BIN 段（如 367218）→ v4 cardBin
 	CardBinID       string `json:"card_bin_id"`      // 业务卡段 ID（如 36721801），仅内部关联，不传 Photon
 	Amount          string `json:"amount"`           // 开卡到账金额 → v4 arrivalAmount（子卡可传 0）
@@ -799,6 +853,7 @@ type CreateCardRequest struct {
 	PrimaryCardID   string `json:"primary_card_id"`  // 主卡（子卡场景）
 	TotalAuthLimit  string `json:"total_auth_limit"` // 子卡限额
 	AuthLimitFlag   string `json:"auth_limit_flag"`  // Y 时配合 total_auth_limit → transactionLimit*
+	MatrixAccount   string `json:"matrix_account"`   // 客户有矩阵号时传入 → v4 matrixAccount
 }
 
 // OpenCardV4CardDetail 对应 Photon POST /vcc/openApi/v4/openCard 应答 data.cardDetail（vccCardDetail）。

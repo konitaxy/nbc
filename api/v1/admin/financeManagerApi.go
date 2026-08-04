@@ -14,6 +14,7 @@ import (
 	"gitlab.com/ucard/model/constant"
 	"gitlab.com/ucard/model/finance"
 	"gitlab.com/ucard/model/finance/request"
+	clientSvc "gitlab.com/ucard/service/client"
 	"gitlab.com/ucard/utils"
 	"go.uber.org/zap"
 )
@@ -385,6 +386,7 @@ func (FinanceManagerApi) ReviewRechargeRecord(c *gin.Context) {
 				OpType: common.OpType_Wallet_Recharge_Review,
 			})
 			global.GVA_LOG.Info("review recharge success", zap.Any("recharge", err))
+			go clientSvc.NotifyWalletRechargeSuccessEmail(r, r.RemitAmount, strings.TrimSpace(r.ThirdOrderID))
 			response.OkWithMessage("success", c)
 		} else {
 			global.GVA_LOG.Error("review recharge record failed", zap.Error(err))

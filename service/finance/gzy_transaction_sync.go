@@ -67,7 +67,7 @@ func (fs FinanceService) SyncGzyTransactions() {
 		if !ok {
 			continue
 		}
-		if err := fs.SyncCardDetail("", cardID); err != nil {
+		if err := fs.SyncCardDetailSkipCVV("", cardID); err != nil {
 			global.GVA_LOG.Error("gzy sync card detail failed", zap.String("cardId", cardID), zap.Error(err))
 		}
 	}

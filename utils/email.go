@@ -2,6 +2,7 @@ package utils
 
 import (
 	"fmt"
+	"strings"
 
 	"gitlab.com/ucard/global"
 	"go.uber.org/zap"
@@ -161,4 +162,50 @@ func SendApplyAcceptEmail(to []string, subject, InviteLink, ApplyName string) er
 	}
 	global.GVA_LOG.Sugar().Infof("SendApplyAcceptEmail Success[ %s %s %s ]", to[0], InviteLink, ApplyName)
 	return nil
+}
+
+// SendNotifyEmail 向配置 system.admin 发送 HTML 通知邮件（支持多个邮箱；不走 Mandrill 模板）。
+func SendNotifyEmail(subject, htmlBody string) error {
+	to := resolveAdminNotifyEmails()
+	if len(to) == 0 {
+		return fmt.Errorf("system.admin is empty")
+	}
+
+	fromName := strings.TrimSpace(global.GVA_CONFIG.Email.Nickname)
+	if fromName == "" {
+		fromName = "Newbeecard.com"
+	}
+	m := gomail.NewMessage()
+	m.SetHeader("From", fmt.Sprintf("%s <%s>", fromName, global.GVA_CONFIG.Email.From))
+	m.SetHeader("To", to...)
+	m.SetHeader("Subject", subject)
+	if reply := strings.TrimSpace(global.GVA_CONFIG.Email.ReplyTo); reply != "" {
+		m.SetHeader("Reply-To", reply)
+	}
+	m.SetBody("text/html", htmlBody)
+
+	d := gomail.NewDialer(global.GVA_CONFIG.Email.Host, global.GVA_CONFIG.Email.Port, global.GVA_CONFIG.Email.From, global.GVA_CONFIG.Email.Secret)
+	if err := d.DialAndSend(m); err != nil {
+		global.GVA_LOG.Error("SendNotifyEmail failed", zap.Error(err), zap.Strings("to", to), zap.String("subject", subject))
+		return err
+	}
+	return nil
+}
+
+func resolveAdminNotifyEmails() []string {
+	seen := make(map[string]struct{})
+	var to []string
+	for _, part := range global.GVA_CONFIG.System.Admin {
+		s := strings.TrimSpace(part)
+		if s == "" {
+			continue
+		}
+		key := strings.ToLower(s)
+		if _, ok := seen[key]; ok {
+			continue
+		}
+		seen[key] = struct{}{}
+		to = append(to, s)
+	}
+	return to
 }

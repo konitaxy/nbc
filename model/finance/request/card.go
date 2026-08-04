@@ -133,8 +133,8 @@ type OpenCardReq struct {
 	GroupID        uint            `json:"groupId"`        // 卡组ID
 	CardModel      string          `json:"cardModel"`      // 卡模式。CARD:充值卡,SHARE:共享卡
 	PrimaryCardID  string          `json:"primaryCardId"`  // 主卡ID (当创建子卡时,需要传)
-	TotalAuthLimit decimal.Decimal `json:"totalAuthLimit"` // 子卡限额 (当创建子卡时,需要指定限额,0代表不限额)
-	AuthLimitFlag  string          `json:"authLimitFlag"`  // 是否限额。Y:是,N:否。(当创建子卡时,需要传)
+	TotalAuthLimit decimal.Decimal `json:"totalAuthLimit"` // 授权额度；gzy 共享卡 / 子卡开卡时传入
+	AuthLimitFlag  string          `json:"authLimitFlag"`  // 是否限额。Y:是,N:否。(创建子卡时传；gzy 共享卡可省略，有额度则按 Y)
 }
 
 type EditCardReq struct {
@@ -179,8 +179,8 @@ type BatchCancelItemFailure struct {
 
 // BatchCancelCardResult 批量销卡结果
 type BatchCancelCardResult struct {
-	Total   int                    `json:"total"`
-	Success int                    `json:"success"`
+	Total   int                      `json:"total"`
+	Success int                      `json:"success"`
 	Failed  []BatchCancelItemFailure `json:"failed"`
 }
 type CardReq struct {

@@ -19,8 +19,9 @@ const (
 	pathWalletOpenAPIv4 = "/wallet/openApi/v4"
 	pathAccountSingle   = pathWalletOpenAPIv4 + "/account/single" // GET 实时金额（单账户）
 
-	pathMatrixOpenAPIv4       = "/matrix/openApi/v4"
-	pathCreateMatrixAccount   = pathMatrixOpenAPIv4 + "/createMatrixAccount" // POST 创建 matrix 账户
+	pathMatrixOpenAPIv4     = "/matrix/openApi/v4"
+	pathCreateMatrixAccount = pathMatrixOpenAPIv4 + "/createMatrixAccount" // POST 创建 matrix 账户
+	pathMatrixTransfer      = pathMatrixOpenAPIv4 + "/transfer"            // POST 会员与 matrix 资金划转
 
 	// DefaultGzyAccountID 光子易默认钱包账户 ID（openCard / preRecharge 等未配置 gzy.account-id 时使用）。
 	DefaultGzyAccountID = "FA-USD2052566705788575744"
@@ -42,11 +43,12 @@ const (
 	// GET /vcc/openApi/v4/getCvv?cardId= 查询卡 CVV
 	pathGetCvv = pathVccOpenAPIv4 + "/getCvv"
 	// GET /vcc/openApi/v4/getCardBin 可用卡 BIN 列表
-	pathGetCardBin = pathVccOpenAPIv4 + "/getCardBin"
-	pathCardOpChangeLimit = pathVccOpenAPIv4 + "/changeSubAuthLimit"
-	pathPreRecharge       = pathVccOpenAPIv4 + "/preRecharge"    // GET 换汇询价
-	pathRecharge          = pathVccOpenAPIv4 + "/recharge"       // POST 转入下单（须先 preRecharge）
-	pathRechargeReturn    = pathVccOpenAPIv4 + "/rechargeReturn" // 卡金额退还
+	pathGetCardBin        = pathVccOpenAPIv4 + "/getCardBin"
+	pathCardOpChangeLimit = pathVccOpenAPIv4 + "/changeSubAuthLimit" // 旧路径兼容；gzy 调额实际走 updateCard
+	pathUpdateCard        = pathVccOpenAPIv4 + "/updateCard"         // POST 更新卡（含 transactionLimit）
+	pathPreRecharge       = pathVccOpenAPIv4 + "/preRecharge"        // GET 换汇询价
+	pathRecharge          = pathVccOpenAPIv4 + "/recharge"           // POST 转入下单（须先 preRecharge）
+	pathRechargeReturn    = pathVccOpenAPIv4 + "/rechargeReturn"     // 卡金额退还
 	pathCardOpCancel      = pathVccOpenAPIv4 + "/cancelCard"
 
 	pathPagingVccTradeOrder = pathVccOpenAPIv4 + "/pagingVccTradeOrder" // 卡交易明细分页

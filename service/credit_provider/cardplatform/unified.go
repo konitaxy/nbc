@@ -58,11 +58,14 @@ type UnifiedCreateCardRequest struct {
 	CardBin         string // 真实 BIN（Photon openCard cardBin）；gzy 必填
 	Amount          string
 	AccountCurrency string
+	AccountID       string // 光子易账户 ID（account/single 的 accountNo）；空则 gzy 用配置默认
+	MemberID        string // 光子易会员号；共享卡绑定矩阵时由 account/single 回填
 	CardHolderID    string
 	CardModel       string
 	PrimaryCardID   string
 	TotalAuthLimit  string
 	AuthLimitFlag   string
+	MatrixAccount   string // 客户矩阵账户号（有则传给 gzy openCard）
 }
 
 // UnifiedCreateCardResponse 开卡结果。
@@ -118,15 +121,15 @@ type UnifiedQueryTransactionsPageRequest struct {
 
 // UnifiedCardTransaction 交易明细一行（公共子集）。
 type UnifiedCardTransaction struct {
-	TransactionID         string
-	CardID                string
-	Status                string
-	TransactionType       string
-	TransactionAmount     decimal.Decimal
-	TransactionCurrency   string
-	CreatedAt             string
-	MerchantName          string
-	RawProvider           string // "cardbin" | "gzy"，便于下游按需解析扩展字段
+	TransactionID       string
+	CardID              string
+	Status              string
+	TransactionType     string
+	TransactionAmount   decimal.Decimal
+	TransactionCurrency string
+	CreatedAt           string
+	MerchantName        string
+	RawProvider         string // "cardbin" | "gzy"，便于下游按需解析扩展字段
 }
 
 // UnifiedTransactionPage 交易明细分页。

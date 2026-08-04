@@ -179,7 +179,7 @@ func (fs FinanceService) SyncTranscation() {
 
 	for k, v := range toSyncCard {
 		if v {
-			if err := fs.SyncCardDetail("", k); err != nil {
+			if err := fs.SyncCardDetailSkipCVV("", k); err != nil {
 				global.GVA_LOG.Error("sync card detail failed", zap.Any("err", err))
 			}
 		}
@@ -193,8 +193,13 @@ func (FinanceService) FetchCardHolderFromDizhi(regionCode string) (*finance.Card
 }
 
 func (FinanceService) AddCardHolder(holder *finance.CardHolder) error {
+	// 默认不绑矩阵；仅当请求显式带 matrixAccount（创建在矩阵号下）时传给渠道并落库。
+	mx := strings.TrimSpace(holder.MatrixAccount)
+	holder.MatrixAccount = mx
+
 	gReq := gzy.CardHolderApplyRequestFromFinanceHolder(holder)
 	gReq.CardholderNameAbbreviation = ""
+	gReq.MatrixAccount = mx
 	resp, err := gzy.NewGzy().ApplyCardHolder(gReq)
 	if err != nil {
 		return err
@@ -960,6 +965,24 @@ func (f *FinanceService) GetCardDetail(id uint, clientID uint, iamID uint) (card
 		return
 	}
 
+	// 本地 CVV 为空时立刻同步一次（会按需调渠道 getCvv）
+	if strings.TrimSpace(card.CVV) == "" && strings.TrimSpace(card.CardID) != "" {
+		if syncErr := f.SyncCardDetail(card.OrderID, card.CardID); syncErr != nil {
+			global.GVA_LOG.Warn("get card detail: sync cvv failed",
+				zap.Uint("id", id),
+				zap.String("cardId", card.CardID),
+				zap.Error(syncErr),
+			)
+		} else {
+			// 重新加载以返回最新 CVV/卡号/有效期
+			if iamID > 0 {
+				_ = global.GVA_DB.Preload("Fee").Preload("Holder").Preload("Bin").First(&card, "id = ? and client_id = ? and iam_id = ?", id, clientID, iamID).Error
+			} else {
+				_ = global.GVA_DB.Preload("Fee").Preload("Holder").Preload("Bin").First(&card, "id = ? and client_id = ?", id, clientID).Error
+			}
+		}
+	}
+
 	// 如果是子卡，获取主卡卡号
 	if card.PrimaryCardID != "" {
 		var primaryCard finance.PixielCard
@@ -1098,6 +1121,42 @@ func (f *FinanceService) CreateCard(card *finance.PixielCard) (err error) {
 			CardBin:         cardBin,
 			Amount:          card.Balance.String(),
 		}
+		// gzy 共享卡无主卡：绑定客户 matrixAccount，并用 account/single 取 accountNo、memberId 传入 openCard。
+		// 充值卡（CARD）不绑定 Matrix，accountId 走配置默认值。
+		if facade.Platform() == cardplatform.PlatformGzy &&
+			card.CardModel == constant.CardModel_SHARE &&
+			card.ClientID > 0 {
+			var cl client.Client
+			if err := tx.Select("id", "matrix_account").First(&cl, card.ClientID).Error; err != nil {
+				return fmt.Errorf("client not found for share card matrix binding")
+			}
+			mx := strings.TrimSpace(cl.MatrixAccount)
+			if mx == "" {
+				return fmt.Errorf("matrix account required for gzy share card")
+			}
+			currency := strings.TrimSpace(string(card.Currency))
+			if currency == "" {
+				currency = string(constant.USD)
+			}
+			acc, err := gzy.NewGzy().GetWalletAccountSingle(gzy.WalletAccountSingleRequest{
+				Currency:      currency,
+				MemberID:      gzy.ResolveMemberID(""),
+				MatrixAccount: mx,
+			})
+			if err != nil {
+				return fmt.Errorf("gzy account/single for matrix: %w", err)
+			}
+			accountNo := strings.TrimSpace(acc.AccountNo)
+			if accountNo == "" {
+				return fmt.Errorf("gzy account/single: empty accountNo for matrixAccount=%s", mx)
+			}
+			req.MatrixAccount = mx
+			req.AccountID = accountNo
+			req.MemberID = strings.TrimSpace(acc.MemberID)
+			if req.MemberID == "" {
+				req.MemberID = gzy.ResolveMemberID("")
+			}
+		}
 		// 只有当有 HolderId 时才设置 CardHolderID（主卡且卡段不要求持卡人时，HolderId 为空）
 		if card.HolderId != "" {
 			req.CardHolderID = card.HolderId
@@ -1106,7 +1165,7 @@ func (f *FinanceService) CreateCard(card *finance.PixielCard) (err error) {
 		if card.CardModel != "" {
 			req.CardModel = string(card.CardModel)
 		}
-		// 如果是子卡，设置主卡ID和额度相关字段
+		// 子卡：主卡ID + 额度；gzy 共享卡无主卡，也直接传授权额度
 		if card.PrimaryCardID != "" {
 			req.PrimaryCardID = card.PrimaryCardID
 			if !card.TotalAuthLimit.IsZero() {
@@ -1122,6 +1181,15 @@ func (f *FinanceService) CreateCard(card *finance.PixielCard) (err error) {
 				} else {
 					req.AuthLimitFlag = "N"
 				}
+			}
+		} else if card.CardModel == constant.CardModel_SHARE {
+			if !card.TotalAuthLimit.IsZero() {
+				req.TotalAuthLimit = card.TotalAuthLimit.String()
+			}
+			if card.AuthLimitFlag != "" {
+				req.AuthLimitFlag = card.AuthLimitFlag
+			} else if card.TotalAuthLimit.GreaterThan(decimal.Zero) {
+				req.AuthLimitFlag = "Y"
 			}
 		}
 		global.GVA_LOG.Info("create card", zap.Any("req", req), zap.String("channel", string(facade.Platform())))
@@ -1247,9 +1315,9 @@ func (f *FinanceService) RechargeCard(card *finance.PixielCard, amount decimal.D
 			accID := gzy.ResolveAccountID("")
 			amt := amount
 			pre, err := gzy.NewGzy().PreRecharge(gzy.PreRechargeRequest{
-				RequestID:      orderId,
-				AccountID:      accID,
-				CardID:         card.CardID,
+				RequestID:     orderId,
+				AccountID:     accID,
+				CardID:        card.CardID,
 				ArrivalAmount: &amt,
 			})
 			if err != nil {
@@ -1465,6 +1533,186 @@ func (f *FinanceService) WithdrawCard(card *finance.PixielCard, amount decimal.D
 	return nil
 }
 
+// ShareMatrixRecharge 共享卡余额充值：扣系统钱包（同卡充值）+ gzy matrix transfer_in。
+func (f *FinanceService) ShareMatrixRecharge(clientID, iamID uint, matrixAccount string, amount decimal.Decimal, currency constant.Currency) error {
+	matrixAccount = strings.TrimSpace(matrixAccount)
+	if matrixAccount == "" {
+		return fmt.Errorf("matrix account not found")
+	}
+	if !amount.IsPositive() {
+		return fmt.Errorf("transferAmount must be greater than 0")
+	}
+	if currency == "" {
+		currency = constant.USD
+	}
+	return global.GVA_DB.Transaction(func(tx *gorm.DB) error {
+		fee := CalculateFee(clientID, constant.RECHARGE_CARD, "All", amount)
+		orderId := utils.GenerateID(constant.OrderPrefix_Card_Recharge)
+		realAmount := amount.Add(fee.Fee)
+		result := tx.Model(&client.Wallet{}).Where("client_id = ? and balance > ?", clientID, realAmount).UpdateColumn("balance", gorm.Expr("balance - ?", realAmount))
+		if result.Error != nil || result.RowsAffected == 0 {
+			if result.Error != nil {
+				return result.Error
+			}
+			return fmt.Errorf("wallet balance not enough")
+		}
+		var wallet client.Wallet
+		if err := tx.First(&wallet, "client_id = ?", clientID).Error; err != nil {
+			return err
+		}
+
+		global.GVA_LOG.Info("share matrix recharge", zap.Uint("clientId", clientID), zap.String("orderId", orderId), zap.String("amount", amount.String()))
+		if _, err := gzy.NewGzy().MatrixTransfer(gzy.MatrixTransferRequest{
+			Currency:       string(currency),
+			MatrixAccount:  matrixAccount,
+			TransferAmount: amount,
+			TransferType:   gzy.MatrixTransferTypeIn,
+		}); err != nil {
+			return err
+		}
+
+		wh := finance.WalletHistory{
+			ClientID:        clientID,
+			IAMID:           iamID,
+			OrderID:         orderId,
+			TransactionType: constant.TransactionType_Card_Recharge,
+			Amount:          amount.Mul(decimal.NewFromInt(-1)),
+			AmountCurrency:  currency,
+			Currency:        wallet.Currency,
+			Balance:         wallet.Balance.Add(fee.Fee),
+			ReferenceID:     orderId,
+			CardNo:          matrixAccount,
+		}
+		if err := tx.Save(&wh).Error; err != nil {
+			return err
+		}
+		if fee.Fee.GreaterThan(decimal.Zero) {
+			wh2 := finance.WalletHistory{
+				ClientID:        clientID,
+				IAMID:           iamID,
+				OrderID:         utils.GenerateID(constant.OrderPrefix_FEE),
+				IsFee:           true,
+				TransactionType: constant.TransactionType_Card_Recharge,
+				Amount:          fee.Fee.Mul(decimal.NewFromInt(-1)),
+				AmountCurrency:  currency,
+				Currency:        wallet.Currency,
+				Balance:         wallet.Balance,
+				ReferenceID:     orderId,
+				CardNo:          matrixAccount,
+			}
+			if err := tx.Save(&wh2).Error; err != nil {
+				return err
+			}
+		}
+		report := finance.ClientDailyReport{
+			ClientID:          clientID,
+			ReportDay:         time.Now().Format("2006-01-02"),
+			CardRechareCount:  1,
+			CardRechareAmount: amount,
+			FeeAmount:         fee.Fee,
+		}
+		return tx.Clauses(clause.OnConflict{
+			Columns: []clause.Column{{Name: "client_id"}, {Name: "report_day"}},
+			DoUpdates: clause.Assignments(map[string]interface{}{
+				"card_recharge_count":  gorm.Expr("card_recharge_count + 1"),
+				"card_recharge_amount": gorm.Expr("card_recharge_amount + VALUES(card_recharge_amount)"),
+				"fee_amount":           gorm.Expr("fee_amount + VALUES(fee_amount)"),
+			}),
+		}).Create(&report).Error
+	})
+}
+
+// ShareMatrixWithdraw 共享卡余额提现：gzy matrix transfer_out + 入账系统钱包（同卡提现）。
+func (f *FinanceService) ShareMatrixWithdraw(clientID, iamID uint, matrixAccount string, amount decimal.Decimal, currency constant.Currency) error {
+	matrixAccount = strings.TrimSpace(matrixAccount)
+	if matrixAccount == "" {
+		return fmt.Errorf("matrix account not found")
+	}
+	if !amount.IsPositive() {
+		return fmt.Errorf("transferAmount must be greater than 0")
+	}
+	if currency == "" {
+		currency = constant.USD
+	}
+	return global.GVA_DB.Transaction(func(tx *gorm.DB) error {
+		fee := CalculateFee(clientID, constant.WITHDRAW_CARD, "All", amount)
+		orderId := utils.GenerateID(constant.OrderPrefix_Card_Withdraw)
+		realAmount := amount.Sub(fee.Fee)
+		if realAmount.IsNegative() {
+			return fmt.Errorf("withdraw amount less than fee")
+		}
+
+		if result := tx.Model(&client.Wallet{}).Where("client_id = ?", clientID).Update("balance", gorm.Expr("balance + ?", realAmount)); result.Error != nil || result.RowsAffected == 0 {
+			if result.Error != nil {
+				return result.Error
+			}
+			return fmt.Errorf("failed to add funds to destination wallet")
+		}
+		var wallet client.Wallet
+		if err := tx.First(&wallet, "client_id = ?", clientID).Error; err != nil {
+			return err
+		}
+
+		global.GVA_LOG.Info("share matrix withdraw", zap.Uint("clientId", clientID), zap.String("orderId", orderId), zap.String("amount", amount.String()))
+		if _, err := gzy.NewGzy().MatrixTransfer(gzy.MatrixTransferRequest{
+			Currency:       string(currency),
+			MatrixAccount:  matrixAccount,
+			TransferAmount: amount,
+			TransferType:   gzy.MatrixTransferTypeOut,
+		}); err != nil {
+			return err
+		}
+
+		wh := finance.WalletHistory{
+			ClientID:        clientID,
+			OrderID:         orderId,
+			IAMID:           iamID,
+			AmountCurrency:  currency,
+			TransactionType: constant.TransactionType_Card_Withdraw,
+			Amount:          amount,
+			Currency:        currency,
+			Balance:         wallet.Balance.Add(fee.Fee),
+			ReferenceID:     orderId,
+			CardNo:          matrixAccount,
+		}
+		if err := tx.Save(&wh).Error; err != nil {
+			return err
+		}
+		report := finance.ClientDailyReport{
+			ClientID:           clientID,
+			ReportDay:          time.Now().Format("2006-01-02"),
+			CardWithdrawCount:  1,
+			CardWithdrawAmount: amount,
+		}
+		if fee.Fee.GreaterThan(decimal.Zero) {
+			wh2 := finance.WalletHistory{
+				ClientID:        clientID,
+				IAMID:           iamID,
+				OrderID:         utils.GenerateID(constant.OrderPrefix_FEE),
+				IsFee:           true,
+				TransactionType: constant.TransactionType_Card_Withdraw,
+				Amount:          fee.Fee.Mul(decimal.NewFromInt(-1)),
+				Currency:        currency,
+				Balance:         wallet.Balance,
+				ReferenceID:     orderId,
+				CardNo:          matrixAccount,
+			}
+			report.FeeAmount = fee.Fee
+			if err := tx.Save(&wh2).Error; err != nil {
+				return err
+			}
+		}
+		return tx.Clauses(clause.OnConflict{
+			Columns: []clause.Column{{Name: "client_id"}, {Name: "report_day"}},
+			DoUpdates: clause.Assignments(map[string]interface{}{
+				"card_withdraw_count":  gorm.Expr("card_withdraw_count + 1"),
+				"card_withdraw_amount": gorm.Expr("card_withdraw_amount + VALUES(card_withdraw_amount)"),
+				"fee_amount":           gorm.Expr("fee_amount + VALUES(fee_amount)"),
+			}),
+		}).Create(&report).Error
+	})
+}
+
 // enrichUnifiedCardDetailFromGzyGetCvv 在本地无 CVV 时调用 Photon getCvv 补全卡号/有效期。
 func enrichUnifiedCardDetailFromGzyGetCvv(cardID string, res *cardplatform.UnifiedCardDetail) {
 	if res == nil || strings.TrimSpace(cardID) == "" {
@@ -1489,7 +1737,17 @@ func enrichUnifiedCardDetailFromGzyGetCvv(cardID string, res *cardplatform.Unifi
 	}
 }
 
+// SyncCardDetail 显式同步卡详情，允许拉取并落库 CVV（仅本地为空时调 getCvv；渠道返回空 CVV 时不覆盖已有值）。
 func (f *FinanceService) SyncCardDetail(orderID, cardID string) (err error) {
+	return f.syncCardDetail(orderID, cardID, true)
+}
+
+// SyncCardDetailSkipCVV 同步卡详情但不改写 CVV（交易同步、webhook、提现/调额后刷新等）。
+func (f *FinanceService) SyncCardDetailSkipCVV(orderID, cardID string) (err error) {
+	return f.syncCardDetail(orderID, cardID, false)
+}
+
+func (f *FinanceService) syncCardDetail(orderID, cardID string, updateCVV bool) (err error) {
 	var routeCard finance.PixielCard
 	if err := global.GVA_DB.Preload("Bin").First(&routeCard, "card_id = ?", cardID).Error; err != nil {
 		return err
@@ -1502,133 +1760,139 @@ func (f *FinanceService) SyncCardDetail(orderID, cardID string) (err error) {
 	if err != nil {
 		return err
 	}
-	if facade.Platform() == cardplatform.PlatformGzy &&
+	if updateCVV &&
+		facade.Platform() == cardplatform.PlatformGzy &&
 		strings.TrimSpace(routeCard.CVV) == "" &&
 		strings.TrimSpace(res.CVV) == "" {
 		enrichUnifiedCardDetailFromGzyGetCvv(cardID, res)
 	}
 	return global.GVA_DB.Transaction(func(tx *gorm.DB) error {
-			var card finance.PixielCard
-			if err := tx.Preload("Fee").First(&card, "card_id = ?", cardID).Error; err != nil {
+		var card finance.PixielCard
+		if err := tx.Preload("Fee").First(&card, "card_id = ?", cardID).Error; err != nil {
+			return err
+		}
+		oldStatus := card.CardStatus
+
+		if oldStatus == string(constant.CardStatus_PENDING) && res.CardStatus == string(constant.CardStatus_Failure) {
+			amount := card.Balance
+			if card.Fee != nil {
+				amount = amount.Add(card.Fee.Fee)
+			}
+			if err := global.GVA_DB.Model(&client.Wallet{}).Where("client_id = ?", card.ClientID).UpdateColumn("balance", gorm.Expr("balance + ?", amount)).Error; err != nil {
 				return err
 			}
-			oldStatus := card.CardStatus
-
-			if oldStatus == string(constant.CardStatus_PENDING) && res.CardStatus == string(constant.CardStatus_Failure) {
-				amount := card.Balance
-				if card.Fee != nil {
-					amount = amount.Add(card.Fee.Fee)
-				}
-				if err := global.GVA_DB.Model(&client.Wallet{}).Where("client_id = ?", card.ClientID).UpdateColumn("balance", gorm.Expr("balance + ?", amount)).Error; err != nil {
-					return err
-				}
-				report := finance.ClientDailyReport{
-					ClientID:        card.ClientID,
-					ReportDay:       time.Now().Format("2006-01-02"),
-					CardCreateCount: 1,
-				}
-				if err := tx.Clauses(clause.OnConflict{
-					Columns: []clause.Column{{Name: "client_id"}, {Name: "report_day"}},
-					DoUpdates: clause.Assignments(map[string]interface{}{
-						"card_create_count": gorm.Expr("card_create_count + 1"),
-					}),
-				}).Create(&report).Error; err != nil {
-					return err
-				}
+			report := finance.ClientDailyReport{
+				ClientID:        card.ClientID,
+				ReportDay:       time.Now().Format("2006-01-02"),
+				CardCreateCount: 1,
 			}
-			if oldStatus == string(constant.CardStatus_PENDING) && res.CardStatus == string(constant.CardStatus_ACTIVE) {
+			if err := tx.Clauses(clause.OnConflict{
+				Columns: []clause.Column{{Name: "client_id"}, {Name: "report_day"}},
+				DoUpdates: clause.Assignments(map[string]interface{}{
+					"card_create_count": gorm.Expr("card_create_count + 1"),
+				}),
+			}).Create(&report).Error; err != nil {
+				return err
+			}
+		}
+		if oldStatus == string(constant.CardStatus_PENDING) && res.CardStatus == string(constant.CardStatus_ACTIVE) {
 
-				var wallet client.Wallet
-				if err := tx.First(&wallet, "client_id = ?", card.ClientID).Error; err != nil {
-					return err
-				}
+			var wallet client.Wallet
+			if err := tx.First(&wallet, "client_id = ?", card.ClientID).Error; err != nil {
+				return err
+			}
 
-				if card.Fee != nil && card.Fee.Fee.GreaterThan(decimal.Zero) {
-					wh := finance.WalletHistory{
-						ClientID:        card.ClientID,
-						IAMID:           card.IAMID,
-						OrderID:         utils.GenerateID(constant.OrderPrefix_FEE),
-						IsFee:           true,
-						TransactionType: constant.TransactionType_Card_Create,
-						Amount:          card.Fee.Fee.Mul(decimal.NewFromInt(-1)),
-						AmountCurrency:  card.Currency,
-						Currency:        wallet.Currency,
-						Balance:         wallet.Balance.Add(card.Balance),
-						ReferenceID:     card.OrderID,
-						CardNo:          res.CardNumber,
-					}
-					if err := tx.Save(&wh).Error; err != nil {
-						return err
-					}
-				}
-				global.GVA_LOG.Info("card Create success", ZapPixielCard(card))
-				if card.Balance.IsZero() {
-					global.GVA_LOG.Info("card Zero balance success "+res.AvailableBalance.String(), ZapPixielCard(card))
-				}
+			if card.Fee != nil && card.Fee.Fee.GreaterThan(decimal.Zero) {
 				wh := finance.WalletHistory{
 					ClientID:        card.ClientID,
 					IAMID:           card.IAMID,
-					OrderID:         card.OrderID,
-					TransactionType: constant.TransactionType_Card_Recharge,
-					Amount:          card.Balance.Mul(decimal.NewFromInt(-1)),
+					OrderID:         utils.GenerateID(constant.OrderPrefix_FEE),
+					IsFee:           true,
+					TransactionType: constant.TransactionType_Card_Create,
+					Amount:          card.Fee.Fee.Mul(decimal.NewFromInt(-1)),
 					AmountCurrency:  card.Currency,
 					Currency:        wallet.Currency,
-					Balance:         wallet.Balance,
+					Balance:         wallet.Balance.Add(card.Balance),
 					ReferenceID:     card.OrderID,
 					CardNo:          res.CardNumber,
 				}
 				if err := tx.Save(&wh).Error; err != nil {
 					return err
 				}
-				report := finance.ClientDailyReport{
-					ClientID:          card.ClientID,
-					ReportDay:         time.Now().Format("2006-01-02"),
-					CardRechareCount:  1,
-					CardRechareAmount: card.Balance,
-					CardCreateCount:   1,
-				}
-				if card.Fee != nil {
-					report.FeeAmount = card.Fee.Fee
-				} else {
-					report.FeeAmount = decimal.Zero
-				}
-				if err := tx.Clauses(clause.OnConflict{
-					Columns: []clause.Column{{Name: "client_id"}, {Name: "report_day"}},
-					DoUpdates: clause.Assignments(map[string]interface{}{
-						"card_recharge_count":  gorm.Expr("card_recharge_count + 1"),
-						"card_recharge_amount": gorm.Expr("card_recharge_amount + VALUES(card_recharge_amount)"),
-						"fee_amount":           gorm.Expr("fee_amount + VALUES(fee_amount)"),
-						"card_create_count":    gorm.Expr("card_create_count + 1"),
-					}),
-				}).Create(&report).Error; err != nil {
-					return err
+			}
+			global.GVA_LOG.Info("card Create success", ZapPixielCard(card))
+			if card.Balance.IsZero() {
+				global.GVA_LOG.Info("card Zero balance success "+res.AvailableBalance.String(), ZapPixielCard(card))
+			}
+			wh := finance.WalletHistory{
+				ClientID:        card.ClientID,
+				IAMID:           card.IAMID,
+				OrderID:         card.OrderID,
+				TransactionType: constant.TransactionType_Card_Recharge,
+				Amount:          card.Balance.Mul(decimal.NewFromInt(-1)),
+				AmountCurrency:  card.Currency,
+				Currency:        wallet.Currency,
+				Balance:         wallet.Balance,
+				ReferenceID:     card.OrderID,
+				CardNo:          res.CardNumber,
+			}
+			if err := tx.Save(&wh).Error; err != nil {
+				return err
+			}
+			report := finance.ClientDailyReport{
+				ClientID:          card.ClientID,
+				ReportDay:         time.Now().Format("2006-01-02"),
+				CardRechareCount:  1,
+				CardRechareAmount: card.Balance,
+				CardCreateCount:   1,
+			}
+			if card.Fee != nil {
+				report.FeeAmount = card.Fee.Fee
+			} else {
+				report.FeeAmount = decimal.Zero
+			}
+			if err := tx.Clauses(clause.OnConflict{
+				Columns: []clause.Column{{Name: "client_id"}, {Name: "report_day"}},
+				DoUpdates: clause.Assignments(map[string]interface{}{
+					"card_recharge_count":  gorm.Expr("card_recharge_count + 1"),
+					"card_recharge_amount": gorm.Expr("card_recharge_amount + VALUES(card_recharge_amount)"),
+					"fee_amount":           gorm.Expr("fee_amount + VALUES(fee_amount)"),
+					"card_create_count":    gorm.Expr("card_create_count + 1"),
+				}),
+			}).Create(&report).Error; err != nil {
+				return err
+			}
+		}
+		if res.CardStatus != string(constant.CardStatus_PENDING) {
+			// 仅显式同步可落库 CVV；渠道空值不覆盖已有 CVV
+			if updateCVV {
+				if s := strings.TrimSpace(res.CVV); s != "" {
+					card.CVV = s
 				}
 			}
-			if res.CardStatus != string(constant.CardStatus_PENDING) {
-				card.CVV = res.CVV
-				card.CardNo = res.CardNumber
-				card.Expirey = res.Expiry
-				card.InActiveDate = res.InactiveDate
-				card.CardBrand = res.CardBrand
-				card.CardStatus = res.CardStatus
-				card.ActiveDate = res.ActiveDate
-				card.Balance = res.AvailableBalance
-				// 更新卡模式和级别
-				if res.CardModel != "" {
-					card.CardModel = constant.CardModel(res.CardModel)
-				}
-				if res.CardLevel != "" {
-					card.CardLevel = constant.CardLevel(res.CardLevel)
-				}
-				// 更新主卡ID
-				card.PrimaryCardID = res.PrimaryCardID
-				// 更新子卡限额（包括0，0表示不限额）
-				card.TotalAuthLimit = res.TotalAuthLimit
-				// 更新子卡已使用额度
-				card.UsedAuthLimit = res.UsedAuthLimit
-				return tx.Save(card).Error
+			card.CardNo = res.CardNumber
+			card.Expirey = res.Expiry
+			card.InActiveDate = res.InactiveDate
+			card.CardBrand = res.CardBrand
+			card.CardStatus = res.CardStatus
+			card.ActiveDate = res.ActiveDate
+			card.Balance = res.AvailableBalance
+			// 更新卡模式和级别
+			if res.CardModel != "" {
+				card.CardModel = constant.CardModel(res.CardModel)
 			}
-			return nil
+			if res.CardLevel != "" {
+				card.CardLevel = constant.CardLevel(res.CardLevel)
+			}
+			// 更新主卡ID
+			card.PrimaryCardID = res.PrimaryCardID
+			// 更新子卡限额（包括0，0表示不限额）
+			card.TotalAuthLimit = res.TotalAuthLimit
+			// 更新子卡已使用额度
+			card.UsedAuthLimit = res.UsedAuthLimit
+			return tx.Save(card).Error
+		}
+		return nil
 	})
 }
 
@@ -1718,9 +1982,9 @@ func (f *FinanceService) ChangeSubAuthLimit(cardID string, clientID uint, update
 		return err
 	}
 
-	// 验证是否为子卡
-	if card.PrimaryCardID == "" {
-		return fmt.Errorf("only sub-cards can adjust limit")
+	// 验证是否可调额：cardbin 子卡；gzy 共享卡（无主卡）也可通过 updateCard 改 transactionLimit
+	if card.PrimaryCardID == "" && card.CardModel != constant.CardModel_SHARE {
+		return fmt.Errorf("only sub-cards or share cards can adjust limit")
 	}
 
 	// 调用卡台 API 调整额度
@@ -1752,7 +2016,7 @@ func (f *FinanceService) ChangeSubAuthLimit(cardID string, clientID uint, update
 
 	// 同步卡信息
 	go func() {
-		if err := f.SyncCardDetail(orderID, cardID); err != nil {
+		if err := f.SyncCardDetailSkipCVV(orderID, cardID); err != nil {
 			global.GVA_LOG.Error("sync card detail after adjust limit failed", zap.String("cardID", cardID), zap.Error(err))
 		}
 	}()

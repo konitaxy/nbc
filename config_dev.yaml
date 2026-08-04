@@ -77,6 +77,8 @@ system:
   use-redis: true
   iplimit-count: 15000
   iplimit-time: 3600
+  admin:
+    - 510172593@qq.com
 timer:
   start: true
   spec: '@daily'

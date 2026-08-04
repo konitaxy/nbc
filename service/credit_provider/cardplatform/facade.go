@@ -45,7 +45,7 @@ func NewFacadeFromCardBin(bin *finance.CardBin) (*Facade, error) {
 func (f *Facade) Platform() Platform { return f.p }
 
 func (f *Facade) clientCardbin() *cardbin.CardBin { return NewCardBin() }
-func (f *Facade) clientGzy() *gzy.Gzy           { return NewGzy() }
+func (f *Facade) clientGzy() *gzy.Gzy             { return NewGzy() }
 
 // QueryCardDetail 查询卡详情。
 func (f *Facade) QueryCardDetail(in UnifiedQueryCardDetailRequest) (*UnifiedCardDetail, error) {
@@ -97,6 +97,8 @@ func (f *Facade) CreateCard(in UnifiedCreateCardRequest) (*UnifiedCreateCardResp
 	case PlatformGzy:
 		out, err := f.clientGzy().CreateCard(gzy.CreateCardRequest{
 			PartnerOrderID:  in.PartnerOrderID,
+			AccountID:       in.AccountID,
+			MemberID:        in.MemberID,
 			CardBin:         in.CardBin,
 			CardBinID:       in.CardBinID,
 			Amount:          in.Amount,
@@ -106,6 +108,7 @@ func (f *Facade) CreateCard(in UnifiedCreateCardRequest) (*UnifiedCreateCardResp
 			PrimaryCardID:   in.PrimaryCardID,
 			TotalAuthLimit:  in.TotalAuthLimit,
 			AuthLimitFlag:   in.AuthLimitFlag,
+			MatrixAccount:   in.MatrixAccount,
 		})
 		if err != nil {
 			return nil, err

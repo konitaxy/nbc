@@ -309,20 +309,20 @@ func init() {
 					},
 				},
 				// 临时隐藏共享卡菜单
-				// {
-				// 	MenuId: "22",
-				//
-				// 	Children:   nil,
-				// 	Parameters: nil,
-				// 	SysBaseMenu: system.SysBaseMenu{
-				// 		Hidden:    false,
-				// 		Path:      "shareCard",
-				// 		Name:      "shareCard",
-				// 		Component: "view/pixal/card/sharedCard.vue",
-				// 		Sort:      1,
-				// 		Meta:      system.Meta{Title: "share_card", Icon: "", BootstrapIcon: "", CloseTab: false, DefaultMenu: false},
-				// 	},
-				// },
+				{
+					MenuId: "22",
+				
+					Children:   nil,
+					Parameters: nil,
+					SysBaseMenu: system.SysBaseMenu{
+						Hidden:    false,
+						Path:      "shareCard",
+						Name:      "shareCard",
+						Component: "view/pixal/card/sharedCard.vue",
+						Sort:      1,
+						Meta:      system.Meta{Title: "share_card", Icon: "", BootstrapIcon: "", CloseTab: false, DefaultMenu: false},
+					},
+				},
 				{
 					MenuId: "23",
 

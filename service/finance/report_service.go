@@ -235,7 +235,10 @@ func (ReportService) GroupDailyReportByClient(search request.ReportRequest) (tot
 	return
 }
 func (r *ReportService) GetCardbalanceByClient(clientID uint) (card finance.PixielCard, err error) {
-	err = global.GVA_DB.Select("sum(balance) as balance").Where("client_id = ?", clientID).First(&card).Error
+	// 客户端总卡余额统计排除共享卡（SHARE）余额
+	err = global.GVA_DB.Select("sum(balance) as balance").
+		Where("client_id = ? AND (card_model IS NULL OR card_model <> ?)", clientID, constant.CardModel_SHARE).
+		First(&card).Error
 	return
 }
 func (r *ReportService) StaticsCard(cardID string, clientID uint) (reports []response.CardReport, err error) {

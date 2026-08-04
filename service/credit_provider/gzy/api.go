@@ -518,6 +518,68 @@ func (g *Gzy) CreateMatrixAccount(req CreateMatrixAccountRequest) (*CreateMatrix
 	return &out, nil
 }
 
+// MatrixTransfer POST /matrix/openApi/v4/transfer：会员账户与 matrix 账户之间资金划转。
+// transfer_in：会员 → matrix；transfer_out：matrix → 会员。
+func (g *Gzy) MatrixTransfer(req MatrixTransferRequest) (*MatrixTransferResponse, error) {
+	currency := strings.ToUpper(strings.TrimSpace(req.Currency))
+	if currency == "" {
+		currency = "USD"
+	}
+	mx := strings.TrimSpace(req.MatrixAccount)
+	if mx == "" {
+		return nil, fmt.Errorf("gzy matrixTransfer: matrixAccount 不能为空")
+	}
+	tt := strings.TrimSpace(req.TransferType)
+	if tt != MatrixTransferTypeIn && tt != MatrixTransferTypeOut {
+		return nil, fmt.Errorf("gzy matrixTransfer: transferType 须为 %s 或 %s", MatrixTransferTypeIn, MatrixTransferTypeOut)
+	}
+	if !req.TransferAmount.IsPositive() {
+		return nil, fmt.Errorf("gzy matrixTransfer: transferAmount 须大于 0")
+	}
+	bodyStruct := MatrixTransferRequest{
+		Currency:       currency,
+		MatrixAccount:  mx,
+		TransferAmount: req.TransferAmount,
+		TransferType:   tt,
+		MemberID:       ResolveMemberID(req.MemberID),
+	}
+	if bodyStruct.MemberID == "" {
+		return nil, fmt.Errorf("gzy matrixTransfer: memberId 未配置（gzy.member-id）")
+	}
+	bodyBytes, err := json.Marshal(bodyStruct)
+	if err != nil {
+		return nil, fmt.Errorf("gzy matrixTransfer: marshal: %w", err)
+	}
+	reqURL := strings.TrimRight(g.BaseURL, "/") + pathMatrixTransfer
+	hreq, err := g.newRequest(http.MethodPost, reqURL, bodyBytes)
+	if err != nil {
+		return nil, err
+	}
+	resp, err := g.client.Do(hreq)
+	if err != nil {
+		return nil, fmt.Errorf("gzy matrixTransfer: %w", err)
+	}
+	defer resp.Body.Close()
+	body, err := readBody(resp)
+	if err != nil {
+		return nil, err
+	}
+	if err := httpPhotonOrBodyError(resp.StatusCode, body); err != nil {
+		return nil, err
+	}
+	var env matrixTransferV4Envelope
+	if err := json.Unmarshal(body, &env); err != nil {
+		return nil, fmt.Errorf("gzy matrixTransfer: decode: %w", err)
+	}
+	if strings.TrimSpace(env.Code) != "0000" {
+		return nil, gzyAPIFailure(strings.TrimSpace(env.Code), strings.TrimSpace(env.Msg))
+	}
+	return &MatrixTransferResponse{
+		Code: strings.TrimSpace(env.Code),
+		Msg:  strings.TrimSpace(env.Msg),
+	}, nil
+}
+
 // addCardholderV4Envelope POST /vcc/openApi/v4/addCardholder 应答外层。
 type addCardholderV4Envelope struct {
 	Code   string          `json:"code"`
@@ -538,6 +600,15 @@ type editCardholderV4Envelope struct {
 
 // createMatrixAccountV4Envelope POST /matrix/openApi/v4/createMatrixAccount 应答外层。
 type createMatrixAccountV4Envelope struct {
+	Code   string          `json:"code"`
+	Msg    string          `json:"msg"`
+	Data   json.RawMessage `json:"data"`
+	Method string          `json:"method,omitempty"`
+	Path   string          `json:"path,omitempty"`
+}
+
+// matrixTransferV4Envelope POST /matrix/openApi/v4/transfer 应答外层。
+type matrixTransferV4Envelope struct {
 	Code   string          `json:"code"`
 	Msg    string          `json:"msg"`
 	Data   json.RawMessage `json:"data"`
@@ -1028,25 +1099,47 @@ func (g *Gzy) ListCardBin() ([]CardBinItem, error) {
 }
 
 func (g *Gzy) ChangeSubAuthLimit(req ChangeSubAuthLimitRequest) (*string, error) {
-	baseURL := g.BaseURL + pathCardOpChangeLimit
-
-	jsonBytes, err := json.Marshal(req)
-	if err != nil {
-		return nil, fmt.Errorf("failed to marshal request body: %v", err)
+	cardID := strings.TrimSpace(req.CardID)
+	requestID := strings.TrimSpace(req.PartnerOrderID)
+	if cardID == "" {
+		return nil, fmt.Errorf("gzy updateCard: cardId 不能为空")
+	}
+	if requestID == "" {
+		return nil, fmt.Errorf("gzy updateCard: requestId 不能为空")
+	}
+	if req.UpdateAmount.IsZero() {
+		return nil, fmt.Errorf("gzy updateCard: update_amount 不能为 0")
 	}
 
-	hreq, err := g.newRequest("POST", baseURL, jsonBytes)
-	if err != nil {
-		return nil, fmt.Errorf("failed to create request: %v", err)
+	changeType := "increase"
+	limitAmt := req.UpdateAmount
+	if req.UpdateAmount.IsNegative() {
+		changeType = "decrease"
+		limitAmt = req.UpdateAmount.Abs()
 	}
 
-	client := g.client
-	resp, err := client.Do(hreq)
+	bodyStruct := UpdateCardRequest{
+		CardID:                     cardID,
+		RequestID:                  requestID,
+		TransactionLimit:           &limitAmt,
+		TransactionLimitChangeType: changeType,
+		TransactionLimitType:       "limited",
+	}
+	jsonBytes, err := json.Marshal(bodyStruct)
 	if err != nil {
-		return nil, fmt.Errorf("failed to send request: %v", err)
+		return nil, fmt.Errorf("gzy updateCard: marshal: %w", err)
+	}
+
+	reqURL := strings.TrimRight(g.BaseURL, "/") + pathUpdateCard
+	hreq, err := g.newRequest("POST", reqURL, jsonBytes)
+	if err != nil {
+		return nil, err
+	}
+	resp, err := g.client.Do(hreq)
+	if err != nil {
+		return nil, fmt.Errorf("gzy updateCard: %w", err)
 	}
 	defer resp.Body.Close()
-
 	body, err := readBody(resp)
 	if err != nil {
 		return nil, err
@@ -1054,12 +1147,21 @@ func (g *Gzy) ChangeSubAuthLimit(req ChangeSubAuthLimitRequest) (*string, error)
 	if err := httpPhotonOrBodyError(resp.StatusCode, body); err != nil {
 		return nil, err
 	}
-	var out string
-	if err := decodePhotonJSON(body, &out); err != nil {
-		return nil, err
+	var env updateCardV4Envelope
+	if err := json.Unmarshal(body, &env); err != nil {
+		return nil, fmt.Errorf("gzy updateCard: decode: %w", err)
 	}
-
+	if strings.TrimSpace(env.Code) != "0000" {
+		return nil, gzyAPIFailure(strings.TrimSpace(env.Code), strings.TrimSpace(env.Msg))
+	}
+	out := requestID
 	return &out, nil
+}
+
+type updateCardV4Envelope struct {
+	Code string          `json:"code"`
+	Msg  string          `json:"msg"`
+	Data json.RawMessage `json:"data"`
 }
 
 // --- GET /vcc/openApi/v4/preRecharge；POST /vcc/openApi/v4/recharge（两步转入）---
@@ -1649,10 +1751,12 @@ type freezeCardV4Envelope struct {
 type openCardV4Wire struct {
 	RequestID            string           `json:"requestId"`
 	AccountID            string           `json:"accountId"` // 转入所用币种的光子易账户 ID（wallet/account/single 的 accountNo）
+	MemberID             string           `json:"memberId,omitempty"`
 	CardBin              string           `json:"cardBin"`
 	CardCurrency         string           `json:"cardCurrency"`
 	CardType             string           `json:"cardType"`
 	CardholderID         string           `json:"cardholderId,omitempty"`
+	MatrixAccount        string           `json:"matrixAccount,omitempty"` // 客户矩阵账户号
 	ArrivalAmount        *decimal.Decimal `json:"arrivalAmount,omitempty"` // 希望到账金额（与 rechargeAmount 择一；openCard 使用到账金额）
 	TransactionLimit     *decimal.Decimal `json:"transactionLimit,omitempty"`
 	TransactionLimitType string           `json:"transactionLimitType,omitempty"`
@@ -1694,6 +1798,14 @@ func ResolveAccountID(override string) string {
 	return DefaultGzyAccountID
 }
 
+// ResolveMemberID 解析光子易会员号：请求覆盖 > 配置 gzy.member-id。
+func ResolveMemberID(override string) string {
+	if s := strings.TrimSpace(override); s != "" {
+		return s
+	}
+	return strings.TrimSpace(global.GVA_CONFIG.Gzy.MemberID)
+}
+
 func resolveOpenCardAccountID(req *CreateCardRequest) string {
 	if req != nil {
 		return ResolveAccountID(req.AccountID)
@@ -1703,12 +1815,14 @@ func resolveOpenCardAccountID(req *CreateCardRequest) string {
 
 func createCardRequestToOpenCardV4(req *CreateCardRequest) (*openCardV4Wire, error) {
 	w := &openCardV4Wire{
-		RequestID:    strings.TrimSpace(req.PartnerOrderID),
-		AccountID:    resolveOpenCardAccountID(req),
-		CardBin:      strings.TrimSpace(req.CardBin),
-		CardCurrency: strings.TrimSpace(req.AccountCurrency),
-		CardType:     cardModelToPhotonV4CardType(req.CardModel),
-		CardholderID: strings.TrimSpace(req.CardHolderID),
+		RequestID:     strings.TrimSpace(req.PartnerOrderID),
+		AccountID:     resolveOpenCardAccountID(req),
+		MemberID:      strings.TrimSpace(req.MemberID),
+		CardBin:       strings.TrimSpace(req.CardBin),
+		CardCurrency:  strings.TrimSpace(req.AccountCurrency),
+		CardType:      cardModelToPhotonV4CardType(req.CardModel),
+		CardholderID:  strings.TrimSpace(req.CardHolderID),
+		MatrixAccount: strings.TrimSpace(req.MatrixAccount),
 	}
 	if a := strings.TrimSpace(req.Amount); a != "" && a != "0" {
 		d, err := decimal.NewFromString(a)
@@ -1719,7 +1833,22 @@ func createCardRequestToOpenCardV4(req *CreateCardRequest) (*openCardV4Wire, err
 			w.ArrivalAmount = &d
 		}
 	}
-	if strings.TrimSpace(req.PrimaryCardID) != "" {
+	// 共享卡：固定 limited，transactionLimit = 授权额度（total_auth_limit）
+	if cardModelToPhotonV4CardType(req.CardModel) == "share" {
+		limStr := strings.TrimSpace(req.TotalAuthLimit)
+		if limStr == "" {
+			return nil, fmt.Errorf("gzy CreateCard: share 卡须传 total_auth_limit（授权额度）")
+		}
+		lim, err := decimal.NewFromString(limStr)
+		if err != nil {
+			return nil, fmt.Errorf("gzy CreateCard: total_auth_limit 非法: %w", err)
+		}
+		if !lim.IsPositive() {
+			return nil, fmt.Errorf("gzy CreateCard: share 卡 total_auth_limit 须为正数")
+		}
+		w.TransactionLimitType = "limited"
+		w.TransactionLimit = &lim
+	} else if strings.TrimSpace(req.PrimaryCardID) != "" {
 		if strings.EqualFold(strings.TrimSpace(req.AuthLimitFlag), "Y") && strings.TrimSpace(req.TotalAuthLimit) != "" {
 			lim, err := decimal.NewFromString(strings.TrimSpace(req.TotalAuthLimit))
 			if err != nil {

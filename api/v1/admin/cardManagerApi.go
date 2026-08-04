@@ -78,7 +78,7 @@ func (*CardManagerApi) CardbinHook(c *gin.Context) {
 						return
 					} else {
 						go func() {
-							financeService.SyncCardDetail(v.PartnerOrderID, v.CardID)
+							financeService.SyncCardDetailSkipCVV(v.PartnerOrderID, v.CardID)
 						}()
 					}
 				} else {
@@ -109,7 +109,7 @@ func (*CardManagerApi) CardbinHook(c *gin.Context) {
 					return
 				}
 				go func() {
-					financeService.SyncCardDetail(v.PartnerOrderID, v.CardID)
+					financeService.SyncCardDetailSkipCVV(v.PartnerOrderID, v.CardID)
 				}()
 
 			}
@@ -158,7 +158,7 @@ func (*CardManagerApi) CardbinHook(c *gin.Context) {
 						return
 					} else {
 						go func() {
-							financeService.SyncCardDetail("", v.CardID)
+							financeService.SyncCardDetailSkipCVV("", v.CardID)
 						}()
 					}
 				}

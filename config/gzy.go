@@ -21,4 +21,6 @@ type Gzy struct {
 
 	// AccountID 光子易钱包账户 ID（account/single 的 accountNo）；未配置时使用代码默认 FA-USD2052566705788575744。
 	AccountID string `mapstructure:"account-id" json:"account-id" yaml:"account-id"`
+	// MemberID 光子易会员号（matrix 划转等）；配置键 member-id（兼容历史误写 menber-id）。
+	MemberID string `mapstructure:"member-id" json:"member-id" yaml:"member-id"`
 }

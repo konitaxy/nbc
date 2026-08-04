@@ -18,6 +18,7 @@ import (
 	"gitlab.com/ucard/model/finance"
 	"gitlab.com/ucard/model/finance/request"
 	finresp "gitlab.com/ucard/model/finance/response"
+	"gitlab.com/ucard/service/credit_provider/gzy"
 	"gitlab.com/ucard/utils"
 	"go.uber.org/zap"
 )
@@ -399,20 +400,14 @@ func (f *FinanceApi) OpenCard(c *gin.Context) {
 			return
 		}
 
-		// 判断是否需要持卡人：
-		// 1. 如果是主卡（PrimaryCardID为空）且CardModel是SHARE，则不需要持卡人
-
-		noNeedCardHolder := req.CardModel == string(constant.CardModel_SHARE) && req.PrimaryCardID == ""
-
-		if !noNeedCardHolder {
-			if req.CardHolderId == "" {
-				response.FailWithMessage("Card holder ID is required", c)
-				return
-			}
-			if holder, _ := financeService.GetCardHolderByID(req.CardHolderId, TenantID); holder.ID == 0 {
-				response.FailWithMessage("Card holder not exist", c)
-				return
-			}
+		// 共享卡固定开子卡，需要持卡人
+		if req.CardHolderId == "" {
+			response.FailWithMessage("Card holder ID is required", c)
+			return
+		}
+		if holder, _ := financeService.GetCardHolderByID(req.CardHolderId, TenantID); holder.ID == 0 {
+			response.FailWithMessage("Card holder not exist", c)
+			return
 		}
 
 		if req.CardModel == string(constant.CardModel_CARD) && req.Amount.LessThan(cb.CreateRechargeLimit) {
@@ -438,24 +433,29 @@ func (f *FinanceApi) OpenCard(c *gin.Context) {
 				GroupID:       req.GroupID,
 				PrimaryCardID: req.PrimaryCardID,
 			}
-			// 如果是主卡且卡段不要求持卡人，则不设置 HolderId
-			if !noNeedCardHolder {
-				card.HolderId = req.CardHolderId
-			}
+			// 设置持卡人
+			card.HolderId = req.CardHolderId
 
 			// 设置卡模式
 			if req.CardModel != "" {
 				card.CardModel = constant.CardModel(req.CardModel)
 			}
 
-			// 如果是子卡，设置额度相关字段
+			// 共享卡：无主卡也记为子卡，并带授权额度；有主卡时挂在主卡下
 			if req.PrimaryCardID != "" {
 				card.TotalAuthLimit = req.TotalAuthLimit
-				// 设置是否限额标志
 				if req.AuthLimitFlag != "" {
 					card.AuthLimitFlag = req.AuthLimitFlag
 				}
 				card.CardLevel = constant.CardLevel_SubCard
+			} else if req.CardModel == string(constant.CardModel_SHARE) {
+				card.CardLevel = constant.CardLevel_SubCard
+				card.TotalAuthLimit = req.TotalAuthLimit
+				if req.AuthLimitFlag != "" {
+					card.AuthLimitFlag = req.AuthLimitFlag
+				} else if req.TotalAuthLimit.GreaterThan(decimal.Zero) {
+					card.AuthLimitFlag = "Y"
+				}
 			} else {
 				card.CardLevel = constant.CardLevel_MasterCard
 			}
@@ -508,9 +508,9 @@ func (f *FinanceApi) ChangeSubAuthLimit(c *gin.Context) {
 		return
 	}
 
-	// 验证是否为子卡
-	if card.PrimaryCardID == "" {
-		response.FailWithMessage("only sub-cards can adjust limit", c)
+	// 验证是否可调额：cardbin 子卡；gzy 共享卡（无主卡）也可通过 updateCard 改 transactionLimit
+	if card.PrimaryCardID == "" && card.CardModel != constant.CardModel_SHARE {
+		response.FailWithMessage("only sub-cards or share cards can adjust limit", c)
 		return
 	}
 
@@ -780,6 +780,127 @@ func (f *FinanceApi) PreRecharge(c *gin.Context) {
 	response.OkWithData(data, c)
 }
 
+// GzyAccountSingle 查询当前客户光子易矩阵账户实时余额（POST wallet/gzy/share → GET /wallet/openApi/v4/account/single）。
+// 固定使用当前客户 matrixAccount；可选传 currency / accountType / memberId。
+func (f *FinanceApi) GzyAccountSingle(c *gin.Context) {
+	var req request.GzyAccountSingleReq
+	_ = c.ShouldBindJSON(&req)
+
+	tenantID := utils.GetTenantID(c)
+	cl, err := clientService.GetClient(tenantID)
+	if err != nil || cl.ID == 0 {
+		response.FailWithMessage("client not found", c)
+		return
+	}
+
+	mx := strings.TrimSpace(cl.MatrixAccount)
+	if mx == "" {
+		response.FailWithMessage("matrix account not found", c)
+		return
+	}
+	currency := strings.ToUpper(strings.TrimSpace(req.Currency))
+	if currency == "" {
+		currency = "USD"
+	}
+
+	resp, err := gzy.NewGzy().GetWalletAccountSingle(gzy.WalletAccountSingleRequest{
+		Currency:      currency,
+		MemberID:      gzy.ResolveMemberID(req.MemberID),
+		AccountType:   strings.TrimSpace(req.AccountType),
+		MatrixAccount: mx,
+	})
+	if err != nil {
+		global.GVA_LOG.Error("gzy account single failed", zap.Error(err), zap.Uint("clientId", tenantID), zap.Any("req", req))
+		response.FailWithServiceError(c, err)
+		return
+	}
+	response.OkWithData(resp, c)
+}
+
+// GzyShareRecharge 共享卡余额充值：扣系统钱包（同卡充值）+ gzy matrix transfer_in。
+// POST wallet/gzy/recharge；matrixAccount 取当前客户。
+func (f *FinanceApi) GzyShareRecharge(c *gin.Context) {
+	var req request.GzyShareRechargeReq
+	_ = c.ShouldBindJSON(&req)
+
+	if !req.TransferAmount.IsPositive() {
+		response.FailWithMessage("transferAmount must be greater than 0", c)
+		return
+	}
+
+	iamID, tenantID, _ := utils.GetUserAndTenantID(c)
+	lockKey := fmt.Sprintf("share:recharge:lock:%d", tenantID)
+	if !global.GVA_REDIS.SetNX(context.Background(), lockKey, 1, 5*time.Second).Val() {
+		response.FailWithMessage("Please do not submit repeatedly", c)
+		return
+	}
+	defer global.GVA_REDIS.Del(context.Background(), lockKey)
+
+	cl, err := clientService.GetClient(tenantID)
+	if err != nil || cl.ID == 0 {
+		response.FailWithMessage("client not found", c)
+		return
+	}
+	mx := strings.TrimSpace(cl.MatrixAccount)
+	if mx == "" {
+		response.FailWithMessage("matrix account not found", c)
+		return
+	}
+	currency := constant.Currency(strings.ToUpper(strings.TrimSpace(req.Currency)))
+	if currency == "" {
+		currency = constant.USD
+	}
+
+	if err := financeService.ShareMatrixRecharge(tenantID, iamID, mx, req.TransferAmount, currency); err != nil {
+		global.GVA_LOG.Error("gzy share recharge failed", zap.Error(err), zap.Uint("clientId", tenantID), zap.Any("req", req))
+		response.FailWithServiceErrorUnless(c, err, "wallet balance not enough", "insufficient balance")
+		return
+	}
+	response.Ok(c)
+}
+
+// GzyShareWithdraw 共享卡余额提现：gzy matrix transfer_out + 入账系统钱包（同卡提现）。
+// POST wallet/gzy/withdraw；matrixAccount 取当前客户。
+func (f *FinanceApi) GzyShareWithdraw(c *gin.Context) {
+	var req request.GzyShareRechargeReq
+	_ = c.ShouldBindJSON(&req)
+
+	if !req.TransferAmount.IsPositive() {
+		response.FailWithMessage("transferAmount must be greater than 0", c)
+		return
+	}
+
+	iamID, tenantID, _ := utils.GetUserAndTenantID(c)
+	lockKey := fmt.Sprintf("share:withdraw:lock:%d", tenantID)
+	if !global.GVA_REDIS.SetNX(context.Background(), lockKey, 1, 5*time.Second).Val() {
+		response.FailWithMessage("Please do not submit repeatedly", c)
+		return
+	}
+	defer global.GVA_REDIS.Del(context.Background(), lockKey)
+
+	cl, err := clientService.GetClient(tenantID)
+	if err != nil || cl.ID == 0 {
+		response.FailWithMessage("client not found", c)
+		return
+	}
+	mx := strings.TrimSpace(cl.MatrixAccount)
+	if mx == "" {
+		response.FailWithMessage("matrix account not found", c)
+		return
+	}
+	currency := constant.Currency(strings.ToUpper(strings.TrimSpace(req.Currency)))
+	if currency == "" {
+		currency = constant.USD
+	}
+
+	if err := financeService.ShareMatrixWithdraw(tenantID, iamID, mx, req.TransferAmount, currency); err != nil {
+		global.GVA_LOG.Error("gzy share withdraw failed", zap.Error(err), zap.Uint("clientId", tenantID), zap.Any("req", req))
+		response.FailWithServiceError(c, err)
+		return
+	}
+	response.Ok(c)
+}
+
 func (f *FinanceApi) RechargeCard(c *gin.Context) {
 	var req request.CardRechargeRequest
 	_ = c.ShouldBindJSON(&req)
@@ -855,7 +976,7 @@ func (f *FinanceApi) WithdrawCard(c *gin.Context) {
 				response.FailWithServiceError(c, err)
 				return
 			} else {
-				financeService.SyncCardDetail("", card.CardID)
+				financeService.SyncCardDetailSkipCVV("", card.CardID)
 			}
 			response.Ok(c)
 		}
