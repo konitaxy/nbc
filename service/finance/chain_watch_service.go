@@ -2,6 +2,7 @@ package finance
 
 import (
 	"errors"
+	"fmt"
 	"strings"
 
 	"gitlab.com/ucard/global"
@@ -11,21 +12,25 @@ import (
 	"gorm.io/gorm"
 )
 
+const defaultEthereumUSDTContract = "0xdAC17F958D2ee523a2206206994597C13D831ec7"
+
 func (f *FinanceService) AddChainWatchAddress(req request.ChainWatchAddressAddReq) (*finance.ChainWatchAddress, error) {
-	chainType := strings.ToUpper(strings.TrimSpace(req.ChainType))
-	if chainType == "" {
-		chainType = string(constant.ChainType_TRON)
+	chainType, err := normalizeWatchChainType(req.ChainType)
+	if err != nil {
+		return nil, err
 	}
-	address := strings.TrimSpace(req.Address)
-	if address == "" {
-		return nil, errors.New("address is required")
+	address, err := normalizeWatchAddress(chainType, req.Address)
+	if err != nil {
+		return nil, err
 	}
+	contract := normalizeWatchContract(chainType, req.ContractAddress)
+
 	var exist finance.ChainWatchAddress
 	if err := global.GVA_DB.Unscoped().Where("chain_type = ? AND address = ?", chainType, address).First(&exist).Error; err == nil {
 		if exist.DeletedAt.Valid {
 			exist.ChainType = chainType
 			exist.Address = address
-			exist.ContractAddress = strings.TrimSpace(req.ContractAddress)
+			exist.ContractAddress = contract
 			exist.WatchTRX = req.WatchTRX
 			exist.Enabled = req.Enabled
 			exist.Remark = strings.TrimSpace(req.Remark)
@@ -49,7 +54,7 @@ func (f *FinanceService) AddChainWatchAddress(req request.ChainWatchAddressAddRe
 	row := finance.ChainWatchAddress{
 		ChainType:       chainType,
 		Address:         address,
-		ContractAddress: strings.TrimSpace(req.ContractAddress),
+		ContractAddress: contract,
 		WatchTRX:        req.WatchTRX,
 		Enabled:         req.Enabled,
 		Remark:          strings.TrimSpace(req.Remark),
@@ -58,6 +63,59 @@ func (f *FinanceService) AddChainWatchAddress(req request.ChainWatchAddressAddRe
 		return nil, err
 	}
 	return &row, nil
+}
+
+func normalizeWatchChainType(raw string) (string, error) {
+	c := strings.ToUpper(strings.TrimSpace(raw))
+	switch c {
+	case "", string(constant.ChainType_TRON), "TRC20":
+		return string(constant.ChainType_TRON), nil
+	case string(constant.ChainType_ETHEREUM), "ETH", "ERC20":
+		return string(constant.ChainType_ETHEREUM), nil
+	default:
+		return "", fmt.Errorf("unsupported chainType: %s (use TRON or ETHEREUM)", raw)
+	}
+}
+
+func normalizeWatchAddress(chainType, raw string) (string, error) {
+	address := strings.TrimSpace(raw)
+	if address == "" {
+		return "", errors.New("address is required")
+	}
+	switch chainType {
+	case string(constant.ChainType_ETHEREUM):
+		address = strings.ToLower(address)
+		if !strings.HasPrefix(address, "0x") || len(address) != 42 {
+			return "", errors.New("ethereum address must be 0x + 40 hex chars")
+		}
+	case string(constant.ChainType_TRON):
+		if !strings.HasPrefix(address, "T") || len(address) < 30 {
+			return "", errors.New("tron address must start with T")
+		}
+	}
+	return address, nil
+}
+
+func normalizeWatchContract(chainType, raw string) string {
+	contract := strings.TrimSpace(raw)
+	switch chainType {
+	case string(constant.ChainType_ETHEREUM):
+		if contract == "" {
+			if cfg := strings.TrimSpace(global.GVA_CONFIG.Ethereum.ContractAddress); cfg != "" {
+				contract = cfg
+			} else {
+				contract = defaultEthereumUSDTContract
+			}
+		}
+		return strings.ToLower(contract)
+	case string(constant.ChainType_TRON):
+		if contract == "" {
+			contract = strings.TrimSpace(global.GVA_CONFIG.Tron.ContractAddress)
+		}
+		return contract
+	default:
+		return contract
+	}
 }
 
 func (f *FinanceService) DeleteChainWatchAddress(id uint) error {

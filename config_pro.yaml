@@ -121,3 +121,12 @@ tron:
   contract-address: "TR7NHqjeKQxGTCi8q8ZY4pL8otSzgjLj6t" # USDT-TRC20；留空则监听全部 TRC20 转入
   watch-trx: false
   limit: 20
+ethereum:
+  enabled: true
+  address: "" # 0x 开头收款地址
+  api-base-url: "https://api.etherscan.io/v2/api"
+  api-key: "EK1QQFEBGKYHXUYQSUQNSMQNDCHQ5ZKRNR" # Etherscan API Key
+  chain-id: 1 # Ethereum mainnet
+  contract-address: "0xdAC17F958D2ee523a2206206994597C13D831ec7" # USDT-ERC20
+  watch-eth: false
+  limit: 20

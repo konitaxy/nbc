@@ -36,7 +36,11 @@ func (f *FinanceService) PrepareBlockchainWalletRecharge(req request.RechargeReq
 	if currency == "" {
 		currency = constant.USDT
 	}
-	accountNo, err := resolveTronDepositAddress()
+	chainType, accountType, chainName, err := resolveBlockchainChain(req.Chain)
+	if err != nil {
+		return nil, err
+	}
+	accountNo, err := resolveDepositAddress(chainType)
 	if err != nil {
 		return nil, err
 	}
@@ -59,7 +63,7 @@ func (f *FinanceService) PrepareBlockchainWalletRecharge(req request.RechargeReq
 		ClientID:      clientID,
 		IAMID:         iamID,
 		RechargeType:  constant.RechargeType_BLOCKCHAIN,
-		AccountType:   "TRC20",
+		AccountType:   accountType,
 		AccountNumber: accountNo,
 		RemitAmount:   base,
 		OriginAmount:  payAmount,
@@ -77,7 +81,7 @@ func (f *FinanceService) PrepareBlockchainWalletRecharge(req request.RechargeReq
 		BaseAmount:    base,
 		ExpireTime:    expireAt.Format(time.RFC3339),
 		ExpireAtUnix:  expireAt.Unix(),
-		Chain:         string(constant.ChainName_TRON),
+		Chain:         string(chainName),
 		Currency:      string(currency),
 		AccountNumber: accountNo,
 	}, nil
@@ -140,13 +144,28 @@ func ReleasePayAmountReservation(pay decimal.Decimal) error {
 }
 
 func resolveTronDepositAddress() (string, error) {
+	return resolveDepositAddress(constant.ChainType_TRON)
+}
+
+func resolveBlockchainChain(chain string) (constant.ChainType, string, constant.ChainName, error) {
+	c := strings.ToUpper(strings.TrimSpace(chain))
+	switch c {
+	case "", string(constant.ChainType_TRON), "TRC20":
+		return constant.ChainType_TRON, "TRC20", constant.ChainName_TRON, nil
+	case string(constant.ChainType_ETHEREUM), "ETH", "ERC20":
+		return constant.ChainType_ETHEREUM, "ERC20", constant.ChainName_ETHEREUM, nil
+	default:
+		return "", "", "", fmt.Errorf("unsupported chain: %s", chain)
+	}
+}
+
+func resolveDepositAddress(chainType constant.ChainType) (string, error) {
 	if global.GVA_DB == nil {
-		return "", fmt.Errorf("tron deposit address not configured")
+		return "", fmt.Errorf("%s deposit address not configured", strings.ToLower(string(chainType)))
 	}
 
-	// 管理端财务-链上收款地址 chain_watch_address（enabled）
 	var row finance.ChainWatchAddress
-	err := global.GVA_DB.Where("chain_type = ? AND enabled = ?", constant.ChainType_TRON, true).
+	err := global.GVA_DB.Where("chain_type = ? AND enabled = ?", chainType, true).
 		Order("id ASC").First(&row).Error
 	if err == nil && strings.TrimSpace(row.Address) != "" {
 		return strings.TrimSpace(row.Address), nil
@@ -155,9 +174,15 @@ func resolveTronDepositAddress() (string, error) {
 		return "", err
 	}
 
-	// config.yaml 兜底（本地/迁移用）
-	if a := strings.TrimSpace(global.GVA_CONFIG.Tron.Address); a != "" {
-		return a, nil
+	switch chainType {
+	case constant.ChainType_TRON:
+		if a := strings.TrimSpace(global.GVA_CONFIG.Tron.Address); a != "" {
+			return a, nil
+		}
+	case constant.ChainType_ETHEREUM:
+		if a := strings.TrimSpace(global.GVA_CONFIG.Ethereum.Address); a != "" {
+			return a, nil
+		}
 	}
-	return "", fmt.Errorf("tron deposit address not configured")
+	return "", fmt.Errorf("%s deposit address not configured", strings.ToLower(string(chainType)))
 }

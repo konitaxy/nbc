@@ -20,6 +20,9 @@ func (FinanceManagerApi) AddChainWatchAddress(c *gin.Context) {
 		response.FailWithMessage("address is required", c)
 		return
 	}
+	if strings.TrimSpace(req.ChainType) == "" {
+		req.ChainType = "TRON"
+	}
 	row, err := financeService.AddChainWatchAddress(req)
 	if err != nil {
 		response.FailWithMessage(err.Error(), c)

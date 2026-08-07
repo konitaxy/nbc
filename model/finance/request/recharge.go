@@ -10,6 +10,7 @@ type RechargeRequest struct {
 	Amount       decimal.Decimal       `json:"amount"`
 	Currency     constant.Currency     `json:"currency"`
 	RechargeType constant.RechargeType `json:"rechargeType"`
+	Chain        string                `json:"chain"` // TRON | ETHEREUM；空默认 TRON
 	ClientID     uint
 	ClientNo     string
 }

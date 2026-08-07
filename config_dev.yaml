@@ -107,6 +107,15 @@ carbin:
   base-url: "https://api.cardbin.io"
   app-id: "1894343052164249928"
   app-secret: "b2434d156a154e8cabf64cd43e557303"
+ethereum:
+  enabled: false
+  address: ""
+  api-base-url: "https://api.etherscan.io/v2/api"
+  api-key: ""
+  chain-id: 1
+  contract-address: "0xdAC17F958D2ee523a2206206994597C13D831ec7"
+  watch-eth: false
+  limit: 20
 gzy:
   base-url: "https://x-api1.uat.photontech.cc"
   app-id: "rOAnetlu"

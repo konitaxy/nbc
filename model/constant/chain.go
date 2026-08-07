@@ -4,7 +4,8 @@ package constant
 type ChainType string
 
 const (
-	ChainType_TRON ChainType = "TRON"
+	ChainType_TRON     ChainType = "TRON"
+	ChainType_ETHEREUM ChainType = "ETHEREUM"
 )
 
 func (c ChainType) String() string {

@@ -10,14 +10,18 @@ import (
 	"gitlab.com/ucard/global"
 	"gitlab.com/ucard/model/constant"
 	"gitlab.com/ucard/model/finance"
+	"gitlab.com/ucard/service/eth"
 	"go.uber.org/zap"
 )
 
 const redisKeyChainInboundLastSyncMS = "chain:inbound:last_sync_ms:"
 
-// WatchInboundFromDB 从 chain_watch_address 表读取启用地址并监听转入。
+// WatchInboundFromDB 从 chain_watch_address 表读取启用地址并监听转入（TRON / ETHEREUM）。
 func WatchInboundFromDB() (int, error) {
 	if err := ensureConfigAddressInDB(); err != nil {
+		return 0, err
+	}
+	if err := eth.EnsureConfigAddressInDB(); err != nil {
 		return 0, err
 	}
 	if global.GVA_DB == nil {
@@ -26,7 +30,7 @@ func WatchInboundFromDB() (int, error) {
 	if global.GVA_REDIS == nil {
 		return 0, fmt.Errorf("redis not initialized")
 	}
-	if !global.GVA_CONFIG.Tron.Enabled {
+	if !global.GVA_CONFIG.Tron.Enabled && !global.GVA_CONFIG.Ethereum.Enabled {
 		return 0, nil
 	}
 
@@ -54,7 +58,15 @@ func WatchInboundFromDB() (int, error) {
 func watchChainAddress(row finance.ChainWatchAddress) (int, error) {
 	switch strings.ToUpper(strings.TrimSpace(row.ChainType)) {
 	case string(constant.ChainType_TRON):
+		if !global.GVA_CONFIG.Tron.Enabled {
+			return 0, nil
+		}
 		return watchTronAddress(row)
+	case string(constant.ChainType_ETHEREUM):
+		if !global.GVA_CONFIG.Ethereum.Enabled {
+			return 0, nil
+		}
+		return eth.WatchEthereumAddress(row)
 	default:
 		global.GVA_LOG.Warn("unsupported chain type for inbound watch",
 			zap.String("chain", row.ChainType),
@@ -90,7 +102,7 @@ func watchTronAddress(row finance.ChainWatchAddress) (int, error) {
 		}
 	}
 	if lastMS == 0 {
-		lastMS = time.Now().Add(-24 * time.Hour*80).UnixMilli()
+		lastMS = time.Now().Add(-24 * time.Hour * 80).UnixMilli()
 	}
 
 	client := NewClient()

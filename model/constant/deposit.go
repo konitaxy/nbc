@@ -62,7 +62,8 @@ const (
 type ChainName string
 
 const (
-	ChainName_TRON ChainName = "Tron"
+	ChainName_TRON     ChainName = "Tron"
+	ChainName_ETHEREUM ChainName = "Ethereum"
 )
 
 type RechargeType string
