@@ -33,10 +33,18 @@
               >
             </el-alert>
             <div class="chain-info">
-              <div class="chain-info-item">
+              <div class="chain-info-item chain-info-select">
                 <span>{{ $t('lang.chain_type') }}</span
                 ><br />
-                <span class="fw-bold">TRC20</span>
+                <el-radio-group
+                  v-model="rechargeForm.chain"
+                  :disabled="hasRechargeApplyResult"
+                  class="chain-network-tabs mt-1"
+                  size="small"
+                >
+                  <el-radio-button value="TRC20">TRC20</el-radio-button>
+                  <el-radio-button value="ERC20">ERC20</el-radio-button>
+                </el-radio-group>
               </div>
               <div class="chain-info-item">
                 <span>{{ $t('lang.currency') }}</span
@@ -108,7 +116,7 @@
               <i class="bi bi-exclamation-circle-fill fs-5"></i>
             </div>
             <div class="col-10">
-              <p class="text-nowrap">{{ $t('lang.receiving_address') }} (TRC20):</p>
+              <p class="text-nowrap">{{ $t('lang.receiving_address') }} ({{ displayChainLabel }}):</p>
               <p
                 @click="handleCopy(rechargeApplyResult.accountNumber)"
                 class="text-nowrap"
@@ -142,8 +150,9 @@ const rechargeType = ref('链转账');
 const amount = ref('');
 const rechargeForm = reactive({
   amount: '0',
-  currency:'USDT',
-  rechargeType:'BLOCKCHAIN'
+  currency: 'USDT',
+  rechargeType: 'BLOCKCHAIN',
+  chain: 'TRC20',
 })
 const loading = reactive({
   rechargeApplyLoading:false
@@ -170,10 +179,19 @@ const hasRechargeApplyResult = computed(() => {
   const r = rechargeApplyResult.value
   return !!(r?.orderId || r?.traceId)
 })
+const displayChainLabel = computed(() => {
+  const chain = String(rechargeApplyResult.value?.chain || rechargeForm.chain || 'TRC20').toUpperCase()
+  if (chain === 'ETHEREUM' || chain === 'ETH' || chain === 'ERC20') return 'ERC20'
+  if (chain === 'TRON' || chain === 'TRC20') return 'TRC20'
+  return rechargeForm.chain || 'TRC20'
+})
 const handleRechargeApply = () => {
   rechargeApplyResult.value = {}
   loading.rechargeApplyLoading = true
-  walletRechargeApply(rechargeForm).then(res =>{
+  walletRechargeApply({
+    ...rechargeForm,
+    chain: rechargeForm.chain || 'TRC20',
+  }).then(res =>{
     if (res.code === 0){
       rechargeApplyResult.value = res.data
       const expireAt = res.data.expireAtUnix
@@ -284,6 +302,35 @@ const reset = () => {
   margin-top: 4px;
   color: var(--console-text);
   font-size: 16px;
+}
+
+.chain-info-select {
+  flex: 1;
+}
+
+.chain-network-tabs {
+  display: inline-flex;
+}
+
+:deep(.chain-network-tabs .el-radio-button__inner) {
+  min-width: 72px;
+  color: var(--console-muted);
+  border-color: rgba(139, 214, 255, 0.26);
+  background: rgba(2, 8, 18, 0.52);
+  font-weight: 800;
+}
+
+:deep(.chain-network-tabs .el-radio-button__original-radio:checked + .el-radio-button__inner) {
+  color: #061221;
+  border-color: transparent;
+  background: var(--console-home-cta);
+  box-shadow: 0 10px 22px rgba(68, 213, 255, 0.16);
+}
+
+:deep(.chain-network-tabs .el-radio-button.is-disabled .el-radio-button__inner) {
+  color: rgba(232, 247, 255, 0.5);
+  border-color: rgba(139, 214, 255, 0.16);
+  background: rgba(255, 255, 255, 0.045);
 }
 
 .button-group {
