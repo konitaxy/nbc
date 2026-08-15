@@ -48,6 +48,7 @@ const (
 	CardStatus_CANCEL  CardStatus = "Cancel"
 	CardStatus_Failure CardStatus = "Failure"
 	CardStatus_CLOSED  CardStatus = "Closed"
+	CardStatus_SUSPEND CardStatus = "Suspend" // 冻结
 )
 
 type RechargeStatus string

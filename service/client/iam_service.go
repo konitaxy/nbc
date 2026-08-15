@@ -9,6 +9,7 @@ import (
 	"gitlab.com/ucard/global"
 	"gitlab.com/ucard/model/client"
 	"gitlab.com/ucard/model/client/request"
+	"gitlab.com/ucard/model/constant"
 	"gitlab.com/ucard/utils"
 	"gorm.io/gorm"
 )
@@ -17,13 +18,28 @@ type IAMService struct{}
 
 const IAMVerifyCodePrefix = "iam_verify_code_"
 
+// ParentAccountFrozen 父账号是否被冻结
+func (s *IAMService) ParentAccountFrozen(clientID uint) (bool, error) {
+	if clientID == 0 {
+		return false, nil
+	}
+	var parent client.Client
+	if err := global.GVA_DB.Select("id, client_status").First(&parent, clientID).Error; err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return true, errors.New("parent_account_not_found")
+		}
+		return false, err
+	}
+	return parent.ClientStatus == constant.ClientStatus_Suspend, nil
+}
+
 // PreLogin Verify IAM user credentials without returning full user info
 func (s *IAMService) PreLogin(email, password string) error {
 	email = strings.ToLower(strings.TrimSpace(email))
 	passwordHash := utils.MD5V([]byte(password))
 
 	var user client.IAMUser
-	if err := global.GVA_DB.Select("id, status").
+	if err := global.GVA_DB.Select("id, status, client_id").
 		Where("email = ? AND password = ?", email, passwordHash).First(&user).Error; err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
 			return errors.New("invalid_email_or_password")
@@ -35,6 +51,11 @@ func (s *IAMService) PreLogin(email, password string) error {
 		return errors.New("account_disabled")
 	}
 	if user.Status == 2 {
+		return errors.New("account_frozen")
+	}
+	if frozen, err := s.ParentAccountFrozen(user.ClientID); err != nil {
+		return err
+	} else if frozen {
 		return errors.New("account_frozen")
 	}
 
@@ -59,6 +80,11 @@ func (s *IAMService) Login(email, password string) (client.IAMUser, error) {
 		return client.IAMUser{}, errors.New("account_disabled")
 	}
 	if user.Status == 2 {
+		return client.IAMUser{}, errors.New("account_frozen")
+	}
+	if frozen, err := s.ParentAccountFrozen(user.ClientID); err != nil {
+		return client.IAMUser{}, err
+	} else if frozen {
 		return client.IAMUser{}, errors.New("account_frozen")
 	}
 

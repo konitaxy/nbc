@@ -2061,9 +2061,14 @@ func (f *FinanceService) CardFrozen(cardID uint, clientID uint, action string, r
 		return err2
 	}
 
-	// 更新本地数据库中的卡状态（如果需要）
-	// 注意：这里可能需要根据实际的卡状态字段来更新
-	// 暂时不更新，因为卡状态应该通过 SyncCardDetail 来同步
+	// 冻结/解冻后同步卡状态（不改写 CVV）
+	if err := f.SyncCardDetailSkipCVV("", card.CardID); err != nil {
+		global.GVA_LOG.Warn("sync card detail after frozen/unfrozen failed",
+			zap.String("cardId", card.CardID),
+			zap.String("action", action),
+			zap.Error(err),
+		)
+	}
 
 	return nil
 }

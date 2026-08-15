@@ -141,6 +141,7 @@ var Default_Verify_Setting = []VerifySetting{
 	{Key: "cardcvv", Path: "GET:/card/cvv", Value: false, Level: 1},
 	{Key: "cardWithdraw", Path: "POST:/card/withdraw", Value: false, Level: 1},
 	{Key: "cardRecharge", Path: "POST:/card/recharge", Value: false, Level: 1},
+	{Key: "cardAdjustLimit", Path: "POST:/card/adjustLimit", Value: false, Level: 1},
 	{Key: "walletWithdraw", Path: "POST:/wallet/withdraw/apply", Value: false, Level: 1},
 }
 
@@ -162,6 +163,7 @@ var Default_IAM_Verify_Setting = []VerifySetting{
 	{Key: "cardcvv", Path: "GET:/card/cvv", Value: false, Level: 1},
 	{Key: "cardWithdraw", Path: "POST:/card/withdraw", Value: false, Level: 1},
 	{Key: "cardRecharge", Path: "POST:/card/recharge", Value: false, Level: 1},
+	{Key: "cardAdjustLimit", Path: "POST:/card/adjustLimit", Value: false, Level: 1},
 	{Key: "walletWithdraw", Path: "POST:/wallet/withdraw/apply", Value: false, Level: 1},
 }
 

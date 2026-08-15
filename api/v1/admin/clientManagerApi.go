@@ -217,6 +217,7 @@ func (*ClientManagerApi) ChangeClientStatus(c *gin.Context) {
 			clientService.Save(&cl)
 			var jwtService = service.ServiceGroupApp.SystemServiceGroup.JwtService
 			jwtService.RedisSetUserStatus(cl.Email, uint(req.ClientStatus))
+			jwtService.RedisSetClientStatus(cl.ID, uint(req.ClientStatus))
 			response.Ok(c)
 		} else {
 			global.GVA_LOG.Error("Review failed!", zap.Error(err))

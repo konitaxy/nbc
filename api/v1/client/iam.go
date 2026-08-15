@@ -56,6 +56,12 @@ func (i *IAMApi) IAMLogin(c *gin.Context) {
 
 // iamTokenNext 生成 IAM 用户 token
 func (i *IAMApi) iamTokenNext(c *gin.Context, user client.IAMUser) {
+	isFreeze := user.Status != 1
+	if !isFreeze {
+		if frozen, err := iamService.ParentAccountFrozen(user.ClientID); err == nil && frozen {
+			isFreeze = true
+		}
+	}
 	j := &utils.JWT{SigningKey: []byte(global.GVA_CONFIG.JWT.SigningKey)}
 	claims := j.CreateClaims(systemReq.BaseClaims{
 		ID:          user.ID,       // ID为主账号ID，用于钱包等查询
@@ -65,7 +71,7 @@ func (i *IAMApi) iamTokenNext(c *gin.Context, user client.IAMUser) {
 		Roles:       user.Roles,
 		AuthorityId: "1618",
 		Email:       user.Email,
-		IsFreeze:    user.Status != 1,
+		IsFreeze:    isFreeze,
 	})
 	token, err := j.CreateToken(claims)
 	if err != nil {

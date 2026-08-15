@@ -498,13 +498,32 @@ func (f *FinanceApi) ChangeSubAuthLimit(c *gin.Context) {
 		return
 	}
 
-	clientID := utils.GetTenantID(c)
+	// AdminLogin 代登会话不允许调额
+	if claims, _ := utils.GetClaims(c); claims != nil && claims.Admin != nil {
+		response.FailWithMessage("admin snap login cannot adjust limit", c)
+		return
+	}
+
+	iamID, clientID, isIAM := utils.GetUserAndTenantID(c)
 
 	// 查询卡信息
 	card, err := financeService.GetCard(req.ID, clientID)
 	if err != nil {
 		global.GVA_LOG.Error("get card failed", zap.Error(err))
 		response.FailWithMessage("card not found", c)
+		return
+	}
+
+	// 仅卡归属人可调额：
+	// - IAM：card.iam_id 必须等于当前 IAM 用户 ID
+	// - 主账号：可操作 iam_id=0 或 iam_id=主账号ID 的卡（开卡时主账号会把 iam_id 写成 clientId）；不可操作其它 IAM 子账号的卡
+	if isIAM {
+		if card.IAMID != iamID {
+			response.FailWithMessage("only card owner can adjust limit", c)
+			return
+		}
+	} else if card.IAMID != 0 && card.IAMID != clientID {
+		response.FailWithMessage("only card owner can adjust limit", c)
 		return
 	}
 

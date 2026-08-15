@@ -181,15 +181,19 @@ func (p *ClientApi) GetMenus(c *gin.Context) {
 func (p *ClientApi) GetProfile(c *gin.Context) {
 	// id := utils.GetUserID(c)
 	id, tenantID, isIAM := utils.GetUserAndTenantID(c)
+	claims, _ := utils.GetClaims(c)
+	isAdminSnap := claims != nil && claims.Admin != nil
 	if !isIAM {
 		if user, err := clientService.GetClient(id); err != nil {
 			global.GVA_LOG.Error("get profile failed", zap.Any("err", err))
 			response.FailWithMessage("get profile failed", c)
 		} else {
+			userInfo := actRes.ToUserRes(user)
 			c.JSON(http.StatusOK, gin.H{
 				"code": 0,
 				"data": map[string]interface{}{
-					"userInfo": actRes.ToUserRes(user),
+					"userInfo":    userInfo,
+					"isAdminSnap": isAdminSnap,
 				},
 			})
 		}
@@ -198,10 +202,12 @@ func (p *ClientApi) GetProfile(c *gin.Context) {
 			global.GVA_LOG.Error("get profile failed", zap.Any("err", err))
 			response.FailWithMessage("get profile failed", c)
 		} else {
+			userInfo := actRes.ToIAMUserRes(user)
 			c.JSON(http.StatusOK, gin.H{
 				"code": 0,
 				"data": map[string]interface{}{
-					"userInfo": actRes.ToIAMUserRes(user),
+					"userInfo":    userInfo,
+					"isAdminSnap": isAdminSnap,
 				},
 			})
 		}

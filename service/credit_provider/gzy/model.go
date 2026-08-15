@@ -492,7 +492,8 @@ func NormalizeCardScheme(scheme string) string {
 //	Photon normal              → Active
 //	Photon canceling           → Cancel（销卡中）
 //	Photon cancelled, expired → Closed
-//	其余 pending_recharge、冻结/挂失/续补卡/解冻中等 → Pending
+//	Photon frozen* / freezing  → Suspend（冻结，可解冻）
+//	其余 pending_recharge、挂失/续补卡/解冻中等 → Pending
 func PhotonCardStatusToSystem(photon string) string {
 	s := strings.ToLower(strings.TrimSpace(photon))
 	switch s {
@@ -502,8 +503,9 @@ func PhotonCardStatusToSystem(photon string) string {
 		return string(constant.CardStatus_CANCEL)
 	case "cancelled", "expired":
 		return string(constant.CardStatus_CLOSED)
-	case "pending_recharge", "unactivated", "freezing", "frozen", "risk_frozen", "system_frozen",
-		"unfreezing", "renewing", "replacing", "lost", "stolen", "pin_lost":
+	case "frozen", "risk_frozen", "system_frozen", "freezing":
+		return string(constant.CardStatus_SUSPEND)
+	case "pending_recharge", "unactivated", "unfreezing", "renewing", "replacing", "lost", "stolen", "pin_lost":
 		return string(constant.CardStatus_PENDING)
 	default:
 		if strings.TrimSpace(photon) == "" {

@@ -96,10 +96,28 @@ func (jwtService *JwtService) RedisSetUserStatus(userName string, status uint) (
 	return err
 }
 
+// RedisSetClientStatus 按主账号 ID 记录状态，供 IAM 子账号 FreezeAuth 校验父账号是否冻结
+func (jwtService *JwtService) RedisSetClientStatus(clientID uint, status uint) (err error) {
+	if clientID == 0 {
+		return nil
+	}
+	timer := time.Duration(global.GVA_CONFIG.JWT.SnapExpiresTime) * time.Second
+	return global.GVA_REDIS.Set(context.Background(), fmt.Sprintf("client_status_id_%d", clientID), status, timer).Err()
+}
+
 func (jwtService *JwtService) RedisIsFreeze(userName string) bool {
 	// 此处过期时间等于jwt过期时间
 
 	status := global.GVA_REDIS.Get(context.Background(), fmt.Sprintf("client_status_%s", userName)).Val()
+	return status == "3"
+}
+
+// RedisIsClientFreeze 主账号（租户）是否被冻结
+func (jwtService *JwtService) RedisIsClientFreeze(clientID uint) bool {
+	if clientID == 0 {
+		return false
+	}
+	status := global.GVA_REDIS.Get(context.Background(), fmt.Sprintf("client_status_id_%d", clientID)).Val()
 	return status == "3"
 }
 

@@ -19,6 +19,7 @@ var prohibit_Access_Fezz = map[string]uint{
 	"GET:/card/cvv":               1,
 	"POST:/card/withdraw":         1,
 	"POST:/card/recharge":         1,
+	"POST:/card/adjustLimit":      1,
 	"POST:/wallet/withdraw/apply": 1,
 }
 
@@ -35,7 +36,8 @@ func FreezeAuth() gin.HandlerFunc {
 		// 获取请求方法
 		act := c.Request.Method
 		// 获取用户的角色
-		if waitUse.IsFreeze || waitUse.Admin != nil || jwtService.RedisIsFreeze(waitUse.Email) {
+		if waitUse.IsFreeze || waitUse.Admin != nil || jwtService.RedisIsFreeze(waitUse.Email) ||
+			(waitUse.IsIAM && jwtService.RedisIsClientFreeze(waitUse.TenantID)) {
 			key := fmt.Sprintf("%s:%s", act, obj)
 			if _, exit := prohibit_Access_Fezz[key]; exit {
 				response.FailWithDetailed(gin.H{}, "Insufficient permissions", c)
