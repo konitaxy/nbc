@@ -13,7 +13,9 @@ type CardHolder struct {
 	IAMID         uint   `gorm:"column:iam_id;not null;index" json:"iamId" form:"iamId"`
 	CardHolderID  string `gorm:"column:card_holder_id;not null;index" json:"cardHolderId" form:"cardHolderId"`
 	MatrixAccount string `gorm:"column:matrix_account;type:varchar(64);index" json:"matrixAccount,omitempty" form:"matrixAccount,omitempty"` // 创建在矩阵账户下时写入
-	Region        string `gorm:"column:region;not null" json:"region" form:"region"`
+	// ShareMode 1=共享卡场景：后端子账号创建时取主账号 matrixAccount（不落库）
+	ShareMode int `gorm:"-" json:"shareMode,omitempty" form:"shareMode,omitempty"`
+	Region    string `gorm:"column:region;not null" json:"region" form:"region"`
 	FirstName     string `gorm:"column:first_name;not null" json:"firstName" form:"firstName"`
 	LastName      string `gorm:"column:last_name;not null" json:"lastName" form:"lastName"`
 	Email         string `gorm:"column:email;not null;index" json:"email" form:"email"`

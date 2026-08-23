@@ -205,6 +205,10 @@ func (f *FinanceApi) AddCardHolder(c *gin.Context) {
 			}
 			return
 		}
+		// shareMode=1：矩阵号取主账号（IAM 的 ClientID / 主账号自身 ID）
+		if req.ShareMode == 1 {
+			req.MatrixAccount = strings.TrimSpace(cl.MatrixAccount)
+		}
 	}
 	if err := financeService.AddCardHolder(&req); err == nil {
 		response.OkWithMessage("Success", c)

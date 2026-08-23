@@ -135,6 +135,8 @@ type OpenCardReq struct {
 	PrimaryCardID  string          `json:"primaryCardId"`  // 主卡ID (当创建子卡时,需要传)
 	TotalAuthLimit decimal.Decimal `json:"totalAuthLimit"` // 授权额度；gzy 共享卡 / 子卡开卡时传入
 	AuthLimitFlag  string          `json:"authLimitFlag"`  // 是否限额。Y:是,N:否。(创建子卡时传；gzy 共享卡可省略，有额度则按 Y)
+	// ShareMode 1=共享卡开卡：子账号时矩阵号取主账号 clients.matrix_account（CreateCard 已按 TenantID 绑定）
+	ShareMode int `json:"shareMode,omitempty"`
 }
 
 type EditCardReq struct {
