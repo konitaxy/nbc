@@ -27,7 +27,8 @@
             <div class="col-sm-6 col-xs-12 card-actions-container">
               <el-button v-if="card.cardLevel !== 'SubCard'" type="primary" @click="handleRechargeCard()">{{ $t('lang.top_up') }}</el-button>
               
-                <el-button type="danger" @click="handleCancelCard()">{{ $t('lang.terminate_card') }}</el-button>
+                <el-button v-if="card.cardStatus === 'Active'" type="danger" @click="handleCancelCard()">{{ $t('lang.terminate_card') }}</el-button>
+                <el-button v-if="card.cardStatus === 'Suspend' || card.cardStatus === 'Frozen'" type="warning" @click="handleUnfreezeCard()">{{ $t('lang.unfreeze_card') }}</el-button>
                           <div class="mt-3">
                           <div class="mt-3 d-flex flex-wrap gap-2">
                 <el-button type="primary" @click="handleCopyDetails">{{ $t('lang.copy_details') }}</el-button>
@@ -185,10 +186,9 @@ export default {
 }
 </script>
 <script setup>
-import { ref, reactive, defineProps, onMounted } from 'vue'
-import { staticsCard, cancelCard, rechargeCard, showCardDetail, listCardBin, fetchCardHolderAddress } from '@/api/finance';
+import { ref, reactive, defineProps, defineEmits, onMounted } from 'vue'
+import { staticsCard, frozenCard, rechargeCard, showCardDetail, listCardBin, fetchCardHolderAddress } from '@/api/finance';
 import { ElMessage, ElMessageBox } from 'element-plus';
-import { buildCancelListPayload, applyCancelCardResult } from '@/utils/cancelCard'
 import { useCardPreRecharge } from '@/composables/useCardPreRecharge'
 import PreRechargeSummary from '@/components/card/PreRechargeSummary.vue'
 
@@ -199,6 +199,7 @@ import { useI18n } from 'vue-i18n';
 import * as clipboard from 'clipboard-polyfill';
 const userStore = useUserStore()
 const { t } = useI18n();
+const emit = defineEmits(['card-status-changed'])
 const props = defineProps({
   card: {
     type: Object,
@@ -286,7 +287,7 @@ const handleRechargeCardConfirm = ()=>{
   }
   const handleCancelCard = () => {
     ElMessageBox.confirm(
-    t('lang.cancel_card_warning'),
+    t('lang.freeze_card_warning'),
     t('lang.warning'),
     {
       confirmButtonText: t('lang.terminate_card'),
@@ -299,22 +300,59 @@ const handleRechargeCardConfirm = ()=>{
     })
     .catch(() => {})
   }
+  const handleUnfreezeCard = () => {
+    ElMessageBox.confirm(
+    t('lang.unfreeze_card_warning'),
+    t('lang.warning'),
+    {
+      confirmButtonText: t('lang.unfreeze_card'),
+      cancelButtonText: t('lang.cancel'),
+      type: 'warning',
+    }
+  )
+    .then(() => {
+      handleUnfreezeConfirm()
+    })
+    .catch(() => {})
+  }
   const handleCancelConfirm = () => {
     const row = card.value
-    if (!row?.ID || row.cardId == null || row.cardId === '') {
+    if (!row?.ID) {
       ElMessage.warning(t('lang.cancel_list_invalid'))
       return
     }
-    let payload
-    try {
-      payload = buildCancelListPayload(row)
-    } catch (e) {
-      if (e.message === 'cancel_list_too_many') ElMessage.warning(t('lang.cancel_list_too_many'))
-      else ElMessage.warning(t('lang.cancel_list_invalid'))
+    frozenCard({ id: row.ID, action: 'frozen' }).then((res) => {
+      if (res?.code === 0) {
+        ElMessage.success(t('lang.freeze_success'))
+        showCardDetail({ id: row.ID }).then((r) => {
+          if (r?.code === 0) card.value = r.data
+        })
+        emit('card-status-changed')
+      } else {
+        ElMessage.error(res?.msg || t('lang.freeze_card_failed'))
+      }
+    }).catch(() => {
+      ElMessage.error(t('lang.freeze_card_failed'))
+    })
+  }
+  const handleUnfreezeConfirm = () => {
+    const row = card.value
+    if (!row?.ID) {
+      ElMessage.warning(t('lang.cancel_list_invalid'))
       return
     }
-    cancelCard(payload).then((res) => {
-      applyCancelCardResult(res, { t, ElMessage })
+    frozenCard({ id: row.ID, action: 'unfrozen' }).then((res) => {
+      if (res?.code === 0) {
+        ElMessage.success(t('lang.unfreeze_success'))
+        showCardDetail({ id: row.ID }).then((r) => {
+          if (r?.code === 0) card.value = r.data
+        })
+        emit('card-status-changed')
+      } else {
+        ElMessage.error(res?.msg || t('lang.unfreeze_card_failed'))
+      }
+    }).catch(() => {
+      ElMessage.error(t('lang.unfreeze_card_failed'))
     })
   }
   const copyDetailsWithHolder = (holder) => {

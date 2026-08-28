@@ -49,6 +49,14 @@ export const cancelCard = (data) => {
     data
   })
 }
+
+export const frozenCard = (data) => {
+  return service({
+    url: '/card/frozen',
+    method: 'post',
+    data
+  })
+}
 export const createCard = (data) => {
   return service({
     url: '/card/add',

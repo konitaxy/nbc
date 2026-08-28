@@ -114,7 +114,7 @@
                   <!-- <div class="fw-medium fw-5">{{ $t('lang.brand') }}<br><span>{{ card.cardBrand }}</span></div> -->
 
                   <div class="fw-medium fw-5">{{ $t('lang.cvv') }}<br><span>{{ drawerRow.card.cvv }}</span></div>
-                  <div class="fw-medium fw-5">{{ $t('lang.expiration_date') }}<br><span>{{ drawerRow.card.expirey.substring(2, 4) }}/{{ drawerRow.card.expirey.substring(0, 2) }}</span></div>
+                  <div class="fw-medium fw-5">{{ $t('lang.expiration_date') }}<br><span>{{ drawerRow.card.expirey }}</span></div>
                 </div>
               </div>
             </div>
@@ -125,7 +125,25 @@
                   <p class="text-secondary">{{ drawerRow.merchantName?drawerRow.merchantName:'-' }}</p>
                 </el-form-item>
                 <el-form-item label="Transaction/Billing Amount">
-                  <p class="text-secondary">{{ `${drawerRow.originAmount} ${drawerRow.originCurrency} ` }}/{{ ` ${drawerRow.amount} ${drawerRow.currency}` }}</p>
+                  <div class="d-flex align-items-center justify-content-between flex-wrap gap-2 w-100">
+                    <p class="text-secondary mb-0">{{ `${drawerRow.originAmount} ${drawerRow.originCurrency} ` }}/{{ ` ${drawerRow.amount} ${drawerRow.currency}` }}</p>
+                    <div class="d-flex gap-2">
+                      <el-button
+                        v-if="$userStore.hasRole(5) && drawerRow.card?.cardStatus === 'Active'"
+                        type="danger"
+                        size="small"
+                        :loading="freezeLoading"
+                        @click="handleFreezeCard"
+                      >{{ $t('lang.terminate_card') }}</el-button>
+                      <el-button
+                        v-if="$userStore.hasRole(5) && (drawerRow.card?.cardStatus === 'Suspend' || drawerRow.card?.cardStatus === 'Frozen')"
+                        type="warning"
+                        size="small"
+                        :loading="freezeLoading"
+                        @click="handleUnfreezeCard"
+                      >{{ $t('lang.unfreeze_card') }}</el-button>
+                    </div>
+                  </div>
                 </el-form-item>
               </el-form>
               <el-card body-class="bg-body-secondary">
@@ -159,12 +177,14 @@
   </script>
   
   <script setup>
-  import { ref,reactive,onMounted,defineProps } from 'vue';
-  import {listCardTransactionRecord,showCardDetail} from '@/api/finance';
+  import { ref,reactive,onMounted,defineProps,defineEmits } from 'vue';
+  import {listCardTransactionRecord,showCardDetail,frozenCard} from '@/api/finance';
   import {formatDate} from '@/utils/format'
   import {buildExcel} from '@/utils/excel'
+  import { ElMessage, ElMessageBox } from 'element-plus'
   import { useI18n } from 'vue-i18n';
   const { t } = useI18n();
+    const freezeLoading = ref(false)
   const props = defineProps({
     cardID: {
       type: String,
@@ -245,6 +265,83 @@
       }
   })
 }
+
+const refreshDrawerCard = () => {
+  const id = drawerRow.value?.card?.ID
+  if (!id) return
+  showCardDetail({ id }).then((res) => {
+    if (res?.code === 0) {
+      drawerRow.value.card = res.data
+    }
+  })
+}
+
+const afterCardFreezeChanged = () => {
+  refreshDrawerCard()
+  getTableData()
+}
+
+const handleFreezeCard = () => {
+  ElMessageBox.confirm(
+    t('lang.freeze_card_warning'),
+    t('lang.warning'),
+    {
+      confirmButtonText: t('lang.terminate_card'),
+      cancelButtonText: t('lang.cancel'),
+      type: 'warning',
+    }
+  ).then(() => {
+    const id = drawerRow.value?.card?.ID
+    if (!id) {
+      ElMessage.warning(t('lang.cancel_list_invalid'))
+      return
+    }
+    freezeLoading.value = true
+    frozenCard({ id, action: 'frozen' }).then((res) => {
+      if (res?.code === 0) {
+        ElMessage.success(t('lang.freeze_success'))
+        afterCardFreezeChanged()
+      } else {
+        ElMessage.error(res?.msg || t('lang.freeze_card_failed'))
+      }
+    }).catch(() => {
+      ElMessage.error(t('lang.freeze_card_failed'))
+    }).finally(() => {
+      freezeLoading.value = false
+    })
+  }).catch(() => {})
+}
+
+const handleUnfreezeCard = () => {
+  ElMessageBox.confirm(
+    t('lang.unfreeze_card_warning'),
+    t('lang.warning'),
+    {
+      confirmButtonText: t('lang.unfreeze_card'),
+      cancelButtonText: t('lang.cancel'),
+      type: 'warning',
+    }
+  ).then(() => {
+    const id = drawerRow.value?.card?.ID
+    if (!id) {
+      ElMessage.warning(t('lang.cancel_list_invalid'))
+      return
+    }
+    freezeLoading.value = true
+    frozenCard({ id, action: 'unfrozen' }).then((res) => {
+      if (res?.code === 0) {
+        ElMessage.success(t('lang.unfreeze_success'))
+        afterCardFreezeChanged()
+      } else {
+        ElMessage.error(res?.msg || t('lang.unfreeze_card_failed'))
+      }
+    }).catch(() => {
+      ElMessage.error(t('lang.unfreeze_card_failed'))
+    }).finally(() => {
+      freezeLoading.value = false
+    })
+  }).catch(() => {})
+}
   
 const handleCurrentChange = (val) => {
   search.page = val
@@ -259,6 +356,10 @@ const handleCurrentChange = (val) => {
     background: transparent;
     border-radius: 0;
     color: inherit;
+  }
+  :deep(.el-form-item__content) {
+    width: 100%;
+    display: block;
   }
   .tx-detail-panel :deep(.el-table),
   .tx-detail-panel :deep(.el-table__expanded-cell),

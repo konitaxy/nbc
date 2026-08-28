@@ -10,6 +10,7 @@
             <el-checkbox v-model="settingsForm.cardDetail">{{ $t('lang.card_detail') }}</el-checkbox>
             <el-checkbox v-model="settingsForm.cardWithdraw">{{ $t('lang.withdrawal_application') }}(Pixel)</el-checkbox>
             <el-checkbox v-model="settingsForm.cardRecharge">{{$t('lang.card_recharge')}}(Pixel)</el-checkbox>
+            <el-checkbox v-model="settingsForm.cardAdjustLimit">{{ $t('lang.adjust_limit') }}(Pixel)</el-checkbox>
             <el-checkbox v-model="settingsForm.walletWithdraw">{{$t('lang.wallet_withdraw')}}</el-checkbox>
           </el-col>
   

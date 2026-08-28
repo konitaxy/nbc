@@ -116,23 +116,11 @@
   <el-table-column prop="cardStatus" :label="$t('lang.card_status')" width="120">
     <template #default="{ row }">
       <el-tag 
-        :type="row.cardStatus === 'Active' ? 'success' : row.cardStatus === 'Failure' ?'danger': row.cardStatus === 'Suspend' ? 'warning' : 'info'">
-        {{ 
-          row.cardStatus === 'Active' ? $t('lang.active') : row.cardStatus === 'Failure' ? $t('lang.failure') : row.cardStatus === 'Closed' ? $t('lang.terminated') : row.cardStatus === 'Suspend' ? $t('lang.suspend') : row.cardStatus 
+        :type="row.cardStatus === 'Active' ? 'success' : row.cardStatus === 'Failure' ?'danger': (row.cardStatus === 'Suspend' || row.cardStatus === 'Frozen') ? 'warning' : 'info'">
+        {{
+          row.cardStatus === 'Active' ? $t('lang.active') : row.cardStatus === 'Failure' ? $t('lang.failure') : row.cardStatus === 'Closed' ? $t('lang.terminated') : (row.cardStatus === 'Suspend' || row.cardStatus === 'Frozen') ? $t('lang.suspend') : row.cardStatus 
         }}
       </el-tag>
-    </template>
-  </el-table-column>
-
-  <!-- 表格列 - 卡类型 -->
-  <el-table-column prop="cardLevel" :label="$t('lang.card_type')" width="170">
-    <template #default="{ row }">
-      <template v-if="row.cardModel === 'SHARE'">
-        <span>{{ $t('lang.share_card') }}</span>
-        <el-tag v-if="row.cardLevel === 'MasterCard'" type="success" size="small" style="margin-left: 8px;">{{ $t('lang.master_card') }}</el-tag>
-        <el-tag v-if="row.cardLevel === 'SubCard'" type="primary" size="small" style="margin-left: 8px;">{{ $t('lang.sub_card') }}</el-tag>
-      </template>
-      <span v-else>{{ getCardTypeLabel(row.cardLevel) }}</span>
     </template>
   </el-table-column>
 
@@ -144,6 +132,17 @@
   </el-table-column>
   <!-- 表格列 - 卡币种 -->
   <el-table-column prop="currency" :label="$t('lang.card_currency')" width="100"></el-table-column>
+  <!-- 表格列 - 卡类型 -->
+  <el-table-column prop="cardLevel" :label="$t('lang.card_type')" width="170">
+    <template #default="{ row }">
+      <template v-if="row.cardModel === 'SHARE'">
+        <span>{{ $t('lang.share_card') }}</span>
+        <el-tag v-if="row.cardLevel === 'MasterCard'" type="success" size="small" style="margin-left: 8px;">{{ $t('lang.master_card') }}</el-tag>
+        <el-tag v-if="row.cardLevel === 'SubCard'" type="primary" size="small" style="margin-left: 8px;">{{ $t('lang.sub_card') }}</el-tag>
+      </template>
+      <span v-else>{{ getCardTypeLabel(row.cardLevel) }}</span>
+    </template>
+  </el-table-column>
   <!-- 表格列 - 创建时间 -->
   <el-table-column prop="activeDate" :label="$t('lang.creation_time')" width="120">
     <template #default="{ row }">
@@ -184,18 +183,20 @@
         <template #dropdown>
           <el-dropdown-menu>
             <el-dropdown-item v-if="$userStore.hasRole(5) && scope.row.cardLevel !== 'SubCard'" @click="handleRechargeCard(scope.row)">{{ $t('lang.recharge') }}</el-dropdown-item>
-            <el-dropdown-item v-if="$userStore.hasRole(5) && scope.row.cardLevel === 'SubCard'" @click="handleAdjustLimit(scope.row)">{{ $t('lang.adjust_limit') }}</el-dropdown-item>
+            <el-dropdown-item v-if="$userStore.hasRole(5)" @click="handleAdjustLimit(scope.row)">{{ $t('lang.adjust_limit') }}</el-dropdown-item>
             <el-dropdown-item v-if="$userStore.hasRole(5) && scope.row.cardLevel !== 'SubCard'" @click="handleWithdrawCard(scope.row)">{{ $t('lang.withdraw_card') }}</el-dropdown-item>
-            <el-dropdown-item v-if="$userStore.hasRole(5)" @click="handleCancelCard(scope.row)">{{ $t('lang.terminate_card') }}</el-dropdown-item>
+            <el-dropdown-item v-if="$userStore.hasRole(5) && scope.row.cardStatus === 'Active'" @click="handleCancelCard(scope.row)">{{ $t('lang.terminate_card') }}</el-dropdown-item>
+            <el-dropdown-item v-if="$userStore.hasRole(5) && (scope.row.cardStatus === 'Suspend' || scope.row.cardStatus === 'Frozen')" @click="handleUnfreezeCard(scope.row)">{{ $t('lang.unfreeze_card') }}</el-dropdown-item>
             <el-dropdown-item @click="handleRefresh(scope.row)">{{ $t('lang.refresh') }}</el-dropdown-item>
           </el-dropdown-menu>
         </template>
       </el-dropdown>
       <div class="action-buttons d-none d-sm-flex display-flex"> 
         <el-button v-if="$userStore.hasRole(5) && scope.row.cardLevel !== 'SubCard'" type="primary" size="small" @click="handleRechargeCard(scope.row)">{{ $t('lang.top_up') }}</el-button>
-        <el-button v-if="$userStore.hasRole(5) && scope.row.cardLevel === 'SubCard'" type="primary" size="small" @click="handleAdjustLimit(scope.row)">{{ $t('lang.adjust_limit') }}</el-button>
+        <el-button v-if="$userStore.hasRole(5)" type="primary" size="small" @click="handleAdjustLimit(scope.row)">{{ $t('lang.adjust_limit') }}</el-button>
         <el-button v-if="$userStore.hasRole(5) && scope.row.cardLevel !== 'SubCard'" type="secondary" size="small" @click="handleWithdrawCard(scope.row)">{{ $t('lang.withdraw_card') }}</el-button>
-        <el-button v-if="$userStore.hasRole(5)" type="danger" size="small" @click="handleCancelCard(scope.row)">{{ $t('lang.terminate') }}</el-button>
+        <el-button v-if="$userStore.hasRole(5) && scope.row.cardStatus === 'Active'" type="danger" size="small" @click="handleCancelCard(scope.row)">{{ $t('lang.terminate') }}</el-button>
+        <el-button v-if="$userStore.hasRole(5) && (scope.row.cardStatus === 'Suspend' || scope.row.cardStatus === 'Frozen')" type="warning" size="small" @click="handleUnfreezeCard(scope.row)">{{ $t('lang.unfreeze_card') }}</el-button>
         <el-button :loading="scope.row.loading" type="success" size="small" @click="handleRefresh(scope.row)">{{ $t('lang.refresh') }}</el-button>
       </div>
     </template>
@@ -279,10 +280,10 @@
         <el-table-column prop="cardStatus" :label="$t('lang.card_status')" width="120">
           <template #default="{ row }">
             <el-tag 
-              :type="row.cardStatus === 'Active' ? 'success' : row.cardStatus === 'Failure' ?'danger': row.cardStatus === 'Suspend' ? 'warning' : 'info'">
-              {{ 
-                row.cardStatus === 'Active' ? $t('lang.active') : row.cardStatus === 'Failure' ? $t('lang.failure') : row.cardStatus === 'Closed' ? $t('lang.terminated') : row.cardStatus === 'Suspend' ? $t('lang.suspend') : row.cardStatus 
-              }}
+        :type="row.cardStatus === 'Active' ? 'success' : row.cardStatus === 'Failure' ?'danger': (row.cardStatus === 'Suspend' || row.cardStatus === 'Frozen') ? 'warning' : 'info'">
+        {{
+          row.cardStatus === 'Active' ? $t('lang.active') : row.cardStatus === 'Failure' ? $t('lang.failure') : row.cardStatus === 'Closed' ? $t('lang.terminated') : (row.cardStatus === 'Suspend' || row.cardStatus === 'Frozen') ? $t('lang.suspend') : row.cardStatus 
+        }}
             </el-tag>
           </template>
         </el-table-column>
@@ -703,7 +704,7 @@
     align-center
     class="card-detail-dialog"
   >
-    <CardDetail :card="cardView" />
+    <CardDetail :card="cardView" @card-status-changed="getTableData" />
   </el-dialog>
   <el-dialog v-model="dialogs.setCardGroupDialogVisible" :title="$t('lang.set_card_group')" width="30%">
     <el-select v-model="groupForm.groupId" :placeholder="$t('lang.please_select')" style="width: 100%;">
@@ -720,7 +721,7 @@
     </template>
   </el-dialog>
 
-  <!-- 共享卡余额充值（gzy matrix transfer_in + 扣系统钱包） -->
+  <!-- 共享余额充值（gzy matrix transfer_in + 扣系统钱包） -->
   <el-dialog
     v-model="dialogs.shareRechargeDialogVisible"
     :title="$t('lang.share_card_balance') + ' - ' + $t('lang.recharge')"
@@ -750,7 +751,7 @@
     </template>
   </el-dialog>
 
-  <!-- 共享卡余额提现（gzy matrix transfer_out + 入账系统钱包） -->
+  <!-- 共享余额提现（gzy matrix transfer_out + 入账系统钱包） -->
   <el-dialog
     v-model="dialogs.shareWithdrawDialogVisible"
     :title="$t('lang.share_card_balance') + ' - ' + $t('lang.withdraw')"
@@ -786,13 +787,12 @@
   import { reactive, ref,onMounted, computed,h } from 'vue';
   import { ElMessage,ElMessageBox,ElSelect,ElOption } from 'element-plus';
   import { formatDate, formatDateYYYYMMDD, addYear} from '@/utils/format';
-  import { setCardGroup,listCardGroup,listCardHolder,remarkCard,syncCard,addCardHolder,fetchCardHolderAddress,listCardBin,createCard,cancelCard,listCard,rechargeCard,withdrawCard,adjustSubCardLimit,getGzyShareBalance,gzyShareRecharge,gzyShareWithdraw } from '@/api/finance';
+  import { setCardGroup,listCardGroup,listCardHolder,remarkCard,syncCard,addCardHolder,fetchCardHolderAddress,listCardBin,createCard,frozenCard,listCard,rechargeCard,withdrawCard,adjustSubCardLimit,getGzyShareBalance,gzyShareRecharge,gzyShareWithdraw } from '@/api/finance';
   import { getIamUserList } from '@/api/iam';
   import { useUserStore } from '@/pinia/modules/user'
   import CardDetail from './cardDetail.vue'
   import { randomBirth, randomHKMobile } from '@/utils/random'
   import {buildExcel} from '@/utils/excel'
-  import { buildCancelListPayload, applyCancelCardResult } from '@/utils/cancelCard'
   import { useCardPreRecharge } from '@/composables/useCardPreRecharge'
   import PreRechargeSummary from '@/components/card/PreRechargeSummary.vue'
   import { useI18n } from 'vue-i18n';
@@ -912,7 +912,7 @@
     cardBinId: '',
     cardBin:'',
     number: 1,
-    totalAuthLimit: '',
+    totalAuthLimit: 1,
     authLimitFlag: 'Y'
   })
 
@@ -1194,7 +1194,7 @@
     loading.addCardHolderLoading = true
     addCardHolder({
       ...cardHolder.value,
-      matrixAccount: userStore.userInfo?.matrixAccount || '',
+      shareMode: 1,
     }).then(res=>{
       loading.addCardHolderLoading = false
       if(res.code === 0){
@@ -1220,10 +1220,11 @@
       groupId: cardForm.value.groupId,
       cardHolderId: cardForm.value.cardHolderId,
     }
-    // 共享卡固定开子卡：不传主卡，仅传授权额度
+    // 共享卡固定开子卡：不传主卡，仅传授权额度；shareMode=1 后端子账号取主账号 matrixAccount
     if (cardForm.value.card && cardForm.value.card.cardModel === 'SHARE') {
       form.totalAuthLimit = cardForm.value.totalAuthLimit
       form.authLimitFlag = cardForm.value.authLimitFlag
+      form.shareMode = 1
     }
     if (form.cardBin == null || form.cardBinId == null) {
       ElMessage.error('Please select card bin')
@@ -1253,7 +1254,7 @@
   };
   
   const handleActiveCard = () => {
-    cardForm.value.totalAuthLimit = ''
+    cardForm.value.totalAuthLimit = 1
     cardForm.value.authLimitFlag = 'Y'
     filters.region = 'US'
     filters.brand = ''
@@ -1312,7 +1313,7 @@
   }
   const handleCancelCard = (row)=>{
     ElMessageBox.confirm(
-    t('lang.cancel_card_warning'),
+    t('lang.freeze_card_warning'),
     t('lang.warning'),
     {
       confirmButtonText: t('lang.terminate_card'),
@@ -1326,6 +1327,22 @@
     .catch(() => {
     })
   }
+  const handleUnfreezeCard = (row)=>{
+    ElMessageBox.confirm(
+    t('lang.unfreeze_card_warning'),
+    t('lang.warning'),
+    {
+      confirmButtonText: t('lang.unfreeze_card'),
+      cancelButtonText: t('lang.cancel'),
+      type: 'warning',
+    }
+  )
+    .then(() => {
+      handleUnfreezeConfirm(row)
+    })
+    .catch(() => {
+    })
+  }
   const cardListTableRef = ref()
   const selectedCancelRows = ref([])
 
@@ -1333,31 +1350,63 @@
     selectedCancelRows.value = rows
   }
 
-  const runCancelWithPayload = (payload) => {
-    cancelCard(payload).then((res) => {
-      applyCancelCardResult(res, {
-        t,
-        ElMessage,
-        onAfter: (ok) => {
-          if (ok) {
-            getTableData()
-            cardListTableRef.value?.clearSelection()
-          }
-        }
-      })
-    })
+  const collectFreezeIds = (rows) => {
+    const list = Array.isArray(rows) ? rows : [rows]
+    const ids = list.map((r) => r?.ID).filter((id) => id != null)
+    if (!ids.length) throw new Error('cancel_list_invalid')
+    if (ids.length > 100) throw new Error('cancel_list_too_many')
+    return ids
+  }
+
+  const runFreezeCards = async (ids, action = 'frozen') => {
+    let success = 0
+    let fail = 0
+    for (const id of ids) {
+      try {
+        const res = await frozenCard({ id, action })
+        if (res?.code === 0) success++
+        else fail++
+      } catch {
+        fail++
+      }
+    }
+    const okMsg = action === 'unfrozen' ? t('lang.unfreeze_success') : t('lang.freeze_success')
+    const failMsg = action === 'unfrozen' ? t('lang.unfreeze_card_failed') : t('lang.freeze_card_failed')
+    if (fail === 0) {
+      ElMessage.success(okMsg)
+    } else if (success === 0) {
+      ElMessage.error(failMsg)
+    } else {
+      ElMessage.warning(t('lang.cancel_batch_partial', { success, fail }))
+    }
+    if (success > 0) {
+      getTableData()
+      cardListTableRef.value?.clearSelection()
+    }
   }
 
   const handleCancelConfirm = (row) => {
-    let payload
+    let ids
     try {
-      payload = buildCancelListPayload(row)
+      ids = collectFreezeIds(row)
     } catch (e) {
       if (e.message === 'cancel_list_too_many') ElMessage.warning(t('lang.cancel_list_too_many'))
       else ElMessage.warning(t('lang.cancel_list_invalid'))
       return
     }
-    runCancelWithPayload(payload)
+    runFreezeCards(ids, 'frozen')
+  }
+
+  const handleUnfreezeConfirm = (row) => {
+    let ids
+    try {
+      ids = collectFreezeIds(row)
+    } catch (e) {
+      if (e.message === 'cancel_list_too_many') ElMessage.warning(t('lang.cancel_list_too_many'))
+      else ElMessage.warning(t('lang.cancel_list_invalid'))
+      return
+    }
+    runFreezeCards(ids, 'unfrozen')
   }
 
   const handleBatchCancelCard = () => {
@@ -1366,16 +1415,16 @@
       ElMessage.warning(t('lang.cancel_batch_empty'))
       return
     }
-    let payload
+    let ids
     try {
-      payload = buildCancelListPayload(rows)
+      ids = collectFreezeIds(rows)
     } catch (e) {
       if (e.message === 'cancel_list_too_many') ElMessage.warning(t('lang.cancel_list_too_many'))
       else ElMessage.warning(t('lang.cancel_list_invalid'))
       return
     }
     ElMessageBox.confirm(
-      t('lang.cancel_card_warning'),
+      t('lang.freeze_card_warning'),
       t('lang.warning'),
       {
         confirmButtonText: t('lang.terminate_card'),
@@ -1384,7 +1433,7 @@
       }
     )
       .then(() => {
-        runCancelWithPayload(payload)
+        runFreezeCards(ids, 'frozen')
       })
       .catch(() => {})
   }

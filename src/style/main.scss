@@ -2583,6 +2583,8 @@ $asideHight: 100vh;
 
 .el-dialog .el-input__wrapper,
 .el-message-box .el-input__wrapper,
+.el-dialog .el-select__wrapper,
+.el-message-box .el-select__wrapper,
 .el-dialog .el-textarea__inner,
 .el-message-box .el-textarea__inner {
     color: #f4fbff !important;
@@ -2596,8 +2598,18 @@ $asideHight: 100vh;
 .el-dialog .el-input__inner,
 .el-message-box .el-input__inner,
 .el-dialog .el-textarea__inner,
-.el-message-box .el-textarea__inner {
+.el-message-box .el-textarea__inner,
+.el-dialog .el-select__selected-item,
+.el-message-box .el-select__selected-item,
+.el-dialog .el-select__caret,
+.el-message-box .el-select__caret {
     color: #f4fbff !important;
+    background: transparent !important;
+}
+
+.el-dialog .el-select__placeholder,
+.el-message-box .el-select__placeholder {
+    color: rgba(232, 247, 255, 0.45) !important;
     background: transparent !important;
 }
 

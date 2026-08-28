@@ -50,7 +50,10 @@ export const useUserStore = defineStore('user', () => {
   const GetUserInfo = async() => {
     const res = await getUserInfo()
     if (res.code === 0) {
-      setUserInfo(res.data.userInfo)
+      setUserInfo({
+        ...res.data.userInfo,
+        isAdminSnap: !!res.data.isAdminSnap,
+      })
     }
     return res
   }

@@ -15,12 +15,14 @@ function parseAmount(value) {
  * @param {() => string|undefined} options.getCardId
  * @param {() => string|number|undefined} options.getRechargeAmount 用户输入的到账金额
  * @param {() => boolean|undefined} [options.enabled] dialog visible
+ * @param {'debounce'|'blur'} [options.trigger='debounce'] debounce: 输入防抖；blur: 失焦或手动 fetch
  * @param {() => string} [options.getMemberId]
  * @param {() => string} [options.getAccountId]
  */
 export function useCardPreRecharge(options) {
   const summary = ref(null)
   const loading = ref(false)
+  const trigger = options.trigger ?? 'debounce'
   let debounceTimer = null
   let seq = 0
 
@@ -56,6 +58,7 @@ export function useCardPreRecharge(options) {
   }
 
   function scheduleFetch() {
+    if (trigger === 'blur') return
     clearTimeout(debounceTimer)
     debounceTimer = setTimeout(runFetch, DEBOUNCE_MS)
   }
@@ -71,11 +74,11 @@ export function useCardPreRecharge(options) {
     () => {
       const enabled = options.enabled?.()
       if (enabled === false) return ['__closed__']
-      return [
-        enabled ?? true,
-        options.getCardId?.(),
-        options.getRechargeAmount?.(),
-      ]
+      const vals = [enabled ?? true, options.getCardId?.()]
+      if (trigger === 'debounce') {
+        vals.push(options.getRechargeAmount?.())
+      }
+      return vals
     },
     (vals) => {
       if (vals[0] === '__closed__') {
@@ -89,5 +92,5 @@ export function useCardPreRecharge(options) {
 
   onUnmounted(reset)
 
-  return { summary, loading, reset }
+  return { summary, loading, reset, fetch: runFetch }
 }
