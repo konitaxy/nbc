@@ -148,6 +148,8 @@ type PixielCard struct {
 	CardLevel      constant.CardLevel `gorm:"column:card_level;type:varchar(50)" json:"cardLevel" form:"cardLevel"`                    // 卡级别 SubCard:子卡 MasterCard:主卡
 	TotalAuthLimit decimal.Decimal    `gorm:"column:total_auth_limit;type:decimal(10,2)" json:"totalAuthLimit" form:"totalAuthLimit"`  // 子卡限额
 	UsedAuthLimit  decimal.Decimal    `gorm:"column:used_auth_limit;type:decimal(10,2)" json:"usedAuthLimit" form:"usedAuthLimit"`     // 子卡已使用额度
+	// OneTime 一次性卡：默认 false；为 true 时清算成功或首次授权失败后自动冻结
+	OneTime bool `gorm:"column:one_time;type:tinyint(1);default:0;index" json:"oneTime" form:"oneTime"`
 }
 
 func (*PixielCard) TableName() string {

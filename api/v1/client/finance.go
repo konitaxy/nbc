@@ -436,6 +436,7 @@ func (f *FinanceApi) OpenCard(c *gin.Context) {
 				Remark:        req.Remark,
 				GroupID:       req.GroupID,
 				PrimaryCardID: req.PrimaryCardID,
+				OneTime:       req.OneTime,
 			}
 			// 设置持卡人
 			card.HolderId = req.CardHolderId

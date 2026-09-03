@@ -560,7 +560,7 @@ func (f *FinanceService) AddCardApplyTransaction(ctr *finance.CardTransactionRec
 		feeType := transaction.GetFeeTypeByTransactionType(ctr.TransactionType, transaction.FeeProviderFromChannel(ctr.Channel))
 		fee := CalculateFee(card.ClientID, feeType, card.CardBin, ctr.Amount)
 		if ctr.Status != "Success" && ctr.TransactionType != constant.TransactionType_Card_Recharge {
-			return global.GVA_DB.Transaction(func(tx *gorm.DB) error {
+			err = global.GVA_DB.Transaction(func(tx *gorm.DB) error {
 				if ctr.TransactionType == constant.TransactionType_Authorization_Transaction {
 					report := finance.ClientDailyReport{
 						ClientID:                   card.ClientID,
@@ -580,8 +580,22 @@ func (f *FinanceService) AddCardApplyTransaction(ctr *finance.CardTransactionRec
 				}
 				return tx.Save(ctr).Error
 			})
+			if err != nil {
+				return err
+			}
+			// 一次性卡：首次授权失败也冻结（本笔之外尚无授权记录）
+			if card.OneTime && ctr.TransactionType == constant.TransactionType_Authorization_Transaction {
+				var priorAuth int64
+				_ = global.GVA_DB.Model(&finance.CardTransactionRecord{}).
+					Where("card_id = ? AND transaction_type = ? AND id <> ?", ctr.CardID, constant.TransactionType_Authorization_Transaction, ctr.ID).
+					Count(&priorAuth).Error
+				if priorAuth == 0 {
+					f.freezeOneTimeCardAsync(&card, "Authorization_Failure")
+				}
+			}
+			return nil
 		}
-		return global.GVA_DB.Transaction(func(tx *gorm.DB) error {
+		err = global.GVA_DB.Transaction(func(tx *gorm.DB) error {
 
 			switch ctr.TransactionType {
 			case constant.TransactionType_Card_Withdraw:
@@ -837,7 +851,38 @@ func (f *FinanceService) AddCardApplyTransaction(ctr *finance.CardTransactionRec
 			}
 			return global.GVA_DB.Save(ctr).Error
 		})
+		if err != nil {
+			return err
+		}
+		// 一次性卡：清算成功后自动冻结
+		if card.OneTime &&
+			ctr.Status == "Success" &&
+			ctr.TransactionType == constant.TransactionType_Settlement_Transaction {
+			f.freezeOneTimeCardAsync(&card, string(ctr.TransactionType))
+		}
+		return nil
 	}
+}
+
+// freezeOneTimeCardAsync 一次性卡异步冻结（已冻结则跳过）。
+func (f *FinanceService) freezeOneTimeCardAsync(card *finance.PixielCard, trigger string) {
+	if card == nil || !card.OneTime {
+		return
+	}
+	if card.CardStatus == string(constant.CardStatus_SUSPEND) || card.CardStatus == "Frozen" {
+		return
+	}
+	cardID, clientID, cardNo := card.ID, card.ClientID, card.CardID
+	go func() {
+		if freezeErr := f.CardFrozen(cardID, clientID, "frozen", ""); freezeErr != nil {
+			global.GVA_LOG.Warn("one-time card auto freeze failed",
+				zap.Uint("cardDbId", cardID),
+				zap.String("cardId", cardNo),
+				zap.String("trigger", trigger),
+				zap.Error(freezeErr),
+			)
+		}
+	}()
 }
 
 func (f *FinanceService) GetCardTransactionByTransactionID(transactionID string, transactionType constant.TransactionType) (ctr finance.CardTransactionRecord, err error) {
