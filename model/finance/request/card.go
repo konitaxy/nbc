@@ -137,7 +137,7 @@ type OpenCardReq struct {
 	AuthLimitFlag  string          `json:"authLimitFlag"`  // 是否限额。Y:是,N:否。(创建子卡时传；gzy 共享卡可省略，有额度则按 Y)
 	// ShareMode 1=共享卡开卡：子账号时矩阵号取主账号 clients.matrix_account（CreateCard 已按 TenantID 绑定）
 	ShareMode int `json:"shareMode,omitempty"`
-	// OneTime 一次性卡；true 时清算成功或首次授权失败后自动冻结，默认 false
+	// OneTime 一次性卡；true 时清算成功或授权失败后自动冻结，默认 false
 	OneTime bool `json:"oneTime"`
 }
 

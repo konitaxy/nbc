@@ -583,15 +583,9 @@ func (f *FinanceService) AddCardApplyTransaction(ctr *finance.CardTransactionRec
 			if err != nil {
 				return err
 			}
-			// 一次性卡：首次授权失败也冻结（本笔之外尚无授权记录）
+			// 一次性卡：授权失败后也冻结
 			if card.OneTime && ctr.TransactionType == constant.TransactionType_Authorization_Transaction {
-				var priorAuth int64
-				_ = global.GVA_DB.Model(&finance.CardTransactionRecord{}).
-					Where("card_id = ? AND transaction_type = ? AND id <> ?", ctr.CardID, constant.TransactionType_Authorization_Transaction, ctr.ID).
-					Count(&priorAuth).Error
-				if priorAuth == 0 {
-					f.freezeOneTimeCardAsync(&card, "Authorization_Failure")
-				}
+				f.freezeOneTimeCardAsync(&card, "Authorization_Failure")
 			}
 			return nil
 		}
