@@ -196,15 +196,18 @@ func (FinanceService) AddCardHolder(holder *finance.CardHolder) error {
 	// 默认不绑矩阵；仅当请求显式带 matrixAccount（创建在矩阵号下）时传给渠道并落库。
 	mx := strings.TrimSpace(holder.MatrixAccount)
 	holder.MatrixAccount = mx
+	holder.Channel = cardHolderChannel(holder.Channel)
 
-	gReq := gzy.CardHolderApplyRequestFromFinanceHolder(holder)
-	gReq.CardholderNameAbbreviation = ""
-	gReq.MatrixAccount = mx
-	resp, err := gzy.NewGzy().ApplyCardHolder(gReq)
+	facade, err := cardplatform.NewFacade(holder.Channel)
 	if err != nil {
 		return err
 	}
-	holder.CardHolderID = resp.CardholderID
+	in := cardplatform.UnifiedFromFinanceHolder(holder, cardplatform.UnifiedCardHolderExtra{})
+	resp, err := facade.ApplyCardHolder(in)
+	if err != nil {
+		return err
+	}
+	holder.CardHolderID = strings.TrimSpace(resp.CardHolderID)
 	return global.GVA_DB.Save(holder).Error
 }
 
@@ -253,19 +256,34 @@ func (FinanceService) UpdateCardHolder(req *request.UpdateCardHolderReq, clientI
 		return fmt.Errorf("cardholder not found")
 	}
 	mergeCardHolderUpdate(&holder, req)
-	extra := gzy.CardHolderEditExtra{
+	if ch := strings.TrimSpace(req.Channel); ch != "" {
+		holder.Channel = ch
+	}
+	holder.Channel = cardHolderChannel(holder.Channel)
+	facade, err := cardplatform.NewFacade(holder.Channel)
+	if err != nil {
+		return err
+	}
+	in := cardplatform.UnifiedFromFinanceHolder(&holder, cardplatform.UnifiedCardHolderExtra{
 		CardholderNameAbbreviation: req.CardholderNameAbbreviation,
 		CertType:                   req.CertType,
 		Portrait:                   req.Portrait,
 		ReverseSide:                req.ReverseSide,
 		CertCountryCode:            req.CertCountryCode,
 		CertID:                     req.CertId,
-	}
-	gReq := gzy.CardHolderEditRequestFromFinanceHolder(&holder, extra)
-	if _, err := gzy.NewGzy().EditCardHolder(gReq); err != nil {
+	})
+	if err := facade.EditCardHolder(in); err != nil {
 		return err
 	}
 	return global.GVA_DB.Save(&holder).Error
+}
+
+func cardHolderChannel(ch string) string {
+	ch = strings.TrimSpace(ch)
+	if ch == "" {
+		return string(constant.Channel_Gzy)
+	}
+	return ch
 }
 
 func (FinanceService) GetCardHolderByID(holderID string, clientID uint) (holder finance.CardHolder, err error) {
@@ -1045,76 +1063,78 @@ func (f *FinanceService) CancelCard(card *finance.PixielCard) (err error) {
 	}); err != nil {
 		return err
 	} else {
-		if detail.CardStatus != "Active" {
-			return errors.New("card is not active")
-		} else {
-
-			return global.GVA_DB.Transaction(func(tx *gorm.DB) error {
-				if detail.AvailableBalance.LessThan(decimal.Zero) {
-					return errors.New("card balance is negative")
-				}
-				fee := CalculateFee(card.ClientID, constant.TERMINATE_CARD, card.CardBin, decimal.Zero)
-				orderId := utils.GenerateID(constant.OrderPrefix_Card_Teminated)
-				var wallet client.Wallet
-				err = global.GVA_DB.First(&wallet, "client_id = ?", card.ClientID).Error
-				if err != nil {
-					return err
-				}
-				global.GVA_LOG.Info("cancel card", zap.String("cardId", card.CardID), zap.String("partnerOrderId", orderId), zap.String("channel", string(facade.Platform())))
-				if resp, err := facade.CancelCard(cardplatform.UnifiedCancelCardRequest{
-					CardID:         card.CardID,
-					PartnerOrderID: orderId,
-				}); err != nil {
-					return err
-				} else {
-					global.GVA_LOG.Info("cancel card response", zap.Any("resp", resp))
-
-					if fee.Fee.GreaterThan(decimal.Zero) {
-						// 扣除手续费
-						if result := tx.Model(&client.Wallet{}).Where("client_id = ? AND balance >= ?", card.ClientID, fee.Fee).Update("balance", gorm.Expr("balance - ?", fee.Fee)); result.Error != nil || result.RowsAffected == 0 {
-							return fmt.Errorf("failed to deduct fee from wallet")
-						}
-						// 查询更新后的余额
-						if err := tx.First(&wallet, "client_id = ?", card.ClientID).Error; err != nil {
-							return err
-						}
-						wh1 := finance.WalletHistory{
-							ClientID:        card.ClientID,
-							IAMID:           card.IAMID,
-							OrderID:         utils.GenerateID(constant.OrderPrefix_FEE),
-							IsFee:           true,
-							TransactionType: constant.TransactionType_Card_Terminate,
-							Amount:          fee.Fee.Mul(decimal.NewFromInt(-1)),
-							AmountCurrency:  constant.Currency(detail.Currency),
-							Currency:        wallet.Currency,
-							Balance:         wallet.Balance, // 使用更新后的余额
-							ReferenceID:     card.OrderID,
-							CardNo:          card.CardNo,
-						}
-						if err := tx.Save(&wh1).Error; err != nil {
-							return err
-						}
-						report := finance.ClientDailyReport{
-							ClientID:        card.ClientID,
-							ReportDay:       time.Now().Format("2006-01-02"),
-							FeeAmount:       fee.Fee,
-							CardCancelCount: 1,
-						}
-						if err := tx.Clauses(clause.OnConflict{
-							Columns: []clause.Column{{Name: "client_id"}, {Name: "report_day"}},
-							DoUpdates: clause.Assignments(map[string]interface{}{
-								"fee_amount":        gorm.Expr("fee_amount + VALUES(fee_amount)"),
-								"card_cancel_count": gorm.Expr("card_cancel_count + 1"),
-							}),
-						}).Create(&report).Error; err != nil {
-							return err
-						}
-					}
-					card.CardStatus = string(constant.CardStatus_CLOSED)
-					return tx.Save(card).Error
-				}
-			})
+		st := strings.TrimSpace(detail.CardStatus)
+		if st != string(constant.CardStatus_ACTIVE) &&
+			st != string(constant.CardStatus_SUSPEND) &&
+			!strings.EqualFold(st, "Frozen") {
+			return errors.New("card is not active or suspended")
 		}
+
+		return global.GVA_DB.Transaction(func(tx *gorm.DB) error {
+			if detail.AvailableBalance.LessThan(decimal.Zero) {
+				return errors.New("card balance is negative")
+			}
+			fee := CalculateFee(card.ClientID, constant.TERMINATE_CARD, card.CardBin, decimal.Zero)
+			orderId := utils.GenerateID(constant.OrderPrefix_Card_Teminated)
+			var wallet client.Wallet
+			err = global.GVA_DB.First(&wallet, "client_id = ?", card.ClientID).Error
+			if err != nil {
+				return err
+			}
+			global.GVA_LOG.Info("cancel card", zap.String("cardId", card.CardID), zap.String("partnerOrderId", orderId), zap.String("channel", string(facade.Platform())))
+			if resp, err := facade.CancelCard(cardplatform.UnifiedCancelCardRequest{
+				CardID:         card.CardID,
+				PartnerOrderID: orderId,
+			}); err != nil {
+				return err
+			} else {
+				global.GVA_LOG.Info("cancel card response", zap.Any("resp", resp))
+
+				if fee.Fee.GreaterThan(decimal.Zero) {
+					// 扣除手续费
+					if result := tx.Model(&client.Wallet{}).Where("client_id = ? AND balance >= ?", card.ClientID, fee.Fee).Update("balance", gorm.Expr("balance - ?", fee.Fee)); result.Error != nil || result.RowsAffected == 0 {
+						return fmt.Errorf("failed to deduct fee from wallet")
+					}
+					// 查询更新后的余额
+					if err := tx.First(&wallet, "client_id = ?", card.ClientID).Error; err != nil {
+						return err
+					}
+					wh1 := finance.WalletHistory{
+						ClientID:        card.ClientID,
+						IAMID:           card.IAMID,
+						OrderID:         utils.GenerateID(constant.OrderPrefix_FEE),
+						IsFee:           true,
+						TransactionType: constant.TransactionType_Card_Terminate,
+						Amount:          fee.Fee.Mul(decimal.NewFromInt(-1)),
+						AmountCurrency:  constant.Currency(detail.Currency),
+						Currency:        wallet.Currency,
+						Balance:         wallet.Balance, // 使用更新后的余额
+						ReferenceID:     card.OrderID,
+						CardNo:          card.CardNo,
+					}
+					if err := tx.Save(&wh1).Error; err != nil {
+						return err
+					}
+					report := finance.ClientDailyReport{
+						ClientID:        card.ClientID,
+						ReportDay:       time.Now().Format("2006-01-02"),
+						FeeAmount:       fee.Fee,
+						CardCancelCount: 1,
+					}
+					if err := tx.Clauses(clause.OnConflict{
+						Columns: []clause.Column{{Name: "client_id"}, {Name: "report_day"}},
+						DoUpdates: clause.Assignments(map[string]interface{}{
+							"fee_amount":        gorm.Expr("fee_amount + VALUES(fee_amount)"),
+							"card_cancel_count": gorm.Expr("card_cancel_count + 1"),
+						}),
+					}).Create(&report).Error; err != nil {
+						return err
+					}
+				}
+				card.CardStatus = string(constant.CardStatus_CLOSED)
+				return tx.Save(card).Error
+			}
+		})
 	}
 
 }
@@ -1160,9 +1180,8 @@ func (f *FinanceService) CreateCard(card *finance.PixielCard) (err error) {
 			CardBin:         cardBin,
 			Amount:          card.Balance.String(),
 		}
-		// gzy 共享卡无主卡：绑定客户 matrixAccount，并用 account/single 取 accountNo、memberId 传入 openCard。
-		// 充值卡（CARD）不绑定 Matrix，accountId 走配置默认值。
-		if facade.Platform() == cardplatform.PlatformGzy &&
+		// 需要矩阵账户的卡台（如 gzy）：共享卡绑定客户 matrixAccount，并由适配器解析 accountId / memberId。
+		if facade.ShareCardNeedsMatrix() &&
 			card.CardModel == constant.CardModel_SHARE &&
 			card.ClientID > 0 {
 			var cl client.Client
@@ -1171,30 +1190,19 @@ func (f *FinanceService) CreateCard(card *finance.PixielCard) (err error) {
 			}
 			mx := strings.TrimSpace(cl.MatrixAccount)
 			if mx == "" {
-				return fmt.Errorf("matrix account required for gzy share card")
+				return fmt.Errorf("matrix account required for share card")
 			}
 			currency := strings.TrimSpace(string(card.Currency))
 			if currency == "" {
 				currency = string(constant.USD)
 			}
-			acc, err := gzy.NewGzy().GetWalletAccountSingle(gzy.WalletAccountSingleRequest{
-				Currency:      currency,
-				MemberID:      gzy.ResolveMemberID(""),
-				MatrixAccount: mx,
-			})
+			accountNo, memberID, err := facade.ResolveMatrixWallet(currency, mx)
 			if err != nil {
-				return fmt.Errorf("gzy account/single for matrix: %w", err)
-			}
-			accountNo := strings.TrimSpace(acc.AccountNo)
-			if accountNo == "" {
-				return fmt.Errorf("gzy account/single: empty accountNo for matrixAccount=%s", mx)
+				return fmt.Errorf("resolve matrix wallet: %w", err)
 			}
 			req.MatrixAccount = mx
 			req.AccountID = accountNo
-			req.MemberID = strings.TrimSpace(acc.MemberID)
-			if req.MemberID == "" {
-				req.MemberID = gzy.ResolveMemberID("")
-			}
+			req.MemberID = memberID
 		}
 		// 只有当有 HolderId 时才设置 CardHolderID（主卡且卡段不要求持卡人时，HolderId 为空）
 		if card.HolderId != "" {
@@ -1230,6 +1238,11 @@ func (f *FinanceService) CreateCard(card *finance.PixielCard) (err error) {
 			} else if card.TotalAuthLimit.GreaterThan(decimal.Zero) {
 				req.AuthLimitFlag = "Y"
 			}
+		}
+		// 一次性卡：日限额固定 20 USD
+		if card.OneTime {
+			v := int64(20)
+			req.MaxOnDaily = &v
 		}
 		global.GVA_LOG.Info("create card", zap.Any("req", req), zap.String("channel", string(facade.Platform())))
 		if resp, err := facade.CreateCard(req); err != nil {
@@ -1333,49 +1346,20 @@ func (f *FinanceService) RechargeCard(card *finance.PixielCard, amount decimal.D
 		if err != nil {
 			return err
 		}
-		switch facade.Platform() {
-		case cardplatform.PlatformCardbin:
-			req := cardbin.RechargeRequest{
-				Amount:          amount,
-				CardID:          card.CardID,
-				AccountCurrency: string(currency),
-				PartnerOrderID:  orderId,
-			}
-			resp, err := cardbin.NewCardBin().RechargeCard(req)
-			if err != nil {
-				return err
-			}
-			global.GVA_LOG.Info("recharge card response", zap.Any("resp", resp))
-			if resp.TransactionID == "" {
-				return errors.New("recharge card error")
-			}
-			transactionID = resp.TransactionID
-		case cardplatform.PlatformGzy:
-			accID := gzy.ResolveAccountID("")
-			amt := amount
-			pre, err := gzy.NewGzy().PreRecharge(gzy.PreRechargeRequest{
-				RequestID:     orderId,
-				AccountID:     accID,
-				CardID:        card.CardID,
-				ArrivalAmount: &amt,
-			})
-			if err != nil {
-				return err
-			}
-			resp, err := gzy.NewGzy().RechargeCard(gzy.RechargeCommitRequest{
-				RequestID: pre.QuotationRequestID,
-			})
-			if err != nil {
-				return err
-			}
-			global.GVA_LOG.Info("recharge card response (gzy)", zap.Any("resp", resp))
-			if resp.TransactionID == "" {
-				return errors.New("recharge card error")
-			}
-			transactionID = resp.TransactionID
-		default:
-			return fmt.Errorf("unknown card platform")
+		resp, err := facade.RechargeCard(cardplatform.UnifiedRechargeRequest{
+			Amount:          amount,
+			CardID:          card.CardID,
+			AccountCurrency: string(currency),
+			PartnerOrderID:  orderId,
+		})
+		if err != nil {
+			return err
 		}
+		global.GVA_LOG.Info("recharge card response", zap.Any("resp", resp), zap.String("channel", string(facade.Platform())))
+		if resp == nil || resp.TransactionID == "" {
+			return errors.New("recharge card error")
+		}
+		transactionID = resp.TransactionID
 
 		{
 			wh := finance.WalletHistory{
@@ -1572,10 +1556,11 @@ func (f *FinanceService) WithdrawCard(card *finance.PixielCard, amount decimal.D
 	return nil
 }
 
-// ShareMatrixRecharge 共享卡余额充值：扣系统钱包（同卡充值）+ gzy matrix transfer_in。
-func (f *FinanceService) ShareMatrixRecharge(clientID, iamID uint, matrixAccount string, amount decimal.Decimal, currency constant.Currency) error {
+// ShareMatrixRecharge 共享卡余额充值：扣系统钱包（同卡充值）+ 渠道共享钱包入金。
+func (f *FinanceService) ShareMatrixRecharge(clientID, iamID uint, matrixAccount string, amount decimal.Decimal, currency constant.Currency, channel string) error {
 	matrixAccount = strings.TrimSpace(matrixAccount)
-	if matrixAccount == "" {
+	channel = cardHolderChannel(channel)
+	if channel != string(constant.Channel_Adsvcc) && matrixAccount == "" {
 		return fmt.Errorf("matrix account not found")
 	}
 	if !amount.IsPositive() {
@@ -1600,12 +1585,15 @@ func (f *FinanceService) ShareMatrixRecharge(clientID, iamID uint, matrixAccount
 			return err
 		}
 
-		global.GVA_LOG.Info("share matrix recharge", zap.Uint("clientId", clientID), zap.String("orderId", orderId), zap.String("amount", amount.String()))
-		if _, err := gzy.NewGzy().MatrixTransfer(gzy.MatrixTransferRequest{
-			Currency:       string(currency),
-			MatrixAccount:  matrixAccount,
-			TransferAmount: amount,
-			TransferType:   gzy.MatrixTransferTypeIn,
+		global.GVA_LOG.Info("share matrix recharge", zap.Uint("clientId", clientID), zap.String("orderId", orderId), zap.String("amount", amount.String()), zap.String("channel", channel))
+		facade, err := cardplatform.NewFacade(channel)
+		if err != nil {
+			return err
+		}
+		if _, err := facade.RechargeShareWallet(cardplatform.UnifiedShareWalletRequest{
+			Amount:        amount,
+			Currency:      string(currency),
+			MatrixAccount: matrixAccount,
 		}); err != nil {
 			return err
 		}
@@ -1661,10 +1649,11 @@ func (f *FinanceService) ShareMatrixRecharge(clientID, iamID uint, matrixAccount
 	})
 }
 
-// ShareMatrixWithdraw 共享卡余额提现：gzy matrix transfer_out + 入账系统钱包（同卡提现）。
-func (f *FinanceService) ShareMatrixWithdraw(clientID, iamID uint, matrixAccount string, amount decimal.Decimal, currency constant.Currency) error {
+// ShareMatrixWithdraw 共享卡余额提现：渠道共享钱包减款 + 入账系统钱包（同卡提现）。
+func (f *FinanceService) ShareMatrixWithdraw(clientID, iamID uint, matrixAccount string, amount decimal.Decimal, currency constant.Currency, channel string) error {
 	matrixAccount = strings.TrimSpace(matrixAccount)
-	if matrixAccount == "" {
+	channel = cardHolderChannel(channel)
+	if channel != string(constant.Channel_Adsvcc) && matrixAccount == "" {
 		return fmt.Errorf("matrix account not found")
 	}
 	if !amount.IsPositive() {
@@ -1692,12 +1681,15 @@ func (f *FinanceService) ShareMatrixWithdraw(clientID, iamID uint, matrixAccount
 			return err
 		}
 
-		global.GVA_LOG.Info("share matrix withdraw", zap.Uint("clientId", clientID), zap.String("orderId", orderId), zap.String("amount", amount.String()))
-		if _, err := gzy.NewGzy().MatrixTransfer(gzy.MatrixTransferRequest{
-			Currency:       string(currency),
-			MatrixAccount:  matrixAccount,
-			TransferAmount: amount,
-			TransferType:   gzy.MatrixTransferTypeOut,
+		global.GVA_LOG.Info("share matrix withdraw", zap.Uint("clientId", clientID), zap.String("orderId", orderId), zap.String("amount", amount.String()), zap.String("channel", channel))
+		facade, err := cardplatform.NewFacade(channel)
+		if err != nil {
+			return err
+		}
+		if _, err := facade.WithdrawShareWallet(cardplatform.UnifiedShareWalletRequest{
+			Amount:        amount,
+			Currency:      string(currency),
+			MatrixAccount: matrixAccount,
 		}); err != nil {
 			return err
 		}
@@ -1752,31 +1744,15 @@ func (f *FinanceService) ShareMatrixWithdraw(clientID, iamID uint, matrixAccount
 	})
 }
 
-// enrichUnifiedCardDetailFromGzyGetCvv 在本地无 CVV 时调用 Photon getCvv 补全卡号/有效期。
-func enrichUnifiedCardDetailFromGzyGetCvv(cardID string, res *cardplatform.UnifiedCardDetail) {
-	if res == nil || strings.TrimSpace(cardID) == "" {
-		return
-	}
-	info, err := gzy.NewGzy().GetCvv(gzy.GetCvvRequest{CardID: cardID})
+func (f *FinanceService) QueryShareWalletBalance(channel string, in cardplatform.UnifiedShareWalletBalanceRequest) (*cardplatform.UnifiedShareWalletBalance, error) {
+	facade, err := cardplatform.NewFacade(cardHolderChannel(channel))
 	if err != nil {
-		global.GVA_LOG.Warn("sync card detail: gzy GetCvv failed",
-			zap.String("cardId", cardID),
-			zap.Error(err),
-		)
-		return
+		return nil, err
 	}
-	if s := strings.TrimSpace(info.CVV); s != "" {
-		res.CVV = s
-	}
-	if strings.TrimSpace(res.CardNumber) == "" {
-		res.CardNumber = strings.TrimSpace(info.CardNo)
-	}
-	if strings.TrimSpace(res.Expiry) == "" {
-		res.Expiry = strings.TrimSpace(info.ExpirationDate)
-	}
+	return facade.QueryShareWalletBalance(in)
 }
 
-// SyncCardDetail 显式同步卡详情，允许拉取并落库 CVV（仅本地为空时调 getCvv；渠道返回空 CVV 时不覆盖已有值）。
+// SyncCardDetail 显式同步卡详情，允许拉取并落库 CVV（仅本地为空时由卡台适配器补全；渠道返回空 CVV 时不覆盖已有值）。
 func (f *FinanceService) SyncCardDetail(orderID, cardID string) (err error) {
 	return f.syncCardDetail(orderID, cardID, true)
 }
@@ -1800,10 +1776,9 @@ func (f *FinanceService) syncCardDetail(orderID, cardID string, updateCVV bool) 
 		return err
 	}
 	if updateCVV &&
-		facade.Platform() == cardplatform.PlatformGzy &&
 		strings.TrimSpace(routeCard.CVV) == "" &&
 		strings.TrimSpace(res.CVV) == "" {
-		enrichUnifiedCardDetailFromGzyGetCvv(cardID, res)
+		_ = facade.EnrichSensitiveIfEmpty(cardID, res)
 	}
 	return global.GVA_DB.Transaction(func(tx *gorm.DB) error {
 		var card finance.PixielCard
@@ -1862,42 +1837,48 @@ func (f *FinanceService) syncCardDetail(orderID, cardID string, updateCVV bool) 
 			global.GVA_LOG.Info("card Create success", ZapPixielCard(card))
 			if card.Balance.IsZero() {
 				global.GVA_LOG.Info("card Zero balance success "+res.AvailableBalance.String(), ZapPixielCard(card))
-			}
-			wh := finance.WalletHistory{
-				ClientID:        card.ClientID,
-				IAMID:           card.IAMID,
-				OrderID:         card.OrderID,
-				TransactionType: constant.TransactionType_Card_Recharge,
-				Amount:          card.Balance.Mul(decimal.NewFromInt(-1)),
-				AmountCurrency:  card.Currency,
-				Currency:        wallet.Currency,
-				Balance:         wallet.Balance,
-				ReferenceID:     card.OrderID,
-				CardNo:          res.CardNumber,
-			}
-			if err := tx.Save(&wh).Error; err != nil {
-				return err
+			} else {
+				wh := finance.WalletHistory{
+					ClientID:        card.ClientID,
+					IAMID:           card.IAMID,
+					OrderID:         card.OrderID,
+					TransactionType: constant.TransactionType_Card_Recharge,
+					Amount:          card.Balance.Mul(decimal.NewFromInt(-1)),
+					AmountCurrency:  card.Currency,
+					Currency:        wallet.Currency,
+					Balance:         wallet.Balance,
+					ReferenceID:     card.OrderID,
+					CardNo:          res.CardNumber,
+				}
+				if err := tx.Save(&wh).Error; err != nil {
+					return err
+				}
 			}
 			report := finance.ClientDailyReport{
-				ClientID:          card.ClientID,
-				ReportDay:         time.Now().Format("2006-01-02"),
-				CardRechareCount:  1,
-				CardRechareAmount: card.Balance,
-				CardCreateCount:   1,
+				ClientID:        card.ClientID,
+				ReportDay:       time.Now().Format("2006-01-02"),
+				CardCreateCount: 1,
+			}
+			if card.Balance.GreaterThan(decimal.Zero) {
+				report.CardRechareCount = 1
+				report.CardRechareAmount = card.Balance
 			}
 			if card.Fee != nil {
 				report.FeeAmount = card.Fee.Fee
 			} else {
 				report.FeeAmount = decimal.Zero
 			}
+			doUpdates := map[string]interface{}{
+				"card_create_count": gorm.Expr("card_create_count + 1"),
+				"fee_amount":        gorm.Expr("fee_amount + VALUES(fee_amount)"),
+			}
+			if card.Balance.GreaterThan(decimal.Zero) {
+				doUpdates["card_recharge_count"] = gorm.Expr("card_recharge_count + 1")
+				doUpdates["card_recharge_amount"] = gorm.Expr("card_recharge_amount + VALUES(card_recharge_amount)")
+			}
 			if err := tx.Clauses(clause.OnConflict{
-				Columns: []clause.Column{{Name: "client_id"}, {Name: "report_day"}},
-				DoUpdates: clause.Assignments(map[string]interface{}{
-					"card_recharge_count":  gorm.Expr("card_recharge_count + 1"),
-					"card_recharge_amount": gorm.Expr("card_recharge_amount + VALUES(card_recharge_amount)"),
-					"fee_amount":           gorm.Expr("fee_amount + VALUES(fee_amount)"),
-					"card_create_count":    gorm.Expr("card_create_count + 1"),
-				}),
+				Columns:   []clause.Column{{Name: "client_id"}, {Name: "report_day"}},
+				DoUpdates: clause.Assignments(doUpdates),
 			}).Create(&report).Error; err != nil {
 				return err
 			}

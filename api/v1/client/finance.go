@@ -18,7 +18,7 @@ import (
 	"gitlab.com/ucard/model/finance"
 	"gitlab.com/ucard/model/finance/request"
 	finresp "gitlab.com/ucard/model/finance/response"
-	"gitlab.com/ucard/service/credit_provider/gzy"
+	"gitlab.com/ucard/service/credit_provider/cardplatform"
 	"gitlab.com/ucard/utils"
 	"go.uber.org/zap"
 )
@@ -804,8 +804,8 @@ func (f *FinanceApi) PreRecharge(c *gin.Context) {
 	response.OkWithData(data, c)
 }
 
-// GzyAccountSingle 查询当前客户光子易矩阵账户实时余额（POST wallet/gzy/share → GET /wallet/openApi/v4/account/single）。
-// 固定使用当前客户 matrixAccount；可选传 currency / accountType / memberId。
+// GzyAccountSingle 查询当前客户共享卡钱包实时余额（POST wallet/gzy/share）。
+// channel=adsvcc 走 Adsvcc GET /share-card/getSCBalance；默认 gzy account/single。
 func (f *FinanceApi) GzyAccountSingle(c *gin.Context) {
 	var req request.GzyAccountSingleReq
 	_ = c.ShouldBindJSON(&req)
@@ -817,8 +817,11 @@ func (f *FinanceApi) GzyAccountSingle(c *gin.Context) {
 		return
 	}
 
+	channel := strings.TrimSpace(req.Channel)
 	mx := strings.TrimSpace(cl.MatrixAccount)
-	if mx == "" {
+	if strings.EqualFold(channel, string(constant.Channel_Adsvcc)) {
+		// Adsvcc 共享钱包按商户 token，不强制客户 matrix
+	} else if mx == "" {
 		response.FailWithMessage("matrix account not found", c)
 		return
 	}
@@ -827,22 +830,24 @@ func (f *FinanceApi) GzyAccountSingle(c *gin.Context) {
 		currency = "USD"
 	}
 
-	resp, err := gzy.NewGzy().GetWalletAccountSingle(gzy.WalletAccountSingleRequest{
+	resp, err := financeService.QueryShareWalletBalance(channel, cardplatform.UnifiedShareWalletBalanceRequest{
 		Currency:      currency,
-		MemberID:      gzy.ResolveMemberID(req.MemberID),
+		AccountNo:     strings.TrimSpace(req.AccountNo),
+		MemberID:      strings.TrimSpace(req.MemberID),
 		AccountType:   strings.TrimSpace(req.AccountType),
 		MatrixAccount: mx,
+		IsAuto:        req.IsAuto,
 	})
 	if err != nil {
-		global.GVA_LOG.Error("gzy account single failed", zap.Error(err), zap.Uint("clientId", tenantID), zap.Any("req", req))
+		global.GVA_LOG.Error("share wallet balance failed", zap.Error(err), zap.Uint("clientId", tenantID), zap.Any("req", req))
 		response.FailWithServiceError(c, err)
 		return
 	}
 	response.OkWithData(resp, c)
 }
 
-// GzyShareRecharge 共享卡余额充值：扣系统钱包（同卡充值）+ gzy matrix transfer_in。
-// POST wallet/gzy/recharge；matrixAccount 取当前客户。
+// GzyShareRecharge 共享卡余额充值：扣系统钱包 + 渠道共享钱包入金。
+// POST wallet/gzy/recharge；channel=adsvcc 走 /share-card/recharge（限流 10 秒 1 次）。
 func (f *FinanceApi) GzyShareRecharge(c *gin.Context) {
 	var req request.GzyShareRechargeReq
 	_ = c.ShouldBindJSON(&req)
@@ -853,8 +858,12 @@ func (f *FinanceApi) GzyShareRecharge(c *gin.Context) {
 	}
 
 	iamID, tenantID, _ := utils.GetUserAndTenantID(c)
+	lockTTL := 5 * time.Second
+	if strings.EqualFold(strings.TrimSpace(req.Channel), string(constant.Channel_Adsvcc)) {
+		lockTTL = 10 * time.Second
+	}
 	lockKey := fmt.Sprintf("share:recharge:lock:%d", tenantID)
-	if !global.GVA_REDIS.SetNX(context.Background(), lockKey, 1, 5*time.Second).Val() {
+	if !global.GVA_REDIS.SetNX(context.Background(), lockKey, 1, lockTTL).Val() {
 		response.FailWithMessage("Please do not submit repeatedly", c)
 		return
 	}
@@ -866,7 +875,7 @@ func (f *FinanceApi) GzyShareRecharge(c *gin.Context) {
 		return
 	}
 	mx := strings.TrimSpace(cl.MatrixAccount)
-	if mx == "" {
+	if !strings.EqualFold(strings.TrimSpace(req.Channel), string(constant.Channel_Adsvcc)) && mx == "" {
 		response.FailWithMessage("matrix account not found", c)
 		return
 	}
@@ -875,16 +884,16 @@ func (f *FinanceApi) GzyShareRecharge(c *gin.Context) {
 		currency = constant.USD
 	}
 
-	if err := financeService.ShareMatrixRecharge(tenantID, iamID, mx, req.TransferAmount, currency); err != nil {
-		global.GVA_LOG.Error("gzy share recharge failed", zap.Error(err), zap.Uint("clientId", tenantID), zap.Any("req", req))
+	if err := financeService.ShareMatrixRecharge(tenantID, iamID, mx, req.TransferAmount, currency, req.Channel); err != nil {
+		global.GVA_LOG.Error("share recharge failed", zap.Error(err), zap.Uint("clientId", tenantID), zap.Any("req", req))
 		response.FailWithServiceErrorUnless(c, err, "wallet balance not enough", "insufficient balance")
 		return
 	}
 	response.Ok(c)
 }
 
-// GzyShareWithdraw 共享卡余额提现：gzy matrix transfer_out + 入账系统钱包（同卡提现）。
-// POST wallet/gzy/withdraw；matrixAccount 取当前客户。
+// GzyShareWithdraw 共享卡余额提现：渠道共享钱包减款 + 入账系统钱包。
+// POST wallet/gzy/withdraw；channel=adsvcc 走 /share-card/reducedPayment。
 func (f *FinanceApi) GzyShareWithdraw(c *gin.Context) {
 	var req request.GzyShareRechargeReq
 	_ = c.ShouldBindJSON(&req)
@@ -908,7 +917,7 @@ func (f *FinanceApi) GzyShareWithdraw(c *gin.Context) {
 		return
 	}
 	mx := strings.TrimSpace(cl.MatrixAccount)
-	if mx == "" {
+	if !strings.EqualFold(strings.TrimSpace(req.Channel), string(constant.Channel_Adsvcc)) && mx == "" {
 		response.FailWithMessage("matrix account not found", c)
 		return
 	}
@@ -917,8 +926,8 @@ func (f *FinanceApi) GzyShareWithdraw(c *gin.Context) {
 		currency = constant.USD
 	}
 
-	if err := financeService.ShareMatrixWithdraw(tenantID, iamID, mx, req.TransferAmount, currency); err != nil {
-		global.GVA_LOG.Error("gzy share withdraw failed", zap.Error(err), zap.Uint("clientId", tenantID), zap.Any("req", req))
+	if err := financeService.ShareMatrixWithdraw(tenantID, iamID, mx, req.TransferAmount, currency, req.Channel); err != nil {
+		global.GVA_LOG.Error("share withdraw failed", zap.Error(err), zap.Uint("clientId", tenantID), zap.Any("req", req))
 		response.FailWithServiceError(c, err)
 		return
 	}

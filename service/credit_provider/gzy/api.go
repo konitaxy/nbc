@@ -1760,6 +1760,7 @@ type openCardV4Wire struct {
 	ArrivalAmount        *decimal.Decimal `json:"arrivalAmount,omitempty"` // 希望到账金额（与 rechargeAmount 择一；openCard 使用到账金额）
 	TransactionLimit     *decimal.Decimal `json:"transactionLimit,omitempty"`
 	TransactionLimitType string           `json:"transactionLimitType,omitempty"`
+	MaxOnDaily           *int64           `json:"maxOnDaily,omitempty"`
 }
 
 type openCardV4Envelope struct {
@@ -1857,6 +1858,10 @@ func createCardRequestToOpenCardV4(req *CreateCardRequest) (*openCardV4Wire, err
 			w.TransactionLimitType = "limited"
 			w.TransactionLimit = &lim
 		}
+	}
+	if req.MaxOnDaily != nil && *req.MaxOnDaily > 0 {
+		v := *req.MaxOnDaily
+		w.MaxOnDaily = &v
 	}
 	return w, nil
 }

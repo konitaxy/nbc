@@ -11,6 +11,7 @@ import (
 	"gitlab.com/ucard/logredact"
 	"gitlab.com/ucard/model/common/response"
 	"gitlab.com/ucard/model/finance/request"
+	"gitlab.com/ucard/service/credit_provider/cardplatform"
 	"gitlab.com/ucard/service/credit_provider/gzy"
 	"go.uber.org/zap"
 )
@@ -27,12 +28,22 @@ func (*CardManagerApi) GzyAccountSingle(c *gin.Context) {
 	if accountNo == "" && currency == "" {
 		currency = "USD"
 	}
-	resp, err := gzy.NewGzy().GetWalletAccountSingle(gzy.WalletAccountSingleRequest{
+	channel := strings.TrimSpace(req.Channel)
+	if channel == "" {
+		channel = "gzy"
+	}
+	facade, err := cardplatform.NewFacade(channel)
+	if err != nil {
+		response.FailWithMessage(err.Error(), c)
+		return
+	}
+	resp, err := facade.QueryShareWalletBalance(cardplatform.UnifiedShareWalletBalanceRequest{
 		Currency:      currency,
 		AccountNo:     accountNo,
-		MemberID:      gzy.ResolveMemberID(req.MemberID),
+		MemberID:      strings.TrimSpace(req.MemberID),
 		AccountType:   strings.TrimSpace(req.AccountType),
 		MatrixAccount: strings.TrimSpace(req.MatrixAccount),
+		IsAuto:        req.IsAuto,
 	})
 	if err != nil {
 		global.GVA_LOG.Error("gzy account single failed", zap.Error(err), zap.Any("req", req))

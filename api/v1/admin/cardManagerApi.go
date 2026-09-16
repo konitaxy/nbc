@@ -313,8 +313,10 @@ func (f *CardManagerApi) CardCancel(c *gin.Context) {
 		response.FailWithMessage("Card not exist", c)
 		return
 	} else {
-		if card.CardStatus != string(constant.CardStatus_ACTIVE) {
-			response.FailWithMessage("Card not active", c)
+		if card.CardStatus != string(constant.CardStatus_ACTIVE) &&
+			card.CardStatus != string(constant.CardStatus_SUSPEND) &&
+			card.CardStatus != "Frozen" {
+			response.FailWithMessage("Card status cannot cancel", c)
 			return
 		}
 		if cb, _ := cardService.GetCardBinByCardBinId(card.CardBinID); cb.ID == 0 {

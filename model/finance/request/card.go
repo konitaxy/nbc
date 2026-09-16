@@ -119,6 +119,7 @@ type UpdateCardHolderReq struct {
 	ReverseSide                string `json:"reverseSide,omitempty"`
 	CertCountryCode            string `json:"certCountryCode,omitempty"`
 	CertId                     string `json:"certId,omitempty"`
+	Channel                    string `json:"channel,omitempty"`
 }
 
 type OpenCardReq struct {

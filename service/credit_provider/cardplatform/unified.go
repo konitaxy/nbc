@@ -2,7 +2,7 @@ package cardplatform
 
 import "github.com/shopspring/decimal"
 
-// --- 统一模型（Facade 入参/出参）；与 cardbin / gzy 具体字段对齐处见 facade 映射 ---
+// --- 统一模型（Issuer / Facade 入参/出参）；各卡台 Adapter 负责与供应商字段映射 ---
 
 // UnifiedQueryCardDetailRequest 查询卡详情。
 type UnifiedQueryCardDetailRequest struct {
@@ -66,6 +66,8 @@ type UnifiedCreateCardRequest struct {
 	TotalAuthLimit  string
 	AuthLimitFlag   string
 	MatrixAccount   string // 客户矩阵账户号（有则传给 gzy openCard）
+	// MaxOnDaily 日限额（Integer）；一次性卡传 20
+	MaxOnDaily *int64
 }
 
 // UnifiedCreateCardResponse 开卡结果。
@@ -140,4 +142,94 @@ type UnifiedTransactionPage struct {
 	Total     int64
 	Pages     int
 	Rows      []UnifiedCardTransaction
+}
+
+// UnifiedRechargeRequest 卡充值。gzy 适配器内部走 preRecharge + recharge；cardbin 单接口。
+type UnifiedRechargeRequest struct {
+	PartnerOrderID  string
+	CardID          string
+	Amount          decimal.Decimal
+	AccountCurrency string
+	AccountID       string // gzy 钱包账户；空则用配置默认
+}
+
+// UnifiedRechargeResponse 充值结果（公共子集）。
+type UnifiedRechargeResponse struct {
+	PartnerOrderID string
+	CardID         string
+	TransactionID  string
+}
+
+// UnifiedToken 卡台 OAuth token（ExpiresAt 为 unix 毫秒，与现有配置约定一致）。
+type UnifiedToken struct {
+	AccessToken           string
+	ExpiresAt             int64
+	RefreshToken          string
+	RefreshTokenExpiresAt int64
+}
+
+// UnifiedCardHolder 渠道无关持卡人资料。ShareMode=1 为共享卡用卡人。
+type UnifiedCardHolder struct {
+	CardHolderID    string
+	PartnerHolderID string
+	FirstName       string
+	LastName        string
+	Email           string
+	Mobile          string
+	MobilePrefix    string
+	BirthDate       string
+	CountryCode     string
+	State           string
+	City            string
+	Postcode        string
+	Address         string
+	Region          string
+	MatrixAccount   string
+	ShareMode       int
+	Extra           UnifiedCardHolderExtra
+}
+
+// UnifiedCardHolderExtra 本地未落库字段（证件影像等，gzy 编辑用）。
+type UnifiedCardHolderExtra struct {
+	CardholderNameAbbreviation string
+	CertType                   string
+	Portrait                   string
+	ReverseSide                string
+	CertCountryCode            string
+	CertID                     string
+}
+
+// UnifiedShareWalletRequest 共享卡钱包充值/减款。
+type UnifiedShareWalletRequest struct {
+	Amount        decimal.Decimal
+	Currency      string
+	MatrixAccount string
+	TransferType  string // gzy：transfer_in | transfer_out
+}
+
+// UnifiedShareWalletResponse 共享卡钱包资金操作结果。
+type UnifiedShareWalletResponse struct {
+	ApprovalNo    string
+	TransactionID string
+}
+
+// UnifiedShareWalletBalanceRequest 共享卡钱包余额查询。
+type UnifiedShareWalletBalanceRequest struct {
+	Currency      string
+	AccountNo     string
+	MemberID      string
+	AccountType   string
+	MatrixAccount string
+	IsAuto        int // Adsvcc：1 手动刷新，0 自动
+}
+
+// UnifiedShareWalletBalance 共享卡钱包余额（RealTimeBalance 兼容 gzy 前端字段）。
+type UnifiedShareWalletBalance struct {
+	Balance         string
+	RealTimeBalance string
+	UpdateTime      string
+	Currency        string
+	AccountNo       string
+	MemberID        string
+	AccountType     string
 }

@@ -9,6 +9,7 @@ import (
 	"gitlab.com/ucard/model/constant"
 	"gitlab.com/ucard/model/finance"
 	"gitlab.com/ucard/model/finance/request"
+	"gitlab.com/ucard/service/credit_provider/cardplatform"
 	"gitlab.com/ucard/service/credit_provider/gzy"
 	"gitlab.com/ucard/utils"
 )
@@ -53,7 +54,7 @@ func (f *FinanceService) SandBoxTransaction(req request.SandBoxTransactionSimReq
 		amount = decimal.NewFromFloat(1.00)
 	}
 
-	if err := gzy.EnsureAccessToken(); err != nil {
+	if err := cardplatform.EnsureAccessToken(string(constant.Channel_Gzy)); err != nil {
 		return nil, err
 	}
 

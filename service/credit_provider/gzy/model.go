@@ -198,7 +198,7 @@ type CardHolderEditRequest struct {
 	ReverseSide                string `json:"reverseSide,omitempty"`
 	NationalityCountryCode     string `json:"nationalityCountryCode,omitempty"`
 	ResidentialAddress         string `json:"residentialAddress,omitempty"`
-	ResidentialCity            string `json:"residentialCity,omitempty"`
+	ResidentialCity            string `json:"residentialCity"`
 	ResidentialCountryCode     string `json:"residentialCountryCode,omitempty"`
 	ResidentialPostalCode      string `json:"residentialPostalCode,omitempty"`
 	ResidentialState           string `json:"residentialState,omitempty"`
@@ -419,9 +419,9 @@ type UpdateCardResponse struct {
 	MatrixAccount             string          `json:"matrixAccount"`
 	MemberID                  string          `json:"memberId"`
 	MaskCardNo                string          `json:"maskCardNo"`
-	MaxOnDaily                int64           `json:"maxOnDaily"`
-	MaxOnMonthly              int64           `json:"maxOnMonthly"`
-	MaxOnPercent              int64           `json:"maxOnPercent"`
+	MaxOnDaily                decimal.Decimal `json:"maxOnDaily"`
+	MaxOnMonthly              decimal.Decimal `json:"maxOnMonthly"`
+	MaxOnPercent              decimal.Decimal `json:"maxOnPercent"`
 	TotalTransactionLimit     decimal.Decimal `json:"totalTransactionLimit"`
 	TransactionLimitType      string          `json:"transactionLimitType"`
 	AvailableTransactionLimit decimal.Decimal `json:"availableTransactionLimit"`
@@ -534,9 +534,9 @@ type GetCardDetailV4CardInfo struct {
 	FirstName                  string          `json:"firstName"`
 	LastName                   string          `json:"lastName"`
 	MaskCardNo                 string          `json:"maskCardNo"`
-	MaxOnDaily                 int64           `json:"maxOnDaily"`
-	MaxOnMonthly               int64           `json:"maxOnMonthly"`
-	MaxOnPercent               int64           `json:"maxOnPercent"`
+	MaxOnDaily                 decimal.Decimal `json:"maxOnDaily"`
+	MaxOnMonthly               decimal.Decimal `json:"maxOnMonthly"`
+	MaxOnPercent               decimal.Decimal `json:"maxOnPercent"`
 	Mobile                     string          `json:"mobile"`
 	MobilePrefix               string          `json:"mobilePrefix"`
 	Nationality                string          `json:"nationality"`
@@ -856,6 +856,8 @@ type CreateCardRequest struct {
 	TotalAuthLimit  string `json:"total_auth_limit"` // 子卡限额
 	AuthLimitFlag   string `json:"auth_limit_flag"`  // Y 时配合 total_auth_limit → transactionLimit*
 	MatrixAccount   string `json:"matrix_account"`   // 客户有矩阵号时传入 → v4 matrixAccount
+	// MaxOnDaily 日限额（Photon maxOnDaily，Integer）；一次性卡开卡时传 20
+	MaxOnDaily *int64 `json:"max_on_daily,omitempty"`
 }
 
 // OpenCardV4CardDetail 对应 Photon POST /vcc/openApi/v4/openCard 应答 data.cardDetail（vccCardDetail）。
@@ -874,9 +876,9 @@ type OpenCardV4CardDetail struct {
 	LastName                  string          `json:"lastName"`
 	MemberID                  string          `json:"memberId"`
 	MatrixAccount             string          `json:"matrixAccount"`
-	MaxOnDaily                int64           `json:"maxOnDaily"`
-	MaxOnMonthly              int64           `json:"maxOnMonthly"`
-	MaxOnPercent              int64           `json:"maxOnPercent"`
+	MaxOnDaily                decimal.Decimal `json:"maxOnDaily"`
+	MaxOnMonthly              decimal.Decimal `json:"maxOnMonthly"`
+	MaxOnPercent              decimal.Decimal `json:"maxOnPercent"`
 	Mobile                    string          `json:"mobile"`
 	MobilePrefix              string          `json:"mobilePrefix"`
 	Nationality               string          `json:"nationality"`

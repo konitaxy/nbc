@@ -40,6 +40,8 @@ type GzyAccountSingleReq struct {
 	MemberID      string `json:"memberId"`
 	AccountType   string `json:"accountType"` // FT10001|FT10002|FT10003|FT10004，默认 FT10001
 	MatrixAccount string `json:"matrixAccount"`
+	Channel       string `json:"channel,omitempty"` // gzy（默认）| adsvcc
+	IsAuto        int    `json:"isAuto,omitempty"`  // adsvcc 余额：1 手动刷新 0 自动
 }
 
 // GzyShareRechargeReq 共享卡余额充值：会员账户 → matrix（transfer_in）。
@@ -47,4 +49,5 @@ type GzyAccountSingleReq struct {
 type GzyShareRechargeReq struct {
 	Currency       string          `json:"currency"`
 	TransferAmount decimal.Decimal `json:"transferAmount"`
+	Channel        string          `json:"channel,omitempty"` // gzy（默认）| adsvcc
 }

@@ -13,6 +13,7 @@ func CardHolderApplyRequestFromFinanceHolder(h *finance.CardHolder) CardHolderAp
 		return CardHolderApplyRequest{}
 	}
 	cc := countryToPhotonNationalityCode(h.CountryCode)
+	city, state := photonResidentialCityState(h, cc)
 	abbr := strings.TrimSpace(strings.ToUpper(h.LastName) + "/" + strings.ToUpper(h.FirstName))
 	if abbr == "/" {
 		abbr = ""
@@ -29,10 +30,10 @@ func CardHolderApplyRequestFromFinanceHolder(h *finance.CardHolder) CardHolderAp
 		CertType:                   "id_card",
 		NationalityCountryCode:     cc,
 		ResidentialAddress:         strings.TrimSpace(h.Address),
-		ResidentialCity:            strings.TrimSpace(h.City),
+		ResidentialCity:            city,
 		ResidentialCountryCode:     cc,
 		ResidentialPostalCode:      strings.TrimSpace(h.Postcode),
-		ResidentialState:           strings.TrimSpace(h.State),
+		ResidentialState:           state,
 		CertCountryCode:            cc,
 		CertID:                     "",
 		Portrait:                   "",
@@ -46,6 +47,7 @@ func CardHolderEditRequestFromFinanceHolder(h *finance.CardHolder, extra CardHol
 		return CardHolderEditRequest{}
 	}
 	cc := countryToPhotonNationalityCode(h.CountryCode)
+	city, state := photonResidentialCityState(h, cc)
 	abbr := strings.TrimSpace(extra.CardholderNameAbbreviation)
 	if abbr == "" {
 		abbr = strings.TrimSpace(strings.ToUpper(h.LastName) + "/" + strings.ToUpper(h.FirstName))
@@ -71,10 +73,10 @@ func CardHolderEditRequestFromFinanceHolder(h *finance.CardHolder, extra CardHol
 		ReverseSide:                strings.TrimSpace(extra.ReverseSide),
 		NationalityCountryCode:     cc,
 		ResidentialAddress:         strings.TrimSpace(h.Address),
-		ResidentialCity:            strings.TrimSpace(h.City),
+		ResidentialCity:            city,
 		ResidentialCountryCode:     cc,
 		ResidentialPostalCode:      strings.TrimSpace(h.Postcode),
-		ResidentialState:           strings.TrimSpace(h.State),
+		ResidentialState:           state,
 		CertCountryCode:            certCC,
 		CertID:                     strings.TrimSpace(extra.CertID),
 	}
@@ -88,6 +90,38 @@ type CardHolderEditExtra struct {
 	ReverseSide                string
 	CertCountryCode            string
 	CertID                     string
+}
+
+func photonResidentialCityState(h *finance.CardHolder, nationality string) (city, state string) {
+	if h == nil {
+		return "", ""
+	}
+	city = strings.TrimSpace(h.City)
+	state = strings.TrimSpace(h.State)
+	if isPhotonHongKong(h, nationality) {
+		return "", "HK_NTM"
+	}
+	return city, state
+}
+
+func isPhotonHongKong(h *finance.CardHolder, nationality string) bool {
+	if strings.EqualFold(strings.TrimSpace(nationality), "HK") {
+		return true
+	}
+	if h == nil {
+		return false
+	}
+	cc := strings.ToUpper(strings.TrimSpace(h.CountryCode))
+	switch cc {
+	case "HK", "HKG":
+		return true
+	}
+	r := strings.ToUpper(strings.TrimSpace(h.Region))
+	switch r {
+	case "HK", "HKG", "HONGKONG", "HONG KONG":
+		return true
+	}
+	return false
 }
 
 func countryToPhotonNationalityCode(country string) string {

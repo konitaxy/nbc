@@ -15,6 +15,8 @@ func FeeProviderFromChannel(ch constant.Channel) string {
 	switch ch {
 	case constant.Channel_Gzy:
 		return "gzy"
+	case constant.Channel_Adsvcc:
+		return "adsvcc"
 	default:
 		return "cardbin"
 	}

@@ -2,70 +2,18 @@ package admin
 
 import (
 	"strings"
-	"time"
 
 	"gitlab.com/ucard/global"
 	"gitlab.com/ucard/model/finance"
 	"gitlab.com/ucard/model/finance/request"
-	"gitlab.com/ucard/service/credit_provider/cardbin"
-	"gitlab.com/ucard/service/credit_provider/gzy"
-	"go.uber.org/zap"
+	"gitlab.com/ucard/service/credit_provider/cardplatform"
 )
 
 type CardService struct {
 }
 
 func init() {
-	//每隔3分钟获取一次token
-	go func() {
-		clock := time.NewTicker(1 * time.Second)
-		for range clock.C {
-			cb := cardbin.NewCardBin()
-			// fmt.Println("获取token", time.Now().UnixMilli(), global.GVA_CONFIG.Carbin.ExpiresAt)
-			if time.Now().UnixMilli() > global.GVA_CONFIG.Carbin.ExpiresAt {
-				if res, err := cb.GetToken(global.GVA_CONFIG.Carbin.APPID, global.GVA_CONFIG.Carbin.APPSecret); err != nil {
-					global.GVA_LOG.Error("获取token失败", zap.Error(err))
-				} else {
-					global.GVA_CONFIG.Carbin.AccessToken = res.AccessToken
-					global.GVA_CONFIG.Carbin.ExpiresAt = res.ExpiresIn
-					clock.Reset(120 * time.Second)
-				}
-			} else if time.Now().UnixMilli() > global.GVA_CONFIG.Carbin.ExpiresAt-4*60*1000 {
-				clock.Reset(1 * time.Second)
-			}
-		}
-
-	}()
-	// gzy（PhotonPay）：配置了 app-id 时刷新 OAuth token，逻辑与 cardbin 一致
-	go func() {
-		clock := time.NewTicker(1 * time.Second)
-		for range clock.C {
-			if global.GVA_CONFIG.Gzy.APPID == "" {
-				clock.Reset(60 * time.Second)
-				continue
-			}
-			gc := gzy.NewGzy()
-			if time.Now().UnixMilli() > global.GVA_CONFIG.Gzy.ExpiresAt {
-				if res, err := gc.GetToken(global.GVA_CONFIG.Gzy.APPID, global.GVA_CONFIG.Gzy.APPSecret); err != nil {
-					retryIn := gzy.RecordTokenFetchFailure()
-					global.GVA_LOG.Error("gzy 获取 token 失败",
-						zap.Error(err),
-						zap.Int("consecutiveFailures", gzy.TokenFailureCount()),
-						zap.Duration("nextRetryIn", retryIn),
-					)
-					clock.Reset(retryIn)
-				} else {
-					gzy.RecordTokenFetchSuccess()
-					global.GVA_CONFIG.Gzy.AccessToken = res.AccessToken
-					global.GVA_CONFIG.Gzy.ExpiresAt = res.ExpiresIn
-					clock.Reset(120 * time.Second)
-					global.GVA_LOG.Info("gzy 获取 token 成功")
-				}
-			} else if time.Now().UnixMilli() > global.GVA_CONFIG.Gzy.ExpiresAt-4*60*1000 {
-				clock.Reset(1 * time.Second)
-			}
-		}
-	}()
+	go cardplatform.StartTokenRefreshers()
 }
 
 func (c *CardService) SaveCardBin(cardBin *finance.CardBin) error {

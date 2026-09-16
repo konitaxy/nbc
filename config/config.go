@@ -33,6 +33,7 @@ type Server struct {
 	MachineLearning MachineLearning `mapstructure:"machine-learning" json:"machine-learning" yaml:"machine-learning"`
 	Carbin          Carbin          `mapstructure:"carbin" json:"carbin" yaml:"carbin"`
 	Gzy             Gzy             `mapstructure:"gzy" json:"gzy" yaml:"gzy"`
+	Adsvcc          Adsvcc          `mapstructure:"adsvcc" json:"adsvcc" yaml:"adsvcc"`
 	Tron            Tron            `mapstructure:"tron" json:"tron" yaml:"tron"`
 	Ethereum        Ethereum        `mapstructure:"ethereum" json:"ethereum" yaml:"ethereum"`
 }

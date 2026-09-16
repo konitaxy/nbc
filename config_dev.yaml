@@ -121,3 +121,14 @@ gzy:
   app-id: "rOAnetlu"
   app-secret: "20fd050505a4dbaaa4aa7faa76fdaaa49eaaaa6c"
   account-id: "FA-USD2052566705788575744"
+adsvcc:
+  base-url: "http://18.162.211.187:89/v1" # 测试环境；生产按开放平台下发
+  app-id: ""
+  app-secret: ""
+  private-key: "" # PKCS#8 PEM，非空优先于 private-key-path
+  private-key-path: "resource/keys/adsvcc_private.pem"
+  platform-public-key: "" # 平台公钥，异步通知验签用
+  default-cardholder-id: 0
+  provider-id: 0 # 共享卡钱包 /share-card/* 可选供应商 id
+  login-password: "" # 可选，拉取 /card/cvv
+  mfa-code: ""
