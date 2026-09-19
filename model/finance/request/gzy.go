@@ -51,3 +51,13 @@ type GzyShareRechargeReq struct {
 	TransferAmount decimal.Decimal `json:"transferAmount"`
 	Channel        string          `json:"channel,omitempty"` // gzy（默认）| adsvcc
 }
+
+// AdsvccProductListReq Adsvcc 产品/卡段列表（GET /card-product/list）。
+type AdsvccProductListReq struct {
+	Page        int    `json:"page"`
+	Limit       int    `json:"limit"`
+	Scene       string `json:"scene"`
+	Institution string `json:"institution"`
+	Region      string `json:"region"`
+	Type        int    `json:"type"` // 1 储蓄卡 2 共享卡，0 全部
+}

@@ -27,10 +27,11 @@ func (s *CardManagerRouter) InitCardManagerRouter(Router *gin.RouterGroup) {
 		cardManagerRouterWithoutRecord.POST("list", cardManagerApi.ListCards)
 		cardManagerRouterWithoutRecord.POST("gzy/list", cardManagerApi.GzyListCards)
 		cardManagerRouterWithoutRecord.POST("gzy/account/single", cardManagerApi.GzyAccountSingle)
+		cardManagerRouterWithoutRecord.POST("adsvcc/cardbin/list", cardManagerApi.AdsvccListCardBin)
 		cardManagerRouter.POST("gzy/matrix/create", cardManagerApi.GzyCreateMatrixAccount)
 		cardManagerRouter.POST("gzy/matrix/transfer", cardManagerApi.GzyMatrixTransfer)
 		cardManagerRouterWithoutRecord.POST("transaction/list", cardManagerApi.ListCardTransaction)
-		cardManagerRouter.POST("sync", cardManagerApi.SyncCard) //后端充值
+		cardManagerRouter.POST("sync", cardManagerApi.SyncCard)                          //后端充值
 		cardManagerRouter.POST("sandbox/transaction", cardManagerApi.SandBoxTransaction) // 光子沙箱交易模拟
 
 		cardManagerRouterWithoutRecord.POST("hook", cardManagerApi.CardbinHook)
@@ -44,5 +45,6 @@ func (s *CardManagerRouter) InitCardManagerPublicRouter(Router *gin.RouterGroup)
 	{
 		cardManagerRouterWithRecord.POST("cardbin/hook", cardManagerApi.CardbinHook)
 		cardManagerRouterWithRecord.POST("gzy/hook", cardManagerApi.GzyHook)
+		cardManagerRouterWithRecord.POST("fox/hook", cardManagerApi.FoxHook)
 	}
 }

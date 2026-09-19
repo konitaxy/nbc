@@ -66,9 +66,14 @@ func (a *adsvccAdapter) ApplyAccessToken(tok *UnifiedToken) {
 	global.GVA_CONFIG.Adsvcc.ExpiresAt = tok.ExpiresAt
 }
 
-func (a *adsvccAdapter) TokenFetchFailed() (time.Duration, int) { return 0, 0 }
+func (a *adsvccAdapter) TokenFetchFailed() (time.Duration, int) {
+	retryIn := adsvcc.RecordTokenFetchFailure()
+	return retryIn, adsvcc.TokenFailureCount()
+}
 
-func (a *adsvccAdapter) TokenFetchSucceeded() {}
+func (a *adsvccAdapter) TokenFetchSucceeded() {
+	adsvcc.RecordTokenFetchSuccess()
+}
 
 func (a *adsvccAdapter) EnsureAccessToken() error {
 	if !a.TokenRefreshEnabled() {
@@ -106,12 +111,27 @@ func (a *adsvccAdapter) EnrichSensitiveIfEmpty(cardID string, detail *UnifiedCar
 	if strings.TrimSpace(detail.CVV) != "" {
 		return nil
 	}
-	pwd := strings.TrimSpace(global.GVA_CONFIG.Adsvcc.LoginPassword)
-	if pwd == "" {
+	return a.fillFromCardCVV(cardID, detail)
+}
+
+// fillFromCardCVV 调用 POST /card/cvv 补全 CVV（及空缺的卡号、有效期）。
+func (a *adsvccAdapter) fillFromCardCVV(cardID string, detail *UnifiedCardDetail) error {
+	if detail == nil || strings.TrimSpace(detail.CVV) != "" {
 		return nil
 	}
-	cvv, err := a.client.GetCardCVV(cardID, pwd, strings.TrimSpace(global.GVA_CONFIG.Adsvcc.MFACode))
-	if err != nil || cvv == nil {
+	cvv, err := a.client.GetCardCVV(
+		cardID,
+		strings.TrimSpace(global.GVA_CONFIG.Adsvcc.LoginPassword),
+		strings.TrimSpace(global.GVA_CONFIG.Adsvcc.MFACode),
+	)
+	if err != nil {
+		global.GVA_LOG.Warn("adsvcc GetCardCVV failed",
+			zap.String("cardID", cardID),
+			zap.Error(err),
+		)
+		return err
+	}
+	if cvv == nil {
 		return nil
 	}
 	if s := strings.TrimSpace(cvv.CVV); s != "" {
@@ -121,8 +141,13 @@ func (a *adsvccAdapter) EnrichSensitiveIfEmpty(cardID string, detail *UnifiedCar
 		detail.CardNumber = strings.TrimSpace(cvv.CardNo)
 	}
 	if strings.TrimSpace(detail.Expiry) == "" {
-		detail.Expiry = strings.TrimSpace(cvv.ExpireDate)
+		detail.Expiry = adsvcc.NormalizeExpireDate(cvv.ExpireDate)
 	}
+	global.GVA_LOG.Info("adsvcc /card/cvv",
+		zap.String("cardID", cardID),
+		zap.String("cvv", strings.TrimSpace(detail.CVV)),
+		zap.String("expiry", strings.TrimSpace(detail.Expiry)),
+	)
 	return nil
 }
 
@@ -135,6 +160,11 @@ func (a *adsvccAdapter) QueryCardDetail(in UnifiedQueryCardDetailRequest) (*Unif
 	if out != nil {
 		fillAdsvccCardDetail(d, out.CardInfo)
 	}
+	global.GVA_LOG.Info("adsvcc /card/info",
+		zap.String("cardID", in.CardID),
+		zap.String("cvv", strings.TrimSpace(d.CVV)),
+		zap.String("expiry", strings.TrimSpace(d.Expiry)),
+	)
 	return d, nil
 }
 
@@ -170,81 +200,21 @@ func (a *adsvccAdapter) CreateCard(in UnifiedCreateCardRequest) (*UnifiedCreateC
 	if err != nil {
 		return nil, err
 	}
-	cardID, info, err := a.waitDemandCard(demand.BatchID, productID)
-	if err != nil {
-		// 开卡异步：短轮询未拿到卡号时先落 batch_id，后续 SyncCardDetail/列表可补齐。
-		if global.GVA_LOG != nil {
-			global.GVA_LOG.Warn("adsvcc CreateCard: demand pending, use batch_id as CardID",
-				zap.String("batchId", demand.BatchID),
-				zap.Error(err),
-			)
-		}
-		return &UnifiedCreateCardResponse{
-			PartnerOrderID: in.PartnerOrderID,
-			CardID:         demand.BatchID,
-		}, nil
+	// demand 返回的是开卡批次 batch_id，不是卡号；真实 card_id 由 webhook card_create 回填。
+	batchID := strings.TrimSpace(demand.BatchID)
+	if batchID == "" {
+		return nil, fmt.Errorf("adsvcc CreateCard: empty batch_id")
 	}
-	resp := &UnifiedCreateCardResponse{
+	if global.GVA_LOG != nil {
+		global.GVA_LOG.Info("adsvcc CreateCard: demand accepted, wait webhook card_create",
+			zap.String("batchId", batchID),
+			zap.String("partnerOrderId", in.PartnerOrderID),
+		)
+	}
+	return &UnifiedCreateCardResponse{
 		PartnerOrderID: in.PartnerOrderID,
-		CardID:         cardID,
-	}
-	if info != nil {
-		resp.CVV = strings.TrimSpace(info.CVV)
-		resp.CardNumber = strings.TrimSpace(info.CardNo)
-		resp.Expiry = strings.TrimSpace(info.ExpireDate)
-	}
-	return resp, nil
-}
-
-func (a *adsvccAdapter) waitDemandCard(batchID, productID string) (string, *adsvcc.CardInfo, error) {
-	deadline := time.Now().Add(25 * time.Second)
-	for time.Now().Before(deadline) {
-		st, err := a.client.DemandBatchStatus(batchID)
-		if err != nil {
-			return "", nil, err
-		}
-		if st.Fail > 0 && st.Wait == 0 && st.Succ == 0 {
-			return "", nil, fmt.Errorf("demand failed (fail=%d total=%s)", st.Fail, st.Total.String())
-		}
-		if st.Succ > 0 && st.Wait == 0 {
-			break
-		}
-		time.Sleep(2 * time.Second)
-	}
-	list, err := a.client.ListCards(adsvcc.CardListRequest{Page: 1, Limit: 20})
-	if err != nil {
-		return "", nil, err
-	}
-	if list == nil || len(list.List) == 0 {
-		return "", nil, fmt.Errorf("no cards after demand batch=%s", batchID)
-	}
-	var picked *adsvcc.CardItem
-	for i := range list.List {
-		it := &list.List[i]
-		if productID != "" && strconv.FormatInt(it.ProductID, 10) == productID {
-			picked = it
-			break
-		}
-	}
-	if picked == nil {
-		picked = &list.List[0]
-	}
-	id := strconv.FormatInt(picked.ID, 10)
-	detail, err := a.client.GetCardInfo(id)
-	if err != nil {
-		ci := adsvcc.CardInfo{
-			CardID:     picked.ID,
-			CardNo:     picked.CardNo,
-			CVV:        picked.CVV,
-			ExpireDate: picked.ExpireDate,
-			Amount:     picked.Amount,
-			Currency:   picked.Currency,
-			Status:     picked.Status,
-			ProductID:  picked.ProductID,
-		}
-		return id, &ci, nil
-	}
-	return id, &detail.CardInfo, nil
+		CardID:         batchID,
+	}, nil
 }
 
 func (a *adsvccAdapter) CancelCard(in UnifiedCancelCardRequest) (*UnifiedCancelCardResponse, error) {
@@ -286,6 +256,7 @@ func (a *adsvccAdapter) WithdrawFromCard(in UnifiedWithdrawRequest) (*UnifiedWit
 	return &UnifiedWithdrawResponse{
 		PartnerOrderID: in.PartnerOrderID,
 		CardID:         in.CardID,
+		TransactionID:  in.PartnerOrderID,
 	}, nil
 }
 
@@ -358,6 +329,7 @@ func (a *adsvccAdapter) RechargeCard(in UnifiedRechargeRequest) (*UnifiedRecharg
 	return &UnifiedRechargeResponse{
 		PartnerOrderID: in.PartnerOrderID,
 		CardID:         in.CardID,
+		TransactionID:  in.PartnerOrderID,
 	}, nil
 }
 
@@ -433,6 +405,130 @@ func (a *adsvccAdapter) QueryShareWalletBalance(in UnifiedShareWalletBalanceRequ
 	}, nil
 }
 
+func (a *adsvccAdapter) ListCardBins(in UnifiedListCardBinRequest) (*UnifiedCardBinPage, error) {
+	types := []int{in.ProductType}
+	if in.ProductType == 0 {
+		types = []int{adsvcc.ProductTypeDebit, adsvcc.ProductTypeShare}
+	}
+	providerID := in.ProviderID
+	if providerID == 0 {
+		providerID = global.GVA_CONFIG.Adsvcc.ProviderID
+	}
+	seen := map[string]struct{}{}
+	var list []UnifiedCardBin
+	for _, pt := range types {
+		req := adsvcc.ProductListRequest{
+			Scene:       in.Scene,
+			Institution: in.Institution,
+			Region:      in.Region,
+			Type:        pt,
+			ProviderID:  providerID,
+		}
+		var items []adsvcc.ProductItem
+		var err error
+		if in.Page > 0 {
+			req.Page = in.Page
+			req.Limit = in.Limit
+			if req.Limit <= 0 {
+				req.Limit = 15
+			}
+			var page *adsvcc.ProductListData
+			page, err = a.client.ListProducts(req)
+			if page != nil {
+				items = page.List
+			}
+		} else {
+			items, err = a.client.ListAllProducts(req)
+		}
+		if err != nil {
+			return nil, err
+		}
+		for _, it := range items {
+			ub := unifyCardBinFromAdsvcc(it, pt)
+			if ub.CardBinID == "" {
+				continue
+			}
+			key := ub.CardBinID
+			if _, ok := seen[key]; ok {
+				continue
+			}
+			seen[key] = struct{}{}
+			list = append(list, ub)
+		}
+	}
+	return &UnifiedCardBinPage{Count: len(list), List: list}, nil
+}
+
+func unifyCardBinFromAdsvcc(it adsvcc.ProductItem, productType int) UnifiedCardBin {
+	id := strings.TrimSpace(it.ID.String())
+	bin := strings.TrimSpace(it.ProviderProductCode)
+	if bin == "" {
+		bin = strings.TrimSpace(it.Name)
+	}
+	model := string(constant.CardModel_CARD)
+	if productType == adsvcc.ProductTypeShare {
+		model = string(constant.CardModel_SHARE)
+	}
+	desc := strings.TrimSpace(it.Desc)
+	if desc == "" {
+		desc = strings.TrimSpace(it.Name)
+	}
+	return UnifiedCardBin{
+		CardBinID:     id,
+		CardBin:       bin,
+		Name:          strings.TrimSpace(it.Name),
+		Description:   desc,
+		CardBrand:     adsvccInstitutionToBrand(string(it.Institution)),
+		CardType:      "Virtual",
+		CardModel:     model,
+		Region:        adsvccRegionToLocal(it.Region),
+		MinOpenAmount: strings.TrimSpace(it.MinOpenCardAmount),
+		ProductType:   productType,
+		ProviderID:    strings.TrimSpace(it.ProviderID.String()),
+	}
+}
+
+func adsvccInstitutionToBrand(inst string) string {
+	switch strings.TrimSpace(inst) {
+	case "0":
+		return "Visa"
+	case "1":
+		return "Mastercard"
+	case "2":
+		return "Diners"
+	case "3":
+		return "UnionPay"
+	case "4":
+		return "JCB"
+	case "5":
+		return "Discover"
+	default:
+		return strings.TrimSpace(inst)
+	}
+}
+
+func adsvccRegionToLocal(region string) string {
+	r := strings.ToUpper(strings.TrimSpace(region))
+	switch r {
+	case "HKG", "HK":
+		return string(constant.Region_HK)
+	case "USA", "US":
+		return string(constant.Region_US)
+	case "GBR", "GB", "UK":
+		return string(constant.Region_EU)
+	case "CHN", "CN":
+		return string(constant.Region_CN)
+	default:
+		if r == "" {
+			return string(constant.Region_US)
+		}
+		if len(r) >= 2 {
+			return r[:2]
+		}
+		return r
+	}
+}
+
 func adsvccShareWalletReq(amount decimal.Decimal) adsvcc.ShareWalletRequest {
 	return adsvcc.ShareWalletRequest{
 		Amount:     formatShareAmount(amount),
@@ -490,7 +586,7 @@ func fillAdsvccCardDetail(dst *UnifiedCardDetail, info adsvcc.CardInfo) {
 	if s := strings.TrimSpace(info.CVV); s != "" {
 		dst.CVV = s
 	}
-	if s := strings.TrimSpace(info.ExpireDate); s != "" {
+	if s := adsvcc.NormalizeExpireDate(info.ExpireDate); s != "" {
 		dst.Expiry = s
 	}
 	if s := strings.TrimSpace(info.Currency); s != "" {
@@ -503,16 +599,7 @@ func fillAdsvccCardDetail(dst *UnifiedCardDetail, info adsvcc.CardInfo) {
 }
 
 func mapAdsvccCardStatus(st int) string {
-	switch st {
-	case adsvcc.CardStatusActive:
-		return string(constant.CardStatus_ACTIVE)
-	case adsvcc.CardStatusClosed:
-		return string(constant.CardStatus_CLOSED)
-	case adsvcc.CardStatusPending:
-		return string(constant.CardStatus_PENDING)
-	default:
-		return strconv.Itoa(st)
-	}
+	return adsvcc.MapCardStatus(st)
 }
 
 func firstNonEmptyStr(a, b string) string {

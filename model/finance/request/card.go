@@ -150,6 +150,7 @@ type EditCardReq struct {
 type ChangeSubAuthLimitReq struct {
 	ID             uint            `json:"id" binding:"required"`             // 卡ID（数据库ID）
 	TotalAuthLimit decimal.Decimal `json:"totalAuthLimit" binding:"required"` // 新的总额度
+	AuthLimitFlag  string          `json:"authLimitFlag"`                     // N=不限额
 }
 
 type CardFrozenReq struct {

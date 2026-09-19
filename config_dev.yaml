@@ -123,11 +123,21 @@ gzy:
   account-id: "FA-USD2052566705788575744"
 adsvcc:
   base-url: "http://18.162.211.187:89/v1" # 测试环境；生产按开放平台下发
-  app-id: ""
-  app-secret: ""
+  app-id: "06G9Y9QKRSETC434F968"
+  app-secret: "VTi8wSgI9CGwV0GhIreLu2DGIHwjZPddVP83I9TaQh"
   private-key: "" # PKCS#8 PEM，非空优先于 private-key-path
   private-key-path: "resource/keys/adsvcc_private.pem"
-  platform-public-key: "" # 平台公钥，异步通知验签用
+  platform-public-key: |
+    -----BEGIN PUBLIC KEY-----
+    MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEA6RG7kD0QgzsCAdgwlWLB
+    sgvXEedT3bVcatSp9jCMjTyseiLZmivDdyneztj/7cSpeeQtIIskXSwM+PJ1fd47
+    4DWkjiFwUpf/8bF8KEIdpMcogbcYWFw9jb+46kN8Pdc+ENwfz4Rj2d+55Q/XgQKF
+    n6A2lG0tiImWd7pJ8W6D3VkT4g00aFyPsbzqwfu90t9puWzj1I8VtATRiP1+pj3j
+    BlIysvnkudk5sXCcKE0UZ+A97NtNhiYMLv6uoUbyceNJehMablucw9KsZN+uwI2w
+    FFw8O/pejA19zT0QtgX28dD4IQsAYyKDRJtwHhDeGPGAQuuvLugbMocXPJiJPoP5
+    WwIDAQAB
+    -----END PUBLIC KEY-----
+  # 平台公钥，异步通知验签用；空则用文档默认公钥
   default-cardholder-id: 0
   provider-id: 0 # 共享卡钱包 /share-card/* 可选供应商 id
   login-password: "" # 可选，拉取 /card/cvv

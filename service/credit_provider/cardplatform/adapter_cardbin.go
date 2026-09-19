@@ -258,6 +258,10 @@ func (a *cardbinAdapter) QueryShareWalletBalance(UnifiedShareWalletBalanceReques
 	return nil, fmt.Errorf("cardbin: QueryShareWalletBalance not supported")
 }
 
+func (a *cardbinAdapter) ListCardBins(UnifiedListCardBinRequest) (*UnifiedCardBinPage, error) {
+	return nil, fmt.Errorf("cardbin: ListCardBins not supported")
+}
+
 func unifyCardDetailFromCardbin(c *cardbin.QueryCardDetailResponse) *UnifiedCardDetail {
 	if c == nil {
 		return nil

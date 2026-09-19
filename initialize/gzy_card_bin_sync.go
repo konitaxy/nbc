@@ -8,7 +8,7 @@ import (
 	"go.uber.org/zap"
 )
 
-// GzyCardBinSyncTimer 启动约 1 分钟后连续同步两次，之后每 24 小时从 Photon（gzy）拉取卡 BIN 写入 card_bin（channel=gzy）。
+// GzyCardBinSyncTimer 启动约 1 分钟后连续同步两次，之后每 24 小时从 gzy / adsvcc 拉取卡 BIN 写入 card_bin。
 func GzyCardBinSyncTimer() {
 	if global.GVA_DB == nil {
 		return
@@ -17,6 +17,9 @@ func GzyCardBinSyncTimer() {
 		var s admin.CardService
 		if err := s.SyncGzyCardBinsFromPhoton(); err != nil {
 			global.GVA_LOG.Error("gzy card bin sync failed", zap.String("phase", phase), zap.Error(err))
+		}
+		if err := s.SyncAdsvccCardBins(); err != nil {
+			global.GVA_LOG.Error("adsvcc card bin sync failed", zap.String("phase", phase), zap.Error(err))
 		}
 	}
 	go func() {

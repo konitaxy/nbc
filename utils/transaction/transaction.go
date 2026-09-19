@@ -64,6 +64,22 @@ func NormalizeTransactionType(transactionType, from string) constant.Transaction
 			return constant.TransactionType_Refund_Reversal
 		}
 	}
+	if from == "adsvcc" {
+		switch strings.ToUpper(strings.TrimSpace(transactionType)) {
+		case "A", "AUTH", "1":
+			return constant.TransactionType_Authorization_Transaction
+		case "C", "CLEAR", "CLEARING", "2":
+			return constant.TransactionType_Settlement_Transaction
+		case "R", "REFUND", "3":
+			return constant.TransactionType_Refund_Transaction
+		case "V", "VOID", "REVERSAL", "4":
+			return constant.TransactionType_Reversal
+		case "RECHARGE", "IN":
+			return constant.TransactionType_Card_Recharge
+		case "WITHDRAW", "OUT":
+			return constant.TransactionType_Card_Withdraw
+		}
+	}
 	return ""
 }
 

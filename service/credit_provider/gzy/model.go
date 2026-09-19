@@ -390,6 +390,7 @@ type ChangeSubAuthLimitRequest struct {
 	PartnerOrderID string          `json:"partner_order_id"` // 商户请求ID → v4 requestId
 	CardID         string          `json:"card_id"`          // 卡ID → v4 cardId
 	UpdateAmount   decimal.Decimal `json:"update_amount"`    // 正数为增加限额,负数为减少限额 → transactionLimit + changeType
+	AuthLimitFlag  string          `json:"auth_limit_flag"`  // N=不限额 → transactionLimitType=unlimited
 }
 type ChangeSubAuthLimitResponse struct {
 	PartnerOrderID string `json:"partner_order_id"` // 商户请求ID

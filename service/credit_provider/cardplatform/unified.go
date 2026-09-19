@@ -100,6 +100,7 @@ type UnifiedChangeSubAuthLimitRequest struct {
 	PartnerOrderID string
 	CardID         string
 	UpdateAmount   decimal.Decimal
+	AuthLimitFlag  string // N=不限额 → gzy transactionLimitType=unlimited
 }
 
 // UnifiedQueryTransactionsPageRequest 交易明细分页（以 Photon paging 为主；cardbin 需 PartnerOrderID）。
@@ -223,13 +224,45 @@ type UnifiedShareWalletBalanceRequest struct {
 	IsAuto        int // Adsvcc：1 手动刷新，0 自动
 }
 
-// UnifiedShareWalletBalance 共享卡钱包余额（RealTimeBalance 兼容 gzy 前端字段）。
+// UnifiedShareWalletBalance 共享卡钱包余额。
 type UnifiedShareWalletBalance struct {
-	Balance         string
-	RealTimeBalance string
-	UpdateTime      string
-	Currency        string
-	AccountNo       string
-	MemberID        string
-	AccountType     string
+	Balance         string `json:"balance"`
+	RealTimeBalance string `json:"realTimeBalance"`
+	UpdateTime      string `json:"updateTime"`
+	Currency        string `json:"currency"`
+	AccountNo       string `json:"accountNo"`
+	MemberID        string `json:"memberId"`
+	AccountType     string `json:"accountType"`
+}
+
+// UnifiedListCardBinRequest 渠道卡段/产品列表。ProductType：Adsvcc 1 储蓄卡 2 共享卡，0 表示拉全部。
+type UnifiedListCardBinRequest struct {
+	Page        int
+	Limit       int
+	Scene       string
+	Institution string
+	Region      string
+	ProductType int
+	ProviderID  int64
+}
+
+// UnifiedCardBin 渠道卡段（开卡用 CardBinID：gzy 为 bin+后缀，adsvcc 为 product id）。
+type UnifiedCardBin struct {
+	CardBinID     string
+	CardBin       string
+	Name          string
+	Description   string
+	CardBrand     string
+	CardType      string
+	CardModel     string
+	Region        string
+	MinOpenAmount string
+	ProductType   int
+	ProviderID    string
+}
+
+// UnifiedCardBinPage 卡段分页。
+type UnifiedCardBinPage struct {
+	Count int
+	List  []UnifiedCardBin
 }

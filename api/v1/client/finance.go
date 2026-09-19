@@ -431,6 +431,7 @@ func (f *FinanceApi) OpenCard(c *gin.Context) {
 				IAMID:         clientID,
 				CardBinID:     req.CardBinId,
 				CardBin:       cb.CardBin,
+				Channel:       strings.TrimSpace(cb.Channel),
 				ClientID:      TenantID,
 				Currency:      constant.USD,
 				Remark:        req.Remark,
@@ -547,7 +548,7 @@ func (f *FinanceApi) ChangeSubAuthLimit(c *gin.Context) {
 		return
 	}
 
-	if err := financeService.ChangeSubAuthLimit(card.CardID, clientID, updateAmount); err != nil {
+	if err := financeService.ChangeSubAuthLimit(card.CardID, clientID, updateAmount, req.AuthLimitFlag); err != nil {
 		global.GVA_LOG.Error("change sub card auth limit failed", zap.Error(err))
 		response.FailWithServiceError(c, err)
 		return
@@ -669,6 +670,10 @@ func (f *FinanceApi) CancelCard(c *gin.Context) {
 		if !cb.CancelCard {
 			result.Failed = append(result.Failed, request.BatchCancelItemFailure{ID: it.ID, CardId: it.CardId, Reason: "card bin not support cancel"})
 			continue
+		}
+		card.Bin = &cb
+		if strings.TrimSpace(card.Channel) == "" {
+			card.Channel = strings.TrimSpace(cb.Channel)
 		}
 		if err := financeService.CancelCard(&card); err != nil {
 			global.GVA_LOG.Error("cancel card failed", zap.Any("id", it.ID), zap.String("cardId", it.CardId), zap.Error(err))
@@ -964,6 +969,10 @@ func (f *FinanceApi) RechargeCard(c *gin.Context) {
 				response.FailWithMessage("card balance is too low than "+cb.MinBalance.String(), c)
 				return
 			}
+			card.Bin = &cb
+			if strings.TrimSpace(card.Channel) == "" {
+				card.Channel = strings.TrimSpace(cb.Channel)
+			}
 			if err := financeService.RechargeCard(&card, req.Amount, constant.USD); err != nil {
 				global.GVA_LOG.Error("RechargeCard error", zap.Error(err))
 				response.FailWithServiceError(c, err)
@@ -1003,6 +1012,10 @@ func (f *FinanceApi) WithdrawCard(c *gin.Context) {
 			if !cb.Withdrawal {
 				response.FailWithMessage("the card not support withdrawal", c)
 				return
+			}
+			card.Bin = &cb
+			if strings.TrimSpace(card.Channel) == "" {
+				card.Channel = strings.TrimSpace(cb.Channel)
 			}
 			if err := financeService.WithdrawCard(&card, req.Amount, card.Currency); err != nil {
 				global.GVA_LOG.Error("WithdrawCard error", zap.Error(err))

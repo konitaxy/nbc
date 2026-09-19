@@ -28,10 +28,13 @@ import (
 type FinanceService struct {
 }
 
-// facadeChannelForPixielCard 默认 Photon（gzy）；若卡段配置了 channel 则按 card_bin 选择卡台。
+// facadeChannelForPixielCard 按卡自身 channel 选择卡台；空则回退卡段 / 持卡人，再默认 gzy。
 func facadeChannelForPixielCard(card *finance.PixielCard) string {
 	if card == nil {
 		return string(constant.Channel_Gzy)
+	}
+	if ch := strings.TrimSpace(card.Channel); ch != "" {
+		return ch
 	}
 	if card.Bin != nil && strings.TrimSpace(card.Bin.Channel) != "" {
 		return strings.TrimSpace(card.Bin.Channel)
@@ -42,6 +45,9 @@ func facadeChannelForPixielCard(card *finance.PixielCard) string {
 			return strings.TrimSpace(bin.Channel)
 		}
 	}
+	if card.Holder != nil && strings.TrimSpace(card.Holder.Channel) != "" {
+		return strings.TrimSpace(card.Holder.Channel)
+	}
 	return string(constant.Channel_Gzy)
 }
 
@@ -49,7 +55,11 @@ func newCardFacadeForPixielCard(card *finance.PixielCard) (*cardplatform.Facade,
 	if card == nil {
 		return nil, fmt.Errorf("card is nil")
 	}
-	return cardplatform.NewFacade(facadeChannelForPixielCard(card))
+	ch := facadeChannelForPixielCard(card)
+	if strings.TrimSpace(card.Channel) == "" {
+		card.Channel = ch
+	}
+	return cardplatform.NewFacade(ch)
 }
 
 func (fs FinanceService) SyncTranscation() {
@@ -999,7 +1009,7 @@ func normalizeGzyTransactionAmounts(rec *finance.CardTransactionRecord) {
 	rec.Fee = rec.Fee.Abs()
 }
 func (f *FinanceService) GetCard(id uint, clientID uint) (card finance.PixielCard, err error) {
-	err = global.GVA_DB.Preload("Fee").First(&card, "id = ? and client_id = ?", id, clientID).Error
+	err = global.GVA_DB.Preload("Fee").Preload("Bin").First(&card, "id = ? and client_id = ?", id, clientID).Error
 	return
 }
 
@@ -1008,7 +1018,7 @@ func (f *FinanceService) RemarkCard(id uint, remark string) (err error) {
 	return
 }
 func (f *FinanceService) GetCardByCardID(cardId string) (card finance.PixielCard, err error) {
-	err = global.GVA_DB.Preload("Fee").Find(&card, "card_id = ?", cardId).Error
+	err = global.GVA_DB.Preload("Fee").Preload("Bin").Find(&card, "card_id = ?", cardId).Error
 	return
 }
 func (f *FinanceService) GetCardDetail(id uint, clientID uint, iamID uint) (card finance.PixielCard, err error) {
@@ -1156,10 +1166,6 @@ func (f *FinanceService) CreateCard(card *finance.PixielCard) (err error) {
 			}
 		}
 
-		facade, err := newCardFacadeForPixielCard(card)
-		if err != nil {
-			return err
-		}
 		cardBin := strings.TrimSpace(card.CardBin)
 		var bin finance.CardBin
 		if strings.TrimSpace(card.CardBinID) != "" {
@@ -1172,6 +1178,14 @@ func (f *FinanceService) CreateCard(card *finance.PixielCard) (err error) {
 			if cardBin == "" {
 				cardBin = strings.TrimSpace(bin.CardBin)
 			}
+			card.Bin = &bin
+			if strings.TrimSpace(card.Channel) == "" {
+				card.Channel = strings.TrimSpace(bin.Channel)
+			}
+		}
+		facade, err := newCardFacadeForPixielCard(card)
+		if err != nil {
+			return err
 		}
 		req := cardplatform.UnifiedCreateCardRequest{
 			PartnerOrderID:  fee.OrderID,
@@ -1339,13 +1353,16 @@ func (f *FinanceService) RechargeCard(card *finance.PixielCard, amount decimal.D
 			return err
 		}
 
-		global.GVA_LOG.Info("recharge card", zap.String("cardId", card.CardID), zap.String("orderId", orderId))
-
 		var transactionID string
 		facade, err := newCardFacadeForPixielCard(card)
 		if err != nil {
 			return err
 		}
+		global.GVA_LOG.Info("recharge card",
+			zap.String("cardId", card.CardID),
+			zap.String("orderId", orderId),
+			zap.String("channel", string(facade.Platform())),
+		)
 		resp, err := facade.RechargeCard(cardplatform.UnifiedRechargeRequest{
 			Amount:          amount,
 			CardID:          card.CardID,
@@ -1356,10 +1373,16 @@ func (f *FinanceService) RechargeCard(card *finance.PixielCard, amount decimal.D
 			return err
 		}
 		global.GVA_LOG.Info("recharge card response", zap.Any("resp", resp), zap.String("channel", string(facade.Platform())))
-		if resp == nil || resp.TransactionID == "" {
+		if resp == nil {
 			return errors.New("recharge card error")
 		}
-		transactionID = resp.TransactionID
+		transactionID = strings.TrimSpace(resp.TransactionID)
+		if transactionID == "" {
+			transactionID = strings.TrimSpace(resp.PartnerOrderID)
+		}
+		if transactionID == "" {
+			transactionID = orderId
+		}
 
 		{
 			wh := finance.WalletHistory{
@@ -1549,7 +1572,11 @@ func (f *FinanceService) WithdrawCard(card *finance.PixielCard, amount decimal.D
 		AccountCurrency: string(currency),
 		PartnerOrderID:  orderId,
 	}
-	global.GVA_LOG.Info("withdraw card", zap.Any("req", req), zap.String("channel", string(facade.Platform())))
+	global.GVA_LOG.Info("withdraw card",
+		zap.Any("req", req),
+		zap.String("cardId", card.CardID),
+		zap.String("channel", string(facade.Platform())),
+	)
 	if _, err := facade.WithdrawFromCard(req); err != nil {
 		return err
 	}
@@ -1778,7 +1805,20 @@ func (f *FinanceService) syncCardDetail(orderID, cardID string, updateCVV bool) 
 	if updateCVV &&
 		strings.TrimSpace(routeCard.CVV) == "" &&
 		strings.TrimSpace(res.CVV) == "" {
-		_ = facade.EnrichSensitiveIfEmpty(cardID, res)
+		if err := facade.EnrichSensitiveIfEmpty(cardID, res); err != nil {
+			global.GVA_LOG.Warn("sync card detail: enrich cvv failed",
+				zap.String("cardId", cardID),
+				zap.String("channel", string(facade.Platform())),
+				zap.Error(err),
+			)
+		}
+	}
+	if facade.Platform() == cardplatform.PlatformAdsvcc && res != nil {
+		global.GVA_LOG.Info("sync adsvcc card sensitive",
+			zap.String("cardId", cardID),
+			zap.String("cvv", strings.TrimSpace(res.CVV)),
+			zap.String("expiry", strings.TrimSpace(res.Expiry)),
+		)
 	}
 	return global.GVA_DB.Transaction(func(tx *gorm.DB) error {
 		var card finance.PixielCard
@@ -1992,7 +2032,7 @@ func (c *FinanceService) AddCardToGroup(id, clientId, groupID uint) error {
 	return global.GVA_DB.Model(&finance.PixielCard{}).Where("id = ? and client_id = ?", id, clientId).UpdateColumn("group_id", groupID).Error
 }
 
-func (f *FinanceService) ChangeSubAuthLimit(cardID string, clientID uint, updateAmount decimal.Decimal) error {
+func (f *FinanceService) ChangeSubAuthLimit(cardID string, clientID uint, updateAmount decimal.Decimal, authLimitFlag string) error {
 	// 验证卡是否存在且属于该客户
 	var card finance.PixielCard
 	if err := global.GVA_DB.Preload("Bin").First(&card, "card_id = ? AND client_id = ?", cardID, clientID).Error; err != nil {
@@ -2017,8 +2057,13 @@ func (f *FinanceService) ChangeSubAuthLimit(cardID string, clientID uint, update
 		PartnerOrderID: orderID,
 		CardID:         cardID,
 		UpdateAmount:   updateAmount,
+		AuthLimitFlag:  authLimitFlag,
 	}
 
+	global.GVA_LOG.Info("change sub auth limit",
+		zap.String("cardId", cardID),
+		zap.String("channel", string(facade.Platform())),
+	)
 	_, err = facade.ChangeSubAuthLimit(req)
 	if err != nil {
 		return err
@@ -2066,6 +2111,11 @@ func (f *FinanceService) CardFrozen(cardID uint, clientID uint, action string, r
 		Remark:         remark,
 	}
 
+	global.GVA_LOG.Info("card frozen",
+		zap.String("cardId", card.CardID),
+		zap.String("action", action),
+		zap.String("channel", string(facade.Platform())),
+	)
 	var err2 error
 	if action == "frozen" {
 		freezeReq.Freeze = true

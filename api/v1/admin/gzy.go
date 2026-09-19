@@ -10,6 +10,7 @@ import (
 	"gitlab.com/ucard/global"
 	"gitlab.com/ucard/logredact"
 	"gitlab.com/ucard/model/common/response"
+	"gitlab.com/ucard/model/constant"
 	"gitlab.com/ucard/model/finance/request"
 	"gitlab.com/ucard/service/credit_provider/cardplatform"
 	"gitlab.com/ucard/service/credit_provider/gzy"
@@ -81,7 +82,30 @@ func (*CardManagerApi) GzyListCards(c *gin.Context) {
 	response.OkWithData(resp, c)
 }
 
-// GzyCreateMatrixAccount 光子易创建 Matrix 账户（POST admin/card/gzy/matrix/create）。
+// AdsvccListCardBin Adsvcc 产品列表（POST admin/card/adsvcc/cardbin/list → GET /card-product/list）。
+func (*CardManagerApi) AdsvccListCardBin(c *gin.Context) {
+	var req request.AdsvccProductListReq
+	_ = c.ShouldBindJSON(&req)
+	facade, err := cardplatform.NewFacade(string(constant.Channel_Adsvcc))
+	if err != nil {
+		response.FailWithMessage(err.Error(), c)
+		return
+	}
+	resp, err := facade.ListCardBins(cardplatform.UnifiedListCardBinRequest{
+		Page:        req.Page,
+		Limit:       req.Limit,
+		Scene:       strings.TrimSpace(req.Scene),
+		Institution: strings.TrimSpace(req.Institution),
+		Region:      strings.TrimSpace(req.Region),
+		ProductType: req.Type,
+	})
+	if err != nil {
+		global.GVA_LOG.Error("adsvcc list card bin failed", zap.Error(err), zap.Any("req", req))
+		response.FailWithServiceError(c, err)
+		return
+	}
+	response.OkWithData(resp, c)
+}
 func (*CardManagerApi) GzyCreateMatrixAccount(c *gin.Context) {
 	var req request.GzyCreateMatrixAccountReq
 	if err := c.ShouldBindJSON(&req); err != nil {

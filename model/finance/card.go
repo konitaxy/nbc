@@ -125,6 +125,7 @@ type PixielCard struct {
 	CardBin       string            `gorm:"column:card_bin;type:varchar(50)" json:"cardBin" form:"cardBin"`
 	CardBinID     string            `gorm:"column:card_bin_id;type:varchar(50);not null" json:"cardBinId" form:"cardBinId"`
 	Bin           *CardBin          `gorm:"foreignKey:CardBinID;references:CardBinID" json:"bin" form:"bin"`
+	Channel       string            `gorm:"column:channel;type:varchar(32);index" json:"channel" form:"channel"` // cardbin | gzy | adsvcc
 	CardNo        string            `gorm:"column:card_no;type:varchar(50)" json:"cardNo" form:"cardNo"`
 	CVV           string            `gorm:"column:cvv;type:varchar(50)" json:"cvv" form:"cvv"`
 	Expirey       string            `gorm:"column:expirey;type:varchar(50)" json:"expirey" form:"expirey"`

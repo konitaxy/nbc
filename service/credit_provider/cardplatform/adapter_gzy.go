@@ -226,6 +226,7 @@ func (a *gzyAdapter) ChangeSubAuthLimit(in UnifiedChangeSubAuthLimitRequest) (*s
 		PartnerOrderID: in.PartnerOrderID,
 		CardID:         in.CardID,
 		UpdateAmount:   in.UpdateAmount,
+		AuthLimitFlag:  in.AuthLimitFlag,
 	})
 }
 
@@ -363,6 +364,29 @@ func (a *gzyAdapter) QueryShareWalletBalance(in UnifiedShareWalletBalanceRequest
 		MemberID:        strings.TrimSpace(out.MemberID),
 		AccountType:     strings.TrimSpace(out.AccountType),
 	}, nil
+}
+
+func (a *gzyAdapter) ListCardBins(UnifiedListCardBinRequest) (*UnifiedCardBinPage, error) {
+	items, err := a.client.ListCardBin()
+	if err != nil {
+		return nil, err
+	}
+	list := make([]UnifiedCardBin, 0, len(items))
+	for _, it := range items {
+		bin := strings.TrimSpace(it.CardBin)
+		if bin == "" {
+			continue
+		}
+		list = append(list, UnifiedCardBin{
+			CardBinID:   bin,
+			CardBin:     bin,
+			CardBrand:   gzy.NormalizeCardScheme(it.CardScheme),
+			CardType:    it.CardFormFactor,
+			CardModel:   strings.TrimSpace(it.CardType),
+			Description: strings.TrimSpace(it.CardType),
+		})
+	}
+	return &UnifiedCardBinPage{Count: len(list), List: list}, nil
 }
 
 func unifyCardDetailFromGzy(g *gzy.QueryCardDetailResponse) *UnifiedCardDetail {

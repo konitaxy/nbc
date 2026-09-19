@@ -432,6 +432,7 @@ func (g *Gzy) EditCardHolder(req CardHolderEditRequest) (*CardHolderEditResponse
 	if strings.TrimSpace(req.CardholderID) == "" {
 		return nil, fmt.Errorf("gzy editCardholder: cardholderId 不能为空")
 	}
+	req.CardholderNameAbbreviation = ""
 	bodyBytes, err := json.Marshal(req)
 	if err != nil {
 		return nil, fmt.Errorf("gzy editCardholder: marshal: %w", err)
@@ -1107,23 +1108,28 @@ func (g *Gzy) ChangeSubAuthLimit(req ChangeSubAuthLimitRequest) (*string, error)
 	if requestID == "" {
 		return nil, fmt.Errorf("gzy updateCard: requestId 不能为空")
 	}
-	if req.UpdateAmount.IsZero() {
+
+	unlimited := strings.EqualFold(strings.TrimSpace(req.AuthLimitFlag), "N")
+	if !unlimited && req.UpdateAmount.IsZero() {
 		return nil, fmt.Errorf("gzy updateCard: update_amount 不能为 0")
 	}
 
-	changeType := "increase"
-	limitAmt := req.UpdateAmount
-	if req.UpdateAmount.IsNegative() {
-		changeType = "decrease"
-		limitAmt = req.UpdateAmount.Abs()
-	}
-
 	bodyStruct := UpdateCardRequest{
-		CardID:                     cardID,
-		RequestID:                  requestID,
-		TransactionLimit:           &limitAmt,
-		TransactionLimitChangeType: changeType,
-		TransactionLimitType:       "limited",
+		CardID:    cardID,
+		RequestID: requestID,
+	}
+	if unlimited {
+		bodyStruct.TransactionLimitType = "unlimited"
+	} else {
+		changeType := "increase"
+		limitAmt := req.UpdateAmount
+		if req.UpdateAmount.IsNegative() {
+			changeType = "decrease"
+			limitAmt = req.UpdateAmount.Abs()
+		}
+		bodyStruct.TransactionLimit = &limitAmt
+		bodyStruct.TransactionLimitChangeType = changeType
+		bodyStruct.TransactionLimitType = "limited"
 	}
 	jsonBytes, err := json.Marshal(bodyStruct)
 	if err != nil {
@@ -1834,23 +1840,30 @@ func createCardRequestToOpenCardV4(req *CreateCardRequest) (*openCardV4Wire, err
 			w.ArrivalAmount = &d
 		}
 	}
-	// 共享卡：固定 limited，transactionLimit = 授权额度（total_auth_limit）
+	// 共享卡：限额时 transactionLimitType=limited；不限额时 unlimited
+	unlimited := strings.EqualFold(strings.TrimSpace(req.AuthLimitFlag), "N")
 	if cardModelToPhotonV4CardType(req.CardModel) == "share" {
-		limStr := strings.TrimSpace(req.TotalAuthLimit)
-		if limStr == "" {
-			return nil, fmt.Errorf("gzy CreateCard: share 卡须传 total_auth_limit（授权额度）")
+		if unlimited {
+			w.TransactionLimitType = "unlimited"
+		} else {
+			limStr := strings.TrimSpace(req.TotalAuthLimit)
+			if limStr == "" {
+				return nil, fmt.Errorf("gzy CreateCard: share 卡须传 total_auth_limit（授权额度）")
+			}
+			lim, err := decimal.NewFromString(limStr)
+			if err != nil {
+				return nil, fmt.Errorf("gzy CreateCard: total_auth_limit 非法: %w", err)
+			}
+			if !lim.IsPositive() {
+				return nil, fmt.Errorf("gzy CreateCard: share 卡 total_auth_limit 须为正数")
+			}
+			w.TransactionLimitType = "limited"
+			w.TransactionLimit = &lim
 		}
-		lim, err := decimal.NewFromString(limStr)
-		if err != nil {
-			return nil, fmt.Errorf("gzy CreateCard: total_auth_limit 非法: %w", err)
-		}
-		if !lim.IsPositive() {
-			return nil, fmt.Errorf("gzy CreateCard: share 卡 total_auth_limit 须为正数")
-		}
-		w.TransactionLimitType = "limited"
-		w.TransactionLimit = &lim
 	} else if strings.TrimSpace(req.PrimaryCardID) != "" {
-		if strings.EqualFold(strings.TrimSpace(req.AuthLimitFlag), "Y") && strings.TrimSpace(req.TotalAuthLimit) != "" {
+		if unlimited {
+			w.TransactionLimitType = "unlimited"
+		} else if strings.EqualFold(strings.TrimSpace(req.AuthLimitFlag), "Y") && strings.TrimSpace(req.TotalAuthLimit) != "" {
 			lim, err := decimal.NewFromString(strings.TrimSpace(req.TotalAuthLimit))
 			if err != nil {
 				return nil, fmt.Errorf("gzy CreateCard: total_auth_limit 非法: %w", err)

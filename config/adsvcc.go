@@ -17,7 +17,7 @@ type Adsvcc struct {
 	DefaultCardholderID int64 `mapstructure:"default-cardholder-id" json:"default-cardholder-id" yaml:"default-cardholder-id"`
 	// ProviderID 共享卡钱包（/share-card/*）可选供应商 id。
 	ProviderID int64 `mapstructure:"provider-id" json:"provider-id" yaml:"provider-id"`
-	// LoginPassword / MFACode 拉取敏感信息（/card/cvv）时可选；/card/info 通常已含 CVV。
+	// LoginPassword / MFACode 同步卡详情时若 /card/info 无 CVV，则 POST /card/cvv 拉取（multipart: card_id, password, code）。
 	LoginPassword string `mapstructure:"login-password" json:"-" yaml:"login-password"`
 	MFACode       string `mapstructure:"mfa-code" json:"-" yaml:"mfa-code"`
 

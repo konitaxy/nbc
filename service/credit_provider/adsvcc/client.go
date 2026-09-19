@@ -63,7 +63,8 @@ func (c *Client) GetAccessToken() (*TokenData, error) {
 		"AppSecret": c.AppSecret,
 	}
 	var out TokenData
-	if err := c.doMultipart(http.MethodPost, pathAccessToken, form, false, &out); err != nil {
+	// 生成令牌接口文档不要求 RSA 加签；有私钥则附带 sign。
+	if err := c.doWrite(http.MethodPost, pathAccessToken, form, false, false, true, &out); err != nil {
 		return nil, err
 	}
 	if strings.TrimSpace(out.Token) == "" {
@@ -93,6 +94,7 @@ func (c *Client) DemandCard(req DemandRequest) (*DemandData, error) {
 		"amount":             strings.TrimSpace(req.Amount),
 		"num":                firstNonEmpty(strings.TrimSpace(req.Num), "1"),
 		"user_cardholder_id": strconv.FormatInt(req.UserCardholderID, 10),
+		"group_id":           strings.TrimSpace(req.GroupID), // 缺省传 ""，避免线网读 null
 	}
 	pt := req.ProductType
 	if pt == 0 {
@@ -135,8 +137,8 @@ func (c *Client) GetCardInfo(cardID string) (*CardInfoData, error) {
 func (c *Client) GetCardCVV(cardID, password, mfaCode string) (*CardCVVData, error) {
 	form := map[string]string{
 		"card_id":  strings.TrimSpace(cardID),
-		"password": password,
-		"code":     mfaCode,
+		"password": strings.TrimSpace(password),
+		"code":     strings.TrimSpace(mfaCode),
 	}
 	var out CardCVVData
 	if err := c.doMultipart(http.MethodPost, pathCardCVV, form, true, &out); err != nil {
@@ -286,6 +288,72 @@ func shareWalletForm(req ShareWalletRequest) map[string]string {
 	return form
 }
 
+func (c *Client) ListProducts(req ProductListRequest) (*ProductListData, error) {
+	q := url.Values{}
+	if req.Page > 0 {
+		q.Set("page", strconv.Itoa(req.Page))
+	}
+	if req.Limit > 0 {
+		q.Set("limit", strconv.Itoa(req.Limit))
+	}
+	if s := strings.TrimSpace(req.Scene); s != "" {
+		q.Set("scene", s)
+	}
+	if s := strings.TrimSpace(req.Institution); s != "" {
+		q.Set("institution", s)
+	}
+	if s := strings.TrimSpace(req.Region); s != "" {
+		q.Set("region", s)
+	}
+	if req.Type > 0 {
+		q.Set("type", strconv.Itoa(req.Type))
+	}
+	if req.ProviderID > 0 {
+		q.Set("provider_id", strconv.FormatInt(req.ProviderID, 10))
+	}
+	var out ProductListData
+	if err := c.doQuery(http.MethodGet, pathProductList, q, true, &out); err != nil {
+		return nil, err
+	}
+	return &out, nil
+}
+
+func (c *Client) ListAllProducts(req ProductListRequest) ([]ProductItem, error) {
+	limit := req.Limit
+	if limit <= 0 {
+		limit = 50
+	}
+	page := req.Page
+	if page <= 0 {
+		page = 1
+	}
+	var all []ProductItem
+	for {
+		pageReq := req
+		pageReq.Page = page
+		pageReq.Limit = limit
+		out, err := c.ListProducts(pageReq)
+		if err != nil {
+			return nil, err
+		}
+		if out == nil || len(out.List) == 0 {
+			break
+		}
+		all = append(all, out.List...)
+		if out.Count > 0 && len(all) >= out.Count {
+			break
+		}
+		if len(out.List) < limit {
+			break
+		}
+		page++
+		if page > 100 {
+			break
+		}
+	}
+	return all, nil
+}
+
 func (c *Client) ListCardUse(req CardUseListRequest) (*CardUseListData, error) {
 	q := url.Values{}
 	if req.Page > 0 {
@@ -380,43 +448,52 @@ type ignoreData struct{}
 func (ignoreData) UnmarshalJSON([]byte) error { return nil }
 
 func (c *Client) doForm(method, path string, form map[string]string, withToken bool, out any) error {
-	c.syncTokenFromConfig()
-	ts := strconv.FormatInt(time.Now().Unix(), 10)
-	sign, err := SignParams(c.PrivateKey, form, ts)
-	if err != nil {
-		return err
-	}
-	body := url.Values{}
-	for k, v := range form {
-		body.Set(k, v)
-	}
-	req, err := http.NewRequest(method, c.BaseURL+path, strings.NewReader(body.Encode()))
-	if err != nil {
-		return err
-	}
-	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
-	c.setCommonHeaders(req, ts, sign, withToken)
-	return c.decode(req, out)
+	return c.doWrite(method, path, form, withToken, true, false, out)
 }
 
 func (c *Client) doMultipart(method, path string, form map[string]string, withToken bool, out any) error {
+	return c.doWrite(method, path, form, withToken, true, true, out)
+}
+
+func (c *Client) doWrite(method, path string, form map[string]string, withToken, requireSign, multipartBody bool, out any) error {
 	c.syncTokenFromConfig()
 	ts := strconv.FormatInt(time.Now().Unix(), 10)
-	sign, err := SignParams(c.PrivateKey, form, ts)
-	if err != nil {
-		return err
+	sign := ""
+	if requireSign || strings.TrimSpace(c.PrivateKey) != "" {
+		s, err := SignParams(c.PrivateKey, form, ts)
+		if err != nil {
+			if requireSign {
+				return err
+			}
+		} else {
+			sign = s
+		}
 	}
-	var buf bytes.Buffer
-	w := multipart.NewWriter(&buf)
-	for k, v := range form {
-		_ = w.WriteField(k, v)
+	var req *http.Request
+	var err error
+	if multipartBody {
+		var buf bytes.Buffer
+		w := multipart.NewWriter(&buf)
+		for k, v := range form {
+			_ = w.WriteField(k, v)
+		}
+		_ = w.Close()
+		req, err = http.NewRequest(method, c.BaseURL+path, &buf)
+		if err != nil {
+			return err
+		}
+		req.Header.Set("Content-Type", w.FormDataContentType())
+	} else {
+		body := url.Values{}
+		for k, v := range form {
+			body.Set(k, v)
+		}
+		req, err = http.NewRequest(method, c.BaseURL+path, strings.NewReader(body.Encode()))
+		if err != nil {
+			return err
+		}
+		req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
 	}
-	_ = w.Close()
-	req, err := http.NewRequest(method, c.BaseURL+path, &buf)
-	if err != nil {
-		return err
-	}
-	req.Header.Set("Content-Type", w.FormDataContentType())
 	c.setCommonHeaders(req, ts, sign, withToken)
 	return c.decode(req, out)
 }
@@ -444,7 +521,9 @@ func (c *Client) setCommonHeaders(req *http.Request, timestamp, sign string, wit
 	req.Header.Set("Accept", "application/json")
 	req.Header.Set("X-Requested-With", "XMLHttpRequest")
 	req.Header.Set("timestamp", timestamp)
-	req.Header.Set("sign", sign)
+	if sign != "" {
+		req.Header.Set("sign", sign)
+	}
 	if withToken && c.Token != "" {
 		req.Header.Set("token", c.Token)
 	}

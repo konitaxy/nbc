@@ -3,6 +3,7 @@ package admin
 import (
 	"fmt"
 	"net/http"
+	"strings"
 	"time"
 
 	"github.com/gin-gonic/gin"
@@ -326,6 +327,10 @@ func (f *CardManagerApi) CardCancel(c *gin.Context) {
 			if !cb.CancelCard {
 				response.FailWithMessage("Card bin not support cancel", c)
 				return
+			}
+			card.Bin = &cb
+			if strings.TrimSpace(card.Channel) == "" {
+				card.Channel = strings.TrimSpace(cb.Channel)
 			}
 			if err := financeService.CancelCard(&card); err == nil {
 

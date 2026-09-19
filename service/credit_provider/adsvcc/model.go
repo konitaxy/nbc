@@ -1,6 +1,9 @@
 package adsvcc
 
-import "encoding/json"
+import (
+	"bytes"
+	"encoding/json"
+)
 
 const (
 	pathAccessToken   = "/auth2/token/accessToken"
@@ -18,6 +21,7 @@ const (
 	pathShareRecharge = "/share-card/recharge"
 	pathShareReduce   = "/share-card/reducedPayment"
 	pathShareBalance  = "/share-card/getSCBalance"
+	pathProductList   = "/card-product/list"
 )
 
 const (
@@ -67,7 +71,7 @@ type CardInfo struct {
 	CardID     int64  `json:"card_id"`
 	CardNo     string `json:"card_no"`
 	CVV        string `json:"cvv"`
-	ExpireDate string `json:"expire_date"`
+	ExpireDate string `json:"expire_date"` // MM/YY，如 04/29
 	Amount     string `json:"amount"`
 	Currency   string `json:"currency"`
 	Status     int    `json:"status"`
@@ -78,7 +82,7 @@ type CardInfo struct {
 type CardCVVData struct {
 	CardNo     string `json:"card_no"`
 	CVV        string `json:"cvv"`
-	ExpireDate string `json:"expire_date"`
+	ExpireDate string `json:"expire_date"` // MM/YY，如 04/29
 }
 
 type CardListData struct {
@@ -90,7 +94,7 @@ type CardItem struct {
 	ID         int64  `json:"id"`
 	CardNo     string `json:"card_no"`
 	CVV        string `json:"cvv"`
-	ExpireDate string `json:"expire_date"`
+	ExpireDate string `json:"expire_date"` // MM/YY，如 04/29
 	Amount     string `json:"amount"`
 	Currency   string `json:"currency"`
 	Status     int    `json:"status"`
@@ -125,6 +129,7 @@ type DemandRequest struct {
 	MatrixAccount    string
 	UserCardholderID int64
 	ProductType      int
+	GroupID          string // 卡组 id；线网读取 group_id，空串也要传
 }
 
 type CardUpdateRequest struct {
@@ -204,4 +209,55 @@ type ShareRechargeData struct {
 type ShareBalanceData struct {
 	Balance    string `json:"balance"`
 	UpdateTime string `json:"update_time"`
+}
+
+type ProductListRequest struct {
+	Page        int
+	Limit       int
+	Scene       string
+	Institution string
+	Region      string
+	Type        int
+	ProviderID  int64
+}
+
+type ProductListData struct {
+	Count int           `json:"count"`
+	List  []ProductItem `json:"list"`
+}
+
+type ProductItem struct {
+	ID                  json.Number     `json:"id"`
+	GroupID             json.Number     `json:"group_id"`
+	Name                string          `json:"name"`
+	Desc                string          `json:"desc"`
+	ProviderProductCode string          `json:"provider_product_code"`
+	ProviderID          json.Number     `json:"provider_id"`
+	Region              string          `json:"region"`
+	Institution         flexibleString  `json:"institution"`
+	Scene               flexibleString  `json:"scene"`
+	Tag                 json.RawMessage `json:"tag"`
+	Sort                json.Number     `json:"sort"`
+	MinOpenCardAmount   string          `json:"min_open_card_amount"`
+	GroupName           string          `json:"group_name"`
+	CreatedAt           string          `json:"created_at"`
+	UpdatedAt           string          `json:"updated_at"`
+}
+
+// flexibleString 兼容文档里 string / number / array 的字段（institution、scene）。
+type flexibleString string
+
+func (s *flexibleString) UnmarshalJSON(b []byte) error {
+	b = bytes.TrimSpace(b)
+	if len(b) == 0 || string(b) == "null" {
+		*s = ""
+		return nil
+	}
+	var str string
+	if err := json.Unmarshal(b, &str); err == nil {
+		*s = flexibleString(str)
+		return nil
+	}
+	*s = flexibleString(string(b))
+	return nil
 }

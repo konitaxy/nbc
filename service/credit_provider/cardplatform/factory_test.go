@@ -60,6 +60,15 @@ func TestShareCardNeedsMatrix(t *testing.T) {
 	}
 }
 
+func TestAdsvccProductMapping(t *testing.T) {
+	if got := adsvccInstitutionToBrand("1"); got != "Mastercard" {
+		t.Fatalf("brand=%s", got)
+	}
+	if got := adsvccRegionToLocal("HKG"); got != "HK" {
+		t.Fatalf("region=%s", got)
+	}
+}
+
 func TestRegisteredPlatformsIncludeTokenIssuers(t *testing.T) {
 	ps := RegisteredPlatforms()
 	seen := map[Platform]bool{}

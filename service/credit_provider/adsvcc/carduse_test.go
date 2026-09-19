@@ -41,3 +41,14 @@ func TestEnvelopePayloadPrefersDatas(t *testing.T) {
 		t.Fatalf("unexpected balance payload: %+v", out)
 	}
 }
+
+func TestProductItemFlexibleFields(t *testing.T) {
+	raw := []byte(`{"id":20,"name":"BIN 558325","desc":"香港发行MasterCard卡","provider_product_code":"558325","provider_id":8,"region":"HKG","institution":"1","scene":"[0, 1]","min_open_card_amount":"10"}`)
+	var it ProductItem
+	if err := json.Unmarshal(raw, &it); err != nil {
+		t.Fatal(err)
+	}
+	if it.ID.String() != "20" || it.ProviderProductCode != "558325" || string(it.Institution) != "1" || it.Region != "HKG" {
+		t.Fatalf("unexpected item: %+v", it)
+	}
+}

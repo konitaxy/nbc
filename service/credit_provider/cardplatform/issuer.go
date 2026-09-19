@@ -35,6 +35,7 @@ type Issuer interface {
 	RechargeShareWallet(UnifiedShareWalletRequest) (*UnifiedShareWalletResponse, error)
 	WithdrawShareWallet(UnifiedShareWalletRequest) (*UnifiedShareWalletResponse, error)
 	QueryShareWalletBalance(UnifiedShareWalletBalanceRequest) (*UnifiedShareWalletBalance, error)
+	ListCardBins(UnifiedListCardBinRequest) (*UnifiedCardBinPage, error)
 
 	// ShareCardNeedsMatrix 共享卡开卡是否必须绑定矩阵账户（gzy 为 true）。
 	ShareCardNeedsMatrix() bool

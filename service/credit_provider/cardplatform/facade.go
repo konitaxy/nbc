@@ -151,6 +151,14 @@ func (f *Facade) QueryShareWalletBalance(in UnifiedShareWalletBalanceRequest) (*
 	return iss.QueryShareWalletBalance(in)
 }
 
+func (f *Facade) ListCardBins(in UnifiedListCardBinRequest) (*UnifiedCardBinPage, error) {
+	iss, err := f.mustIssuer()
+	if err != nil {
+		return nil, err
+	}
+	return iss.ListCardBins(in)
+}
+
 func (f *Facade) ShareCardNeedsMatrix() bool {
 	if f == nil || f.issuer == nil {
 		return false
