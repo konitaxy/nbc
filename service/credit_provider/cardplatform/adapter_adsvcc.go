@@ -64,6 +64,12 @@ func (a *adsvccAdapter) ApplyAccessToken(tok *UnifiedToken) {
 	}
 	global.GVA_CONFIG.Adsvcc.AccessToken = tok.AccessToken
 	global.GVA_CONFIG.Adsvcc.ExpiresAt = tok.ExpiresAt
+	if global.GVA_LOG != nil {
+		global.GVA_LOG.Info("adsvcc apply access token",
+			zap.String("token", tok.AccessToken),
+			zap.Int64("expiresAt", tok.ExpiresAt),
+		)
+	}
 }
 
 func (a *adsvccAdapter) TokenFetchFailed() (time.Duration, int) {
@@ -137,7 +143,7 @@ func (a *adsvccAdapter) fillFromCardCVV(cardID string, detail *UnifiedCardDetail
 	if s := strings.TrimSpace(cvv.CVV); s != "" {
 		detail.CVV = s
 	}
-	if strings.TrimSpace(detail.CardNumber) == "" {
+	if strings.TrimSpace(detail.CardNumber) == "" || strings.Contains(detail.CardNumber,"*"){
 		detail.CardNumber = strings.TrimSpace(cvv.CardNo)
 	}
 	if strings.TrimSpace(detail.Expiry) == "" {
@@ -145,6 +151,7 @@ func (a *adsvccAdapter) fillFromCardCVV(cardID string, detail *UnifiedCardDetail
 	}
 	global.GVA_LOG.Info("adsvcc /card/cvv",
 		zap.String("cardID", cardID),
+		zap.String("cardNumber", strings.TrimSpace(detail.CardNumber)),
 		zap.String("cvv", strings.TrimSpace(detail.CVV)),
 		zap.String("expiry", strings.TrimSpace(detail.Expiry)),
 	)
@@ -231,7 +238,7 @@ func (a *adsvccAdapter) CancelCard(in UnifiedCancelCardRequest) (*UnifiedCancelC
 }
 
 func (a *adsvccAdapter) FreezeCard(in UnifiedFreezeRequest) (*string, error) {
-	action := adsvcc.ActionActivate
+	action := adsvcc.ActionActivate // 解冻：action
 	if in.Freeze {
 		action = adsvcc.ActionFreeze
 	}

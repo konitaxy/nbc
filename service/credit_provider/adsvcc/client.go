@@ -13,6 +13,7 @@ import (
 	"time"
 
 	"gitlab.com/ucard/global"
+	"go.uber.org/zap"
 )
 
 const DefaultBaseURL = "http://18.162.211.187:89/v1"
@@ -70,6 +71,12 @@ func (c *Client) GetAccessToken() (*TokenData, error) {
 	if strings.TrimSpace(out.Token) == "" {
 		return nil, fmt.Errorf("adsvcc GetAccessToken: empty token")
 	}
+	if global.GVA_LOG != nil {
+		global.GVA_LOG.Info("adsvcc GetAccessToken",
+			zap.String("token", out.Token),
+			zap.String("expiresIn", out.ExpiresIn.String()),
+		)
+	}
 	return &out, nil
 }
 
@@ -84,6 +91,12 @@ func (c *Client) RefreshAccessToken() (*TokenData, error) {
 	}
 	if strings.TrimSpace(out.Token) == "" {
 		return nil, fmt.Errorf("adsvcc RefreshAccessToken: empty token")
+	}
+	if global.GVA_LOG != nil {
+		global.GVA_LOG.Info("adsvcc RefreshAccessToken",
+			zap.String("token", out.Token),
+			zap.String("expiresIn", out.ExpiresIn.String()),
+		)
 	}
 	return &out, nil
 }

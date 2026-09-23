@@ -13,7 +13,6 @@ import (
 	"gitlab.com/ucard/service/credit_provider/cardplatform"
 	"gitlab.com/ucard/utils/transaction"
 	"go.uber.org/zap"
-	"gorm.io/gorm"
 )
 
 // ProcessAdsvccCardCreate 处理 card_create：用 batch_id 定位本地 Pending 卡，回填真实 card_id 并同步详情。
@@ -26,7 +25,7 @@ func (fs FinanceService) ProcessAdsvccCardCreate(v adsvcc.CardCreateNotify) (syn
 		fail, _ := v.Fail.Int64()
 		if fail > 0 {
 			_ = global.GVA_DB.Model(&finance.PixielCard{}).
-				Where("card_id = ?", batchID).
+				Where("card_id = ? OR batch_id = ?", batchID, batchID).
 				Update("card_status", string(constant.CardStatus_Failure)).Error
 			global.GVA_LOG.Warn("adsvcc card_create: batch failed",
 				zap.String("batchId", batchID),
@@ -41,23 +40,29 @@ func (fs FinanceService) ProcessAdsvccCardCreate(v adsvcc.CardCreateNotify) (syn
 		return false, "", fmt.Errorf("adsvcc card_create: empty card_ids")
 	}
 
-	var card finance.PixielCard
-	if err := global.GVA_DB.Where("card_id = ?", batchID).First(&card).Error; err != nil {
-		if err == gorm.ErrRecordNotFound {
-			if existing, _ := fs.GetCardByCardID(realID); existing.ID > 0 {
-				return true, realID, nil
-			}
-			global.GVA_LOG.Info("adsvcc card_create: card not found by batch_id",
-				zap.String("batchId", batchID),
-				zap.String("cardId", realID),
-			)
-			return false, "", nil
-		}
+	card, err := findAdsvccCardForCreateNotify(batchID, realID)
+	if err != nil {
 		return false, "", err
+	}
+	if card.ID == 0 {
+		global.GVA_LOG.Info("adsvcc card_create: card not found by batch_id or card_id",
+			zap.String("batchId", batchID),
+			zap.String("cardId", realID),
+		)
+		return false, "", nil
+	}
+
+	if strings.TrimSpace(card.CardID) == realID {
+		if strings.TrimSpace(card.BatchID) == "" {
+			_ = global.GVA_DB.Model(&finance.PixielCard{}).Where("id = ?", card.ID).
+				Update("batch_id", batchID).Error
+		}
+		return true, realID, nil
 	}
 
 	updates := map[string]interface{}{
 		"card_id":     realID,
+		"batch_id":    batchID,
 		"card_status": string(constant.CardStatus_PENDING),
 	}
 	if err := global.GVA_DB.Model(&finance.PixielCard{}).Where("id = ?", card.ID).Updates(updates).Error; err != nil {
@@ -195,4 +200,14 @@ func (fs FinanceService) EnrichAdsvccCardAfterCreate(cardID string) error {
 		updates["card_status"] = string(constant.CardStatus_ACTIVE)
 	}
 	return global.GVA_DB.Model(&finance.PixielCard{}).Where("card_id = ?", cardID).Updates(updates).Error
+}
+
+func findAdsvccCardForCreateNotify(batchID, realID string) (finance.PixielCard, error) {
+	var card finance.PixielCard
+	q := global.GVA_DB.Where("card_id = ? OR batch_id = ?", batchID, batchID)
+	if realID != "" && realID != "0" {
+		q = global.GVA_DB.Where("card_id = ? OR batch_id = ? OR card_id = ?", batchID, batchID, realID)
+	}
+	err := q.Order("id desc").Limit(1).Find(&card).Error
+	return card, err
 }

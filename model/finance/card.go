@@ -122,6 +122,7 @@ type PixielCard struct {
 	HolderId      string            `gorm:"column:holder_id;type:varchar(50);index" json:"holderId" form:"holderId"`
 	Holder        *CardHolder       `gorm:"foreignKey:CardHolderID;references:HolderId"`
 	CardID        string            `gorm:"column:card_id;type:varchar(50);unique" json:"cardId" form:"cardId"`
+	BatchID       string            `gorm:"column:batch_id;type:varchar(64);index" json:"batchId,omitempty" form:"batchId,omitempty"` // Adsvcc 开卡批次，webhook 回填前可能被 sync 改掉 card_id
 	CardBin       string            `gorm:"column:card_bin;type:varchar(50)" json:"cardBin" form:"cardBin"`
 	CardBinID     string            `gorm:"column:card_bin_id;type:varchar(50);not null" json:"cardBinId" form:"cardBinId"`
 	Bin           *CardBin          `gorm:"foreignKey:CardBinID;references:CardBinID" json:"bin" form:"bin"`

@@ -62,7 +62,11 @@ func runTokenRefreshLoop(p Platform) {
 			iss.ApplyAccessToken(tok)
 			clock.Reset(tokenPollHealthy)
 			if global.GVA_LOG != nil {
-				global.GVA_LOG.Info("获取 token 成功", zap.String("platform", string(p)))
+				fields := []zap.Field{zap.String("platform", string(p))}
+				if p == PlatformAdsvcc && tok != nil {
+					fields = append(fields, zap.String("token", tok.AccessToken), zap.Int64("expiresAt", tok.ExpiresAt))
+				}
+				global.GVA_LOG.Info("获取 token 成功", fields...)
 			}
 		} else if now > exp-tokenRefreshAhead {
 			clock.Reset(tokenPollFast)

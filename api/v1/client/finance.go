@@ -789,7 +789,7 @@ func (f *FinanceApi) ShowCardDetail(c *gin.Context) {
 	}
 }
 
-// PreRecharge 光子换汇询价（公共接口，无需登录）；requestId 由服务端自动生成。
+// PreRecharge 卡充值询价。仅 gzy 卡会调光子 preRecharge；adsvcc / cardbin 不询价。
 func (f *FinanceApi) PreRecharge(c *gin.Context) {
 	var req request.PreRechargeReq
 	if err := c.ShouldBindJSON(&req); err != nil {

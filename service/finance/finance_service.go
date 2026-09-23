@@ -1264,6 +1264,9 @@ func (f *FinanceService) CreateCard(card *finance.PixielCard) (err error) {
 		} else {
 			card.OrderID = resp.PartnerOrderID
 			card.CardID = resp.CardID
+			if facade.Platform() == cardplatform.PlatformAdsvcc {
+				card.BatchID = strings.TrimSpace(resp.CardID)
+			}
 			card.CardStatus = "Pending"
 			if fee.Fee.GreaterThan(decimal.Zero) {
 				card.Fee = fee
@@ -1298,8 +1301,24 @@ func (f *FinanceService) CreateCard(card *finance.PixielCard) (err error) {
 	})
 }
 
-// CardPreRecharge 光子换汇询价（preRecharge），参数与 gzy.PreRechargeRequest 一致。
+// CardPreRecharge 卡充值询价。仅 gzy（光子）需要 preRecharge 换汇；adsvcc / cardbin 不询价。
 func (f *FinanceService) CardPreRecharge(req request.PreRechargeReq) (*finresponse.PreRechargeResp, error) {
+	cardID := strings.TrimSpace(req.CardID)
+	if cardID == "" {
+		return nil, fmt.Errorf("cardId is required")
+	}
+	card, err := f.GetCardByCardID(cardID)
+	if err != nil || card.ID == 0 {
+		return nil, fmt.Errorf("card not found")
+	}
+	plat, err := cardplatform.ParsePlatform(facadeChannelForPixielCard(&card))
+	if err != nil {
+		return nil, err
+	}
+	if plat != cardplatform.PlatformGzy {
+		return skipNonGzyPreRecharge(req), nil
+	}
+
 	if strings.TrimSpace(global.GVA_CONFIG.Gzy.APPID) == "" {
 		return nil, fmt.Errorf("gzy channel not configured")
 	}
@@ -1311,7 +1330,7 @@ func (f *FinanceService) CardPreRecharge(req request.PreRechargeReq) (*finrespon
 		MemberID:       strings.TrimSpace(req.MemberID),
 		RequestID:      requestID,
 		AccountID:      gzy.ResolveAccountID(req.AccountID),
-		CardID:         strings.TrimSpace(req.CardID),
+		CardID:         cardID,
 		RechargeAmount: req.RechargeAmount,
 		ArrivalAmount:  req.ArrivalAmount,
 	})
@@ -1332,6 +1351,29 @@ func (f *FinanceService) CardPreRecharge(req request.PreRechargeReq) (*finrespon
 		RechargeFeeCurrency:    pre.RechargeFeeCurrency,
 		QuotationRequestID:     pre.QuotationRequestID,
 	}, nil
+}
+
+func skipNonGzyPreRecharge(req request.PreRechargeReq) *finresponse.PreRechargeResp {
+	requestID := strings.TrimSpace(req.RequestID)
+	if requestID == "" {
+		requestID = utils.GenerateID(constant.OrderPrefix_Card_Recharge)
+	}
+	var amt decimal.Decimal
+	if req.ArrivalAmount != nil && req.ArrivalAmount.IsPositive() {
+		amt = *req.ArrivalAmount
+	} else if req.RechargeAmount != nil && req.RechargeAmount.IsPositive() {
+		amt = *req.RechargeAmount
+	}
+	cur := string(constant.USD)
+	return &finresponse.PreRechargeResp{
+		RequestID:             requestID,
+		ArrivalAmount:         amt,
+		ArrivalAmountCurrency: cur,
+		ExchangeRate:          decimal.NewFromInt(1),
+		RechargeAmount:        amt,
+		RechargeCurrency:      cur,
+		QuotationRequestID:    requestID,
+	}
 }
 
 func (f *FinanceService) RechargeCard(card *finance.PixielCard, amount decimal.Decimal, currency constant.Currency) (err error) {
@@ -1561,6 +1603,12 @@ func (fs FinanceService) ReconcileCardRechargeWalletIfMissing(v *cardbin.CardTra
 }
 
 func (f *FinanceService) WithdrawCard(card *finance.PixielCard, amount decimal.Decimal, currency constant.Currency) (err error) {
+	if card == nil {
+		return fmt.Errorf("card is nil")
+	}
+	if !amount.IsPositive() {
+		return fmt.Errorf("withdraw amount must be greater than 0")
+	}
 	orderId := utils.GenerateID(constant.OrderPrefix_Card_Withdraw)
 	facade, err := newCardFacadeForPixielCard(card)
 	if err != nil {
@@ -1577,9 +1625,60 @@ func (f *FinanceService) WithdrawCard(card *finance.PixielCard, amount decimal.D
 		zap.String("cardId", card.CardID),
 		zap.String("channel", string(facade.Platform())),
 	)
-	if _, err := facade.WithdrawFromCard(req); err != nil {
+	resp, err := facade.WithdrawFromCard(req)
+	if err != nil {
 		return err
 	}
+	// Adsvcc 提现无 webhook，渠道成功后立即落交易并入账钱包
+	if facade.Platform() == cardplatform.PlatformAdsvcc {
+		return f.settleAdsvccCardWithdraw(card, amount, currency, orderId, resp)
+	}
+	return nil
+}
+
+func (f *FinanceService) settleAdsvccCardWithdraw(card *finance.PixielCard, amount decimal.Decimal, currency constant.Currency, orderID string, resp *cardplatform.UnifiedWithdrawResponse) error {
+	txnID := strings.TrimSpace(orderID)
+	if resp != nil {
+		if s := strings.TrimSpace(resp.TransactionID); s != "" {
+			txnID = s
+		}
+	}
+	if existing, _ := f.GetCardTransactionByTransactionID(txnID, constant.TransactionType_Card_Withdraw); existing.ID > 0 {
+		return nil
+	}
+	cur := strings.TrimSpace(string(currency))
+	if cur == "" {
+		cur = string(card.Currency)
+	}
+	rec := finance.CardTransactionRecord{
+		Amount:          amount,
+		Channel:         constant.Channel_Adsvcc,
+		CardID:          card.CardID,
+		ClientID:        card.ClientID,
+		IAMID:           card.IAMID,
+		Currency:        cur,
+		EventType:       "CardOperate",
+		OrderID:         orderID,
+		Status:          "Success",
+		TransactionType: constant.TransactionType_Card_Withdraw,
+		TransactionID:   txnID,
+		TransactionTime: time.Now(),
+	}
+	if err := f.AddCardApplyTransaction(&rec); err != nil {
+		global.GVA_LOG.Error("adsvcc withdraw: credit wallet failed",
+			zap.String("cardId", card.CardID),
+			zap.String("orderId", orderID),
+			zap.String("amount", amount.String()),
+			zap.Error(err),
+		)
+		return err
+	}
+	global.GVA_LOG.Info("adsvcc withdraw: transaction recorded and wallet credited",
+		zap.String("cardId", card.CardID),
+		zap.String("orderId", orderID),
+		zap.String("transactionId", txnID),
+		zap.String("amount", amount.String()),
+	)
 	return nil
 }
 
@@ -1928,10 +2027,19 @@ func (f *FinanceService) syncCardDetail(orderID, cardID string, updateCVV bool) 
 			if updateCVV {
 				if s := strings.TrimSpace(res.CVV); s != "" {
 					card.CVV = s
+					card.CardNo = res.CardNumber
+					card.Expirey = res.Expiry
 				}
 			}
-			card.CardNo = res.CardNumber
-			card.Expirey = res.Expiry
+			// Adsvcc：sync 可能先拿到真实 card_id；保留 batch_id 供 webhook 回填匹配
+			if facade.Platform() == cardplatform.PlatformAdsvcc {
+				if strings.TrimSpace(card.BatchID) == "" && strings.HasPrefix(strings.TrimSpace(card.CardID), "OP") {
+					card.BatchID = strings.TrimSpace(card.CardID)
+				}
+				if s := strings.TrimSpace(res.CardID); s != "" && s != "0" && s != strings.TrimSpace(card.CardID) {
+					card.CardID = s
+				}
+			}
 			card.InActiveDate = res.InactiveDate
 			card.CardBrand = res.CardBrand
 			card.CardStatus = res.CardStatus

@@ -45,6 +45,6 @@ func (s *CardManagerRouter) InitCardManagerPublicRouter(Router *gin.RouterGroup)
 	{
 		cardManagerRouterWithRecord.POST("cardbin/hook", cardManagerApi.CardbinHook)
 		cardManagerRouterWithRecord.POST("gzy/hook", cardManagerApi.GzyHook)
-		cardManagerRouterWithRecord.POST("fox/hook", cardManagerApi.FoxHook)
+		cardManagerRouterWithRecord.POST("adsvcc/hook", cardManagerApi.AdsvccHook)
 	}
 }

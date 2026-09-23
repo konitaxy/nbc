@@ -28,7 +28,7 @@ const (
 	ProductTypeDebit = 1
 	ProductTypeShare = 2
 
-	ActionActivate = "activate"
+	ActionActivate = "action" // 激活/解冻
 	ActionFreeze   = "freeze"
 	ActionRelease  = "release"
 	ActionRecharge = "recharge"

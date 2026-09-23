@@ -16,7 +16,7 @@ import (
 // FoxHook Adsvcc（fox）Webhook：POST admin/fox/hook。
 // 验签 X-Webhook-Signature / X-Webhook-Timestamp；成功须响应纯文本 success。
 // 文档：https://s.apifox.cn/84377478-12dd-41ee-b512-593f1c7e0259/7361632m0
-func (*CardManagerApi) FoxHook(c *gin.Context) {
+func (*CardManagerApi) AdsvccHook(c *gin.Context) {
 	body, err := io.ReadAll(c.Request.Body)
 	if err != nil {
 		global.GVA_LOG.Error("adsvcc fox hook: read body failed", zap.Error(err))
