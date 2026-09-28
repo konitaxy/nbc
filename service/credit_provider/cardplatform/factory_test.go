@@ -61,7 +61,7 @@ func TestShareCardNeedsMatrix(t *testing.T) {
 }
 
 func TestAdsvccProductMapping(t *testing.T) {
-	if got := adsvccInstitutionToBrand("1"); got != "Mastercard" {
+	if got := adsvccInstitutionToBrand("1"); got != "MasterCard" {
 		t.Fatalf("brand=%s", got)
 	}
 	if got := adsvccRegionToLocal("HKG"); got != "HK" {

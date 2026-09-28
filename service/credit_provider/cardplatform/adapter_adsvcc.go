@@ -509,7 +509,7 @@ func adsvccInstitutionToBrand(inst string) string {
 	case "0":
 		return "Visa"
 	case "1":
-		return "Mastercard"
+		return "MasterCard"
 	case "2":
 		return "Diners"
 	case "3":
