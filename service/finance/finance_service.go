@@ -2027,9 +2027,16 @@ func (f *FinanceService) syncCardDetail(orderID, cardID string, updateCVV bool) 
 			if updateCVV {
 				if s := strings.TrimSpace(res.CVV); s != "" {
 					card.CVV = s
-					card.CardNo = res.CardNumber
-					card.Expirey = res.Expiry
 				}
+				if s := strings.TrimSpace(res.Expiry); s != "" && !strings.Contains(s, "*") {
+					card.Expirey = s
+				}
+				if s := strings.TrimSpace(res.CardNumber); s != "" && !strings.Contains(s, "*") {
+					card.CardNo = s
+				}
+			}
+			if s := strings.TrimSpace(res.CardNumber); s != "" && !strings.Contains(s, "*") {
+				card.CardNo = s
 			}
 			// Adsvcc：sync 可能先拿到真实 card_id；保留 batch_id 供 webhook 回填匹配
 			if facade.Platform() == cardplatform.PlatformAdsvcc {
@@ -2248,5 +2255,47 @@ func (f *FinanceService) CardFrozen(cardID uint, clientID uint, action string, r
 		)
 	}
 
+	return nil
+}
+
+// DefaultResetMaxOnDaily 后台「重置上限」默认日限额（USD）
+const DefaultResetMaxOnDaily int64 = 1000
+
+// ResetCardDailyLimit 将卡 maxOnDaily 重置为 1000（走渠道 updateCard）。
+func (f *FinanceService) ResetCardDailyLimit(cardID uint) error {
+	var card finance.PixielCard
+	if err := global.GVA_DB.Preload("Bin").First(&card, "id = ?", cardID).Error; err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return fmt.Errorf("card not found")
+		}
+		return err
+	}
+	if strings.TrimSpace(card.CardID) == "" {
+		return fmt.Errorf("card channel id empty")
+	}
+	facade, err := newCardFacadeForPixielCard(&card)
+	if err != nil {
+		return err
+	}
+	maxOnDaily := DefaultResetMaxOnDaily
+	orderID := utils.GenerateID("CL") // Card Limit
+	global.GVA_LOG.Info("reset card daily limit",
+		zap.String("cardId", card.CardID),
+		zap.Int64("maxOnDaily", maxOnDaily),
+		zap.String("channel", string(facade.Platform())),
+	)
+	if err := facade.UpdateCard(cardplatform.UnifiedUpdateCardRequest{
+		PartnerOrderID: orderID,
+		CardID:         card.CardID,
+		MaxOnDaily:     &maxOnDaily,
+	}); err != nil {
+		return err
+	}
+	if err := f.SyncCardDetailSkipCVV("", card.CardID); err != nil {
+		global.GVA_LOG.Warn("sync card detail after reset daily limit failed",
+			zap.String("cardId", card.CardID),
+			zap.Error(err),
+		)
+	}
 	return nil
 }

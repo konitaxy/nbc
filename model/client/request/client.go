@@ -62,6 +62,7 @@ type ClientParamsSet struct {
 	Name               string                      `json:"name" form:"name"`
 	Remark             string                      `json:"remark" form:"remark"`
 	AccountManager     string                      `json:"accountManager" form:"accountManager"`
+	CardBinGroups      []int                       `json:"cardBinGroups" form:"cardBinGroups"`
 }
 
 type ClientDDSet struct {

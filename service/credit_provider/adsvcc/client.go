@@ -74,7 +74,8 @@ func (c *Client) GetAccessToken() (*TokenData, error) {
 	if global.GVA_LOG != nil {
 		global.GVA_LOG.Info("adsvcc GetAccessToken",
 			zap.String("token", out.Token),
-			zap.String("expiresIn", out.ExpiresIn.String()),
+			zap.String("expiresIn", TokenExpiresIn(&out).String()),
+			zap.Int64("expiresAtUnix", ParseExpiresInUnixSec(TokenExpiresIn(&out))),
 		)
 	}
 	return &out, nil
@@ -95,7 +96,8 @@ func (c *Client) RefreshAccessToken() (*TokenData, error) {
 	if global.GVA_LOG != nil {
 		global.GVA_LOG.Info("adsvcc RefreshAccessToken",
 			zap.String("token", out.Token),
-			zap.String("expiresIn", out.ExpiresIn.String()),
+			zap.String("expiresIn", TokenExpiresIn(&out).String()),
+			zap.Int64("expiresAtUnix", ParseExpiresInUnixSec(TokenExpiresIn(&out))),
 		)
 	}
 	return &out, nil
@@ -593,20 +595,4 @@ func truncate(b []byte, n int) string {
 		return string(b)
 	}
 	return string(b[:n]) + "..."
-}
-
-// ExpiresAtMillis 将 expiresIn（秒级绝对 unix 时间戳）转为毫秒。
-func ExpiresAtMillis(expiresIn json.Number) int64 {
-	s := strings.TrimSpace(expiresIn.String())
-	if s == "" {
-		return time.Now().Add(2 * time.Hour).UnixMilli()
-	}
-	v, err := strconv.ParseInt(s, 10, 64)
-	if err != nil {
-		return time.Now().Add(2 * time.Hour).UnixMilli()
-	}
-	if v < 1e12 {
-		return v * 1000
-	}
-	return v
 }

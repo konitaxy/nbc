@@ -19,6 +19,7 @@ func (s *CardManagerRouter) InitClientManagerRouter(Router *gin.RouterGroup) {
 		clientManagerRouter.POST("remark", api.RemarkClient)                 //
 		clientManagerRouter.POST("review", api.ReviewClient)                 //
 		clientManagerRouter.POST("setManager", api.SetClientManager)         //
+		clientManagerRouter.POST("setCardBinGroups", api.SetCardBinGroups)   //
 		clientManagerRouter.POST("changeStatus", api.ChangeClientStatus)     //
 		clientManagerRouter.POST("kyb", api.EnhancedKYB)                     //
 	}

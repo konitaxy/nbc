@@ -103,6 +103,13 @@ type UnifiedChangeSubAuthLimitRequest struct {
 	AuthLimitFlag  string // N=不限额 → gzy transactionLimitType=unlimited
 }
 
+// UnifiedUpdateCardRequest 更新卡属性（如日限额 maxOnDaily）。
+type UnifiedUpdateCardRequest struct {
+	PartnerOrderID string
+	CardID         string
+	MaxOnDaily     *int64 // 日限额（USD）
+}
+
 // UnifiedQueryTransactionsPageRequest 交易明细分页（以 Photon paging 为主；cardbin 需 PartnerOrderID）。
 type UnifiedQueryTransactionsPageRequest struct {
 	PartnerOrderID  string // cardbin 必填；gzy 可空

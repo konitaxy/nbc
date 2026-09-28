@@ -67,6 +67,16 @@ type CardBin struct {
 	ChannelAutoCancel          bool              `gorm:"column:channel_auto_cancel;type:boolean;default:1" json:"channelAutoCancel" form:"channelAutoCancel"`
 	Blocked                    bool              `gorm:"column:blocked;type:boolean;default:0" json:"-" form:"-"`
 	IsDefault                  bool              `gorm:"column:is_default;default:0" json:"isDefault"`
+	// BinGroup 卡 BIN 分组，默认 1；客户端仅能看到自己 CardBinGroups 权限内的分组
+	BinGroup                   int               `gorm:"column:bin_group;type:int;not null;default:1;index" json:"binGroup" form:"binGroup"`
+}
+
+// EffectiveBinGroup 未设置或非法时视为 1
+func (b CardBin) EffectiveBinGroup() int {
+	if b.BinGroup <= 0 {
+		return 1
+	}
+	return b.BinGroup
 }
 
 // TableName 返回数据库表名

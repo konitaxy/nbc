@@ -95,6 +95,7 @@ func (c *CardService) SyncGzyCardBinsFromPhoton() error {
 					Withdrawal:                 true,
 					SupportFreezing:            true,
 					ChannelAutoCancel:          true,
+					BinGroup:                   1,
 				}
 				if err := global.GVA_DB.Create(&row).Error; err != nil {
 					return fmt.Errorf("gzy card bin sync: create %s: %w", cardBinID, err)

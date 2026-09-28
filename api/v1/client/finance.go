@@ -13,6 +13,7 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/shopspring/decimal"
 	"gitlab.com/ucard/global"
+	"gitlab.com/ucard/model/client"
 	"gitlab.com/ucard/model/common/response"
 	"gitlab.com/ucard/model/constant"
 	"gitlab.com/ucard/model/finance"
@@ -344,6 +345,12 @@ func (f *FinanceApi) ListCardBin(c *gin.Context) {
 		enabled := true
 		req.BinStatus = &enabled
 	}
+	_, tenantID, _ := utils.GetUserAndTenantID(c)
+	if cl, err := clientService.GetClient(tenantID); err == nil && cl.ID > 0 {
+		req.BinGroups = client.NormalizeCardBinGroups(cl.CardBinGroups)
+	} else {
+		req.BinGroups = []int{1}
+	}
 	if total, list, err := cardService.ListCardBin(req); err == nil {
 		response.OkWithDetailed(response.PageResult{
 			List:  list,
@@ -384,6 +391,10 @@ func (f *FinanceApi) OpenCard(c *gin.Context) {
 				} else {
 					response.KYCRequired(c)
 				}
+				return
+			}
+			if !cl.HasCardBinGroup(cb.EffectiveBinGroup()) {
+				response.FailWithMessage("Card bin not available", c)
 				return
 			}
 		}

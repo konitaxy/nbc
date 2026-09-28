@@ -860,6 +860,7 @@ func (a *ClientApi) Register(c *gin.Context) {
 		Inviter:            sysUser.ID,
 		Password:           utils.MD5V([]byte(req.Password)),
 		ClientRegisterTime: time.Now(),
+		CardBinGroups:      common.SliceInt{1},
 	}
 
 	if err := clientService.Create(&er); err != nil {

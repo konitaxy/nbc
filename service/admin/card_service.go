@@ -20,6 +20,9 @@ func (c *CardService) SaveCardBin(cardBin *finance.CardBin) error {
 	if cardBin.ID == 0 && cardBin.RemainingAvailableCard == 0 {
 		cardBin.RemainingAvailableCard = 999
 	}
+	if cardBin.BinGroup <= 0 {
+		cardBin.BinGroup = 1
+	}
 	return global.GVA_DB.Save(cardBin).Error
 }
 func (c *CardService) GetCardBinByCardBinId(cardBinId string) (cardBin finance.CardBin, err error) {
@@ -75,6 +78,18 @@ func (*CardService) ListCardBin(search request.CardBinSearchParams) (total int64
 	if search.BinStatus != nil {
 		conditions = append(conditions, "bin_status = ?")
 		args = append(args, *search.BinStatus)
+	}
+	if search.BinGroup != nil {
+		g := *search.BinGroup
+		if g <= 0 {
+			g = 1
+		}
+		conditions = append(conditions, "IFNULL(NULLIF(bin_group, 0), 1) = ?")
+		args = append(args, g)
+	}
+	if len(search.BinGroups) > 0 {
+		conditions = append(conditions, "IFNULL(NULLIF(bin_group, 0), 1) IN ?")
+		args = append(args, search.BinGroups)
 	}
 	if len(conditions) > 0 {
 		query = query.Where(strings.Join(conditions, " AND "), args...)

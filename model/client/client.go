@@ -40,7 +40,45 @@ type Client struct {
 	IsTest         bool                 `gorm:"column:is_test;type:tinyint(1);default:0;index" json:"isTest" form:"isTest"`
 	// MatrixAccount 光子易 Matrix 账户号（审核通过创建成功后保存）
 	MatrixAccount string `gorm:"column:matrix_account;type:varchar(64);index" json:"matrixAccount,omitempty" form:"matrixAccount,omitempty"`
+	// CardBinGroups 可访问的卡 BIN 分组列表，默认 [1]
+	CardBinGroups common.SliceInt `gorm:"column:card_bin_groups;type:json" json:"cardBinGroups,omitempty" form:"cardBinGroups,omitempty"`
 	// 子账号列表
+}
+
+// NormalizeCardBinGroups 空列表时默认仅分组 1
+func NormalizeCardBinGroups(groups common.SliceInt) []int {
+	if len(groups) == 0 {
+		return []int{1}
+	}
+	out := make([]int, 0, len(groups))
+	seen := make(map[int]struct{}, len(groups))
+	for _, g := range groups {
+		if g <= 0 {
+			continue
+		}
+		if _, ok := seen[g]; ok {
+			continue
+		}
+		seen[g] = struct{}{}
+		out = append(out, g)
+	}
+	if len(out) == 0 {
+		return []int{1}
+	}
+	return out
+}
+
+// HasCardBinGroup 判断客户是否拥有指定 BIN 分组权限（binGroup<=0 视为 1）
+func (c *Client) HasCardBinGroup(binGroup int) bool {
+	if binGroup <= 0 {
+		binGroup = 1
+	}
+	for _, g := range NormalizeCardBinGroups(c.CardBinGroups) {
+		if g == binGroup {
+			return true
+		}
+	}
+	return false
 }
 
 // TableName 返回数据库表名

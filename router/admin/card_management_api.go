@@ -21,6 +21,7 @@ func (s *CardManagerRouter) InitCardManagerRouter(Router *gin.RouterGroup) {
 
 		cardManagerRouter.POST("cancel", cardManagerApi.CardCancel) //后端提现
 		cardManagerRouter.POST("frozen", cardManagerApi.CardFrozen) //卡冻结/解冻
+		cardManagerRouter.POST("resetDailyLimit", cardManagerApi.ResetCardDailyLimit) // 重置日限额 maxOnDaily=1000
 	}
 	{
 		cardManagerRouterWithoutRecord.POST("cardBin/list", cardManagerApi.ListCardBin)

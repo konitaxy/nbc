@@ -423,3 +423,31 @@ func (f *CardManagerApi) CardFrozen(c *gin.Context) {
 
 	response.OkWithMessage(fmt.Sprintf("Card %s success", actionText), c)
 }
+
+func (f *CardManagerApi) ResetCardDailyLimit(c *gin.Context) {
+	var req request.ResetCardDailyLimitReq
+	if err := c.ShouldBindJSON(&req); err != nil {
+		response.FailWithMessage(err.Error(), c)
+		return
+	}
+	var card finance.PixielCard
+	if err := global.GVA_DB.First(&card, "id = ?", req.ID).Error; err != nil {
+		response.FailWithMessage("card not found", c)
+		return
+	}
+	if err := financeService.ResetCardDailyLimit(req.ID); err != nil {
+		global.GVA_LOG.Error("reset card daily limit failed", zap.Error(err))
+		response.FailWithServiceError(c, err)
+		return
+	}
+	info := utils.GetUserInfo(c)
+	global.Push(common.OpLog{
+		Who:    info.ID,
+		Name:   info.NickName,
+		OpType: common.OpType_Card_ResetDailyLimit,
+		Detail: fmt.Sprintf("reset maxOnDaily to 1000, card ID:%d, CardID:%s, ClientID:%d", req.ID, card.CardID, card.ClientID),
+		ObjId:  req.ID,
+		Source: 1,
+	})
+	response.OkWithMessage("Reset daily limit success", c)
+}

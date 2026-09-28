@@ -5,6 +5,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/shopspring/decimal"
 	"gitlab.com/ucard/global"
 	"gitlab.com/ucard/service/credit_provider/gzy"
 	"go.uber.org/zap"
@@ -125,8 +126,8 @@ func (a *gzyAdapter) EnrichSensitiveIfEmpty(cardID string, detail *UnifiedCardDe
 	if s := strings.TrimSpace(info.CVV); s != "" {
 		detail.CVV = s
 	}
-	if strings.TrimSpace(detail.CardNumber) == "" {
-		detail.CardNumber = strings.TrimSpace(info.CardNo)
+	if s := strings.TrimSpace(info.CardNo); s != "" && !strings.Contains(s, "*") {
+		detail.CardNumber = s
 	}
 	if strings.TrimSpace(detail.Expiry) == "" {
 		detail.Expiry = strings.TrimSpace(info.ExpirationDate)
@@ -228,6 +229,19 @@ func (a *gzyAdapter) ChangeSubAuthLimit(in UnifiedChangeSubAuthLimitRequest) (*s
 		UpdateAmount:   in.UpdateAmount,
 		AuthLimitFlag:  in.AuthLimitFlag,
 	})
+}
+
+func (a *gzyAdapter) UpdateCard(in UnifiedUpdateCardRequest) error {
+	req := gzy.UpdateCardRequest{
+		CardID:    in.CardID,
+		RequestID: in.PartnerOrderID,
+	}
+	if in.MaxOnDaily != nil {
+		d := decimal.NewFromInt(*in.MaxOnDaily)
+		req.MaxOnDaily = &d
+	}
+	_, err := a.client.UpdateCard(req)
+	return err
 }
 
 func (a *gzyAdapter) QueryCardTransactionsPage(in UnifiedQueryTransactionsPageRequest) (*UnifiedTransactionPage, error) {

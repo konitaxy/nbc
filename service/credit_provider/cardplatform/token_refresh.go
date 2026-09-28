@@ -4,6 +4,7 @@ import (
 	"time"
 
 	"gitlab.com/ucard/global"
+	"gitlab.com/ucard/service/credit_provider/adsvcc"
 	"go.uber.org/zap"
 )
 
@@ -39,7 +40,11 @@ func runTokenRefreshLoop(p Platform) {
 		}
 		now := time.Now().UnixMilli()
 		exp := iss.TokenExpiresAt()
-		if now > exp {
+		expired := now > exp
+		if p == PlatformAdsvcc {
+			expired = adsvcc.AccessTokenExpired(exp, 60)
+		}
+		if expired {
 			tok, err := iss.FetchAccessToken()
 			if err != nil {
 				retryIn, n := iss.TokenFetchFailed()

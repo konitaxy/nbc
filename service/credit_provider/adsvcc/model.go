@@ -48,8 +48,9 @@ type Envelope struct {
 }
 
 type TokenData struct {
-	Token     string      `json:"token"`
-	ExpiresIn json.Number `json:"expiresIn"`
+	Token          string      `json:"token"`
+	ExpiresIn      json.Number `json:"expiresIn"`
+	ExpiresInSnake json.Number `json:"expires_in"`
 }
 
 type DemandData struct {
@@ -238,7 +239,7 @@ type ProductItem struct {
 	Scene               flexibleString  `json:"scene"`
 	Tag                 json.RawMessage `json:"tag"`
 	Sort                json.Number     `json:"sort"`
-	MinOpenCardAmount   string          `json:"min_open_card_amount"`
+	MinOpenCardAmount   json.Number     `json:"min_open_card_amount"`
 	GroupName           string          `json:"group_name"`
 	CreatedAt           string          `json:"created_at"`
 	UpdatedAt           string          `json:"updated_at"`

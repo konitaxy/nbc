@@ -20,6 +20,7 @@ const (
 
 	OpType_Card_Frozen    // 卡冻结
 	OpType_Card_UnFrozen  // 卡解冻
+	OpType_Card_ResetDailyLimit // 重置日限额 maxOnDaily
 )
 
 type OpLog struct {

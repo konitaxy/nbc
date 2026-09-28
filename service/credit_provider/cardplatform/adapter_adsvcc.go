@@ -52,9 +52,10 @@ func (a *adsvccAdapter) FetchAccessToken() (*UnifiedToken, error) {
 	if err != nil {
 		return nil, err
 	}
+	exp := adsvcc.TokenExpiresIn(res)
 	return &UnifiedToken{
 		AccessToken: res.Token,
-		ExpiresAt:   adsvcc.ExpiresAtMillis(res.ExpiresIn),
+		ExpiresAt:   adsvcc.ExpiresAtMillis(exp),
 	}, nil
 }
 
@@ -86,7 +87,7 @@ func (a *adsvccAdapter) EnsureAccessToken() error {
 		return fmt.Errorf("adsvcc: app-id/app-secret not configured")
 	}
 	if strings.TrimSpace(global.GVA_CONFIG.Adsvcc.AccessToken) != "" &&
-		time.Now().UnixMilli() < a.TokenExpiresAt()-tokenEnsureSkew {
+		!adsvcc.AccessTokenExpired(a.TokenExpiresAt(), 60) {
 		return nil
 	}
 	tok, err := a.FetchAccessToken()
@@ -269,6 +270,10 @@ func (a *adsvccAdapter) WithdrawFromCard(in UnifiedWithdrawRequest) (*UnifiedWit
 
 func (a *adsvccAdapter) ChangeSubAuthLimit(UnifiedChangeSubAuthLimitRequest) (*string, error) {
 	return nil, fmt.Errorf("adsvcc: ChangeSubAuthLimit not supported; use RechargeCard/WithdrawFromCard")
+}
+
+func (a *adsvccAdapter) UpdateCard(UnifiedUpdateCardRequest) error {
+	return fmt.Errorf("adsvcc: UpdateCard not supported")
 }
 
 func (a *adsvccAdapter) QueryCardTransactionsPage(in UnifiedQueryTransactionsPageRequest) (*UnifiedTransactionPage, error) {
@@ -468,9 +473,13 @@ func (a *adsvccAdapter) ListCardBins(in UnifiedListCardBinRequest) (*UnifiedCard
 
 func unifyCardBinFromAdsvcc(it adsvcc.ProductItem, productType int) UnifiedCardBin {
 	id := strings.TrimSpace(it.ID.String())
-	bin := strings.TrimSpace(it.ProviderProductCode)
+	name := strings.TrimSpace(it.Name)
+	bin := adsvcc.CardBinDigitsFromName(name)
 	if bin == "" {
-		bin = strings.TrimSpace(it.Name)
+		bin = strings.TrimSpace(it.ProviderProductCode)
+	}
+	if bin == "" {
+		bin = name
 	}
 	model := string(constant.CardModel_CARD)
 	if productType == adsvcc.ProductTypeShare {
@@ -478,18 +487,18 @@ func unifyCardBinFromAdsvcc(it adsvcc.ProductItem, productType int) UnifiedCardB
 	}
 	desc := strings.TrimSpace(it.Desc)
 	if desc == "" {
-		desc = strings.TrimSpace(it.Name)
+		desc = name
 	}
 	return UnifiedCardBin{
 		CardBinID:     id,
 		CardBin:       bin,
-		Name:          strings.TrimSpace(it.Name),
+		Name:          name,
 		Description:   desc,
 		CardBrand:     adsvccInstitutionToBrand(string(it.Institution)),
 		CardType:      "Virtual",
 		CardModel:     model,
 		Region:        adsvccRegionToLocal(it.Region),
-		MinOpenAmount: strings.TrimSpace(it.MinOpenCardAmount),
+		MinOpenAmount: strings.TrimSpace(it.MinOpenCardAmount.String()),
 		ProductType:   productType,
 		ProviderID:    strings.TrimSpace(it.ProviderID.String()),
 	}

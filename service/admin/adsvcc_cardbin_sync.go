@@ -15,7 +15,7 @@ import (
 )
 
 // SyncAdsvccCardBins 调用 Adsvcc GET /card-product/list，将 channel=adsvcc 的卡段写入 card_bin。
-// CardBinID 为产品 id（开卡 product_id）；CardBin 为供应商产品码；type=1 CARD、type=2 SHARE。
+// CardBinID 为产品 id（开卡 product_id）；CardBin 取 name 中连续数字；CreateRechargeLimit 取 min_open_card_amount。
 func (c *CardService) SyncAdsvccCardBins() error {
 	if global.GVA_DB == nil {
 		return fmt.Errorf("adsvcc card bin sync: db not initialized")
@@ -65,9 +65,9 @@ func (c *CardService) SyncAdsvccCardBins() error {
 		if region == "" {
 			region = constant.Region_US
 		}
-		minAmt := decimal.NewFromInt(1)
+		minAmt := decimal.Zero
 		if s := strings.TrimSpace(it.MinOpenAmount); s != "" {
-			if d, perr := decimal.NewFromString(s); perr == nil && d.IsPositive() {
+			if d, perr := decimal.NewFromString(s); perr == nil && !d.IsNegative() {
 				minAmt = d
 			}
 		}
@@ -104,6 +104,7 @@ func (c *CardService) SyncAdsvccCardBins() error {
 				Withdrawal:                 true,
 				SupportFreezing:            true,
 				ChannelAutoCancel:          true,
+				BinGroup:                   1,
 			}
 			if err := global.GVA_DB.Create(&row).Error; err != nil {
 				global.GVA_LOG.Warn("adsvcc card bin sync: create skipped",

@@ -92,3 +92,29 @@ func (s SliceUint) Value() (driver.Value, error) {
 	}
 	return json.Marshal(s)
 }
+
+// SliceInt 用于存储 int 数组到 JSON 字段
+type SliceInt []int
+
+func (s *SliceInt) Scan(value interface{}) error {
+	if value == nil {
+		*s = nil
+		return nil
+	}
+	b, ok := value.([]byte)
+	if !ok {
+		return fmt.Errorf("failed to convert value to []byte")
+	}
+	if len(b) == 0 {
+		*s = nil
+		return nil
+	}
+	return json.Unmarshal(b, s)
+}
+
+func (s SliceInt) Value() (driver.Value, error) {
+	if s == nil {
+		return "[]", nil
+	}
+	return json.Marshal(s)
+}

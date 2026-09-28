@@ -171,6 +171,10 @@ func (a *cardbinAdapter) ChangeSubAuthLimit(in UnifiedChangeSubAuthLimitRequest)
 	})
 }
 
+func (a *cardbinAdapter) UpdateCard(UnifiedUpdateCardRequest) error {
+	return fmt.Errorf("cardbin: UpdateCard not supported")
+}
+
 func (a *cardbinAdapter) QueryCardTransactionsPage(in UnifiedQueryTransactionsPageRequest) (*UnifiedTransactionPage, error) {
 	pageNo := int(in.PageIndex)
 	if pageNo <= 0 {

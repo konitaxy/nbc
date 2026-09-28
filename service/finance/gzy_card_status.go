@@ -26,7 +26,7 @@ func (fs FinanceService) ProcessGzyCardStatusNotify(v gzy.IssuingCardStatusNotif
 	if s := gzy.PhotonCardStatusToSystem(v.CardStatus); s != "" {
 		updates["card_status"] = s
 	}
-	if n := strings.TrimSpace(v.CardNumber); n != "" {
+	if n := strings.TrimSpace(v.CardNumber); n != "" && !strings.Contains(n, "*") {
 		updates["card_no"] = n
 	}
 	if h := strings.TrimSpace(v.CardholderID); h != "" {

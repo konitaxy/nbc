@@ -28,6 +28,7 @@ type Issuer interface {
 	FreezeCard(UnifiedFreezeRequest) (*string, error)
 	WithdrawFromCard(UnifiedWithdrawRequest) (*UnifiedWithdrawResponse, error)
 	ChangeSubAuthLimit(UnifiedChangeSubAuthLimitRequest) (*string, error)
+	UpdateCard(UnifiedUpdateCardRequest) error
 	QueryCardTransactionsPage(UnifiedQueryTransactionsPageRequest) (*UnifiedTransactionPage, error)
 	RechargeCard(UnifiedRechargeRequest) (*UnifiedRechargeResponse, error)
 	ApplyCardHolder(UnifiedCardHolder) (*UnifiedCardHolder, error)

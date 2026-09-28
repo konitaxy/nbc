@@ -937,8 +937,8 @@ func vccCardInfoToQueryCardDetailResponse(req QueryCardDetailRequest, info *GetC
 		return &QueryCardDetailResponse{PartnerOrderID: req.PartnerOrderID, CardID: strings.TrimSpace(req.CardID)}
 	}
 	cardNo := strings.TrimSpace(info.CardNo)
-	if cardNo == "" {
-		cardNo = strings.TrimSpace(info.MaskCardNo)
+	if strings.Contains(cardNo, "*") {
+		cardNo = ""
 	}
 	bal := info.CardBalance
 	if bal.IsZero() && !info.AvailableTransactionLimit.IsZero() {
@@ -1161,6 +1161,55 @@ func (g *Gzy) ChangeSubAuthLimit(req ChangeSubAuthLimitRequest) (*string, error)
 		return nil, gzyAPIFailure(strings.TrimSpace(env.Code), strings.TrimSpace(env.Msg))
 	}
 	out := requestID
+	return &out, nil
+}
+
+// UpdateCard POST /vcc/openApi/v4/updateCard 通用更新（如 maxOnDaily）。
+func (g *Gzy) UpdateCard(req UpdateCardRequest) (*UpdateCardResponse, error) {
+	cardID := strings.TrimSpace(req.CardID)
+	requestID := strings.TrimSpace(req.RequestID)
+	if cardID == "" {
+		return nil, fmt.Errorf("gzy updateCard: cardId 不能为空")
+	}
+	if requestID == "" {
+		return nil, fmt.Errorf("gzy updateCard: requestId 不能为空")
+	}
+	req.CardID = cardID
+	req.RequestID = requestID
+	jsonBytes, err := json.Marshal(req)
+	if err != nil {
+		return nil, fmt.Errorf("gzy updateCard: marshal: %w", err)
+	}
+	reqURL := strings.TrimRight(g.BaseURL, "/") + pathUpdateCard
+	hreq, err := g.newRequest("POST", reqURL, jsonBytes)
+	if err != nil {
+		return nil, err
+	}
+	resp, err := g.client.Do(hreq)
+	if err != nil {
+		return nil, fmt.Errorf("gzy updateCard: %w", err)
+	}
+	defer resp.Body.Close()
+	body, err := readBody(resp)
+	if err != nil {
+		return nil, err
+	}
+	if err := httpPhotonOrBodyError(resp.StatusCode, body); err != nil {
+		return nil, err
+	}
+	var env updateCardV4Envelope
+	if err := json.Unmarshal(body, &env); err != nil {
+		return nil, fmt.Errorf("gzy updateCard: decode: %w", err)
+	}
+	if strings.TrimSpace(env.Code) != "0000" {
+		return nil, gzyAPIFailure(strings.TrimSpace(env.Code), strings.TrimSpace(env.Msg))
+	}
+	var out UpdateCardResponse
+	if len(env.Data) > 0 && string(env.Data) != "null" {
+		if err := json.Unmarshal(env.Data, &out); err != nil {
+			return nil, fmt.Errorf("gzy updateCard: decode data: %w", err)
+		}
+	}
 	return &out, nil
 }
 

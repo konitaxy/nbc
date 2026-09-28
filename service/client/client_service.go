@@ -142,6 +142,9 @@ func (*ClientService) Save(er *client.Client) error {
 	return global.GVA_DB.Save(er).Error
 }
 func (*ClientService) Create(er *client.Client) error {
+	if len(er.CardBinGroups) == 0 {
+		er.CardBinGroups = common.SliceInt{1}
+	}
 	return global.GVA_DB.Transaction(func(tx *gorm.DB) error {
 		if err := tx.Create(er).Error; err != nil {
 			return err

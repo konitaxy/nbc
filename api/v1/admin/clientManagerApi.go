@@ -10,6 +10,7 @@ import (
 	"gitlab.com/ucard/model/client"
 	"gitlab.com/ucard/model/client/request"
 	cliRes "gitlab.com/ucard/model/client/response"
+	"gitlab.com/ucard/model/common"
 	"gitlab.com/ucard/model/common/response"
 	"gitlab.com/ucard/model/constant"
 	"gitlab.com/ucard/model/system"
@@ -203,6 +204,29 @@ func (*ClientManagerApi) SetClientManager(c *gin.Context) {
 		}
 	}
 
+}
+
+func (*ClientManagerApi) SetCardBinGroups(c *gin.Context) {
+	var req request.ClientParamsSet
+	_ = c.ShouldBindJSON(&req)
+	if req.ID == 0 {
+		response.FailWithMessage("ID cannot be empty", c)
+		return
+	}
+	cl, err := clientService.GetClient(req.ID)
+	if err != nil {
+		global.GVA_LOG.Error("SetCardBinGroups failed!", zap.Error(err))
+		response.FailWithMessage("Failed", c)
+		return
+	}
+	groups := client.NormalizeCardBinGroups(common.SliceInt(req.CardBinGroups))
+	cl.CardBinGroups = common.SliceInt(groups)
+	if err := clientService.Save(&cl); err != nil {
+		global.GVA_LOG.Error("SetCardBinGroups save failed!", zap.Error(err))
+		response.FailWithMessage("Failed", c)
+		return
+	}
+	response.Ok(c)
 }
 func (*ClientManagerApi) ChangeClientStatus(c *gin.Context) {
 	var req request.ClientParamsSet

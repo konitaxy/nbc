@@ -95,6 +95,14 @@ func (f *Facade) ChangeSubAuthLimit(in UnifiedChangeSubAuthLimitRequest) (*strin
 	return iss.ChangeSubAuthLimit(in)
 }
 
+func (f *Facade) UpdateCard(in UnifiedUpdateCardRequest) error {
+	iss, err := f.mustIssuer()
+	if err != nil {
+		return err
+	}
+	return iss.UpdateCard(in)
+}
+
 func (f *Facade) QueryCardTransactionsPage(in UnifiedQueryTransactionsPageRequest) (*UnifiedTransactionPage, error) {
 	iss, err := f.mustIssuer()
 	if err != nil {

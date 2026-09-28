@@ -14,6 +14,9 @@ type CardBinSearchParams struct {
 	Region    string `json:"region" form:"region"`
 	Blocked   bool   `json:"blocked" form:"blocked"`
 	BinStatus *bool  `json:"binStatus" form:"binStatus"`
+	BinGroup  *int   `json:"binGroup" form:"binGroup"`
+	// BinGroups 客户端列表按客户权限过滤；为空表示不过滤（管理端）
+	BinGroups []int `json:"-" form:"-"`
 }
 
 type CardSearchParams struct {
@@ -157,6 +160,11 @@ type CardFrozenReq struct {
 	ID     uint   `json:"id" binding:"required"`     // 卡ID（数据库ID）
 	Action string `json:"action" binding:"required"` // 操作类型：frozen(冻结) 或 unfrozen(解冻)
 	Remark string `json:"remark"`                    // 备注
+}
+
+// ResetCardDailyLimitReq 后台重置卡日限额 maxOnDaily
+type ResetCardDailyLimitReq struct {
+	ID uint `json:"id" binding:"required"` // 卡数据库 ID
 }
 
 type CancelCardReq struct {
