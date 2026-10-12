@@ -7,6 +7,7 @@ import (
 	"crypto/sha256"
 	"crypto/x509"
 	"encoding/base64"
+	"encoding/json"
 	"encoding/pem"
 	"testing"
 )
@@ -45,6 +46,32 @@ func TestVerifyWebhookSign(t *testing.T) {
 		t.Fatalf("verify: %v", err)
 	}
 	_ = old
+}
+
+func TestMapTxnStatus(t *testing.T) {
+	cases := map[string]string{
+		"0":  "Pending",
+		"1":  "Success",
+		"2":  "Processing",
+		"3":  "Success",
+		"-1": "Failure",
+		"-2": "Cancel",
+	}
+	for in, want := range cases {
+		if got := MapTxnStatus(in); got != want {
+			t.Fatalf("MapTxnStatus(%q)=%q want %q", in, got, want)
+		}
+	}
+	raw := []byte(`{"status":3}`)
+	var n struct {
+		Status json.Number `json:"status"`
+	}
+	if err := json.Unmarshal(raw, &n); err != nil {
+		t.Fatal(err)
+	}
+	if got := MapTxnStatus(n.Status.String()); got != "Success" {
+		t.Fatalf("numeric status 3 -> %q", got)
+	}
 }
 
 func TestMapCardStatus(t *testing.T) {

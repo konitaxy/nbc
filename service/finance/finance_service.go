@@ -2048,9 +2048,12 @@ func (f *FinanceService) syncCardDetail(orderID, cardID string, updateCVV bool) 
 				}
 			}
 			card.InActiveDate = res.InactiveDate
-			card.CardBrand = res.CardBrand
+			// Adsvcc 卡详情不含品牌和创建时间，空值会覆盖本地已有数据。
+			if facade.Platform() != cardplatform.PlatformAdsvcc {
+				card.CardBrand = res.CardBrand
+				card.ActiveDate = res.ActiveDate
+			}
 			card.CardStatus = res.CardStatus
-			card.ActiveDate = res.ActiveDate
 			card.Balance = res.AvailableBalance
 			// 更新卡模式和级别
 			if res.CardModel != "" {
@@ -2065,7 +2068,11 @@ func (f *FinanceService) syncCardDetail(orderID, cardID string, updateCVV bool) 
 			card.TotalAuthLimit = res.TotalAuthLimit
 			// 更新子卡已使用额度
 			card.UsedAuthLimit = res.UsedAuthLimit
-			return tx.Save(card).Error
+			save := tx
+			if facade.Platform() == cardplatform.PlatformAdsvcc {
+				save = save.Omit("CardBrand", "ActiveDate", "CreatedAt")
+			}
+			return save.Save(card).Error
 		}
 		return nil
 	})

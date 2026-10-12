@@ -146,7 +146,7 @@ func (fs FinanceService) ProcessAdsvccCardTransaction(v adsvcc.CardTransactionNo
 		Currency:        currency,
 		EventType:       adsvcc.WebhookTypeCardTransaction,
 		OrderID:         card.OrderID,
-		Status:          strings.TrimSpace(v.Status),
+		Status:          adsvcc.MapTxnStatus(v.Status.String()),
 		TransactionType: txnType,
 		TransactionID:   txnID,
 		TransactionTime: txTime,

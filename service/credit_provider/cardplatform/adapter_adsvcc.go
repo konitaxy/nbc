@@ -306,7 +306,7 @@ func (a *adsvccAdapter) QueryCardTransactionsPage(in UnifiedQueryTransactionsPag
 			rows = append(rows, UnifiedCardTransaction{
 				TransactionID:       strconv.FormatInt(v.ID, 10),
 				CardID:              strconv.FormatInt(v.CardID, 10),
-				Status:              v.Status,
+				Status:              adsvcc.MapTxnStatus(v.Status.String()),
 				TransactionType:     firstNonEmptyStr(v.BizType, v.Type),
 				TransactionAmount:   amt,
 				TransactionCurrency: v.Currency,

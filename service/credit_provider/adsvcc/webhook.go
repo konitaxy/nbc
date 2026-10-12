@@ -66,7 +66,7 @@ type CardTransactionNotify struct {
 	CardID          json.Number `json:"card_id"`
 	Type            string      `json:"type"`
 	BizType         string      `json:"biz_type"`
-	Status          string      `json:"status"`
+	Status          json.Number `json:"status"`
 	Amount          string      `json:"amount"`
 	Currency        string      `json:"currency"`
 	TransactionDate string      `json:"transaction_date"`
@@ -132,6 +132,25 @@ func parseRSAPublicKey(pemOrRaw string) (*rsa.PublicKey, error) {
 		return key, nil
 	}
 	return nil, fmt.Errorf("adsvcc: parse platform public key failed")
+}
+
+// MapTxnStatus 交易订单状态 → 业务状态。
+// 0 待定，1 成功，2 处理中，3 已授权，-1 失败，-2 已撤销。3 按成功处理。
+func MapTxnStatus(status string) string {
+	switch strings.TrimSpace(status) {
+	case "0":
+		return "Pending"
+	case "1", "3":
+		return "Success"
+	case "2":
+		return "Processing"
+	case "-1":
+		return "Failure"
+	case "-2":
+		return "Cancel"
+	default:
+		return strings.TrimSpace(status)
+	}
 }
 
 // MapCardStatus 渠道卡状态 → 业务 CardStatus_*。

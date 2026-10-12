@@ -115,7 +115,7 @@ type TxnItem struct {
 	CardID          int64  `json:"card_id"`
 	Type            string `json:"type"`
 	BizType         string `json:"biz_type"`
-	Status          string `json:"status"`
+	Status          json.Number `json:"status"`
 	Amount          string `json:"amount"`
 	Currency        string `json:"currency"`
 	TransactionDate string `json:"transaction_date"`
