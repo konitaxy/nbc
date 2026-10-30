@@ -15,6 +15,8 @@ func TestParsePlatformAliases(t *testing.T) {
 		{"adsvcc", PlatformAdsvcc},
 		{"ads", PlatformAdsvcc},
 		{"virtualcard", PlatformAdsvcc},
+		{"ailink", PlatformAilink},
+		{"ailinkvcc", PlatformAilink},
 	}
 	for _, tc := range cases {
 		got, err := ParsePlatform(tc.in)
@@ -31,7 +33,7 @@ func TestParsePlatformAliases(t *testing.T) {
 }
 
 func TestNewIssuerRegistered(t *testing.T) {
-	for _, ch := range []string{"cardbin", "gzy", "adsvcc"} {
+	for _, ch := range []string{"cardbin", "gzy", "adsvcc", "ailink"} {
 		iss, err := NewIssuer(ch)
 		if err != nil {
 			t.Fatalf("NewIssuer(%q): %v", ch, err)
@@ -42,6 +44,15 @@ func TestNewIssuerRegistered(t *testing.T) {
 		if iss.Platform() != Platform(ch) {
 			t.Fatalf("NewIssuer(%q).Platform()=%q", ch, iss.Platform())
 		}
+	}
+}
+
+func TestAilinkCountryISO2(t *testing.T) {
+	if got := ailinkCountry("USA", ""); got != "US" {
+		t.Fatalf("got %q", got)
+	}
+	if got := ailinkCountry("", "HK"); got != "HK" {
+		t.Fatalf("got %q", got)
 	}
 }
 
@@ -81,7 +92,7 @@ func TestRegisteredPlatformsIncludeTokenIssuers(t *testing.T) {
 		_ = iss.TokenRefreshEnabled()
 		_ = iss.TokenExpiresAt()
 	}
-	if !seen[PlatformCardbin] || !seen[PlatformGzy] || !seen[PlatformAdsvcc] {
+	if !seen[PlatformCardbin] || !seen[PlatformGzy] || !seen[PlatformAdsvcc] || !seen[PlatformAilink] {
 		t.Fatalf("RegisteredPlatforms=%v missing cardbin/gzy/adsvcc", ps)
 	}
 }

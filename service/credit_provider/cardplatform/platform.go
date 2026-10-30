@@ -16,6 +16,7 @@ const (
 	PlatformCardbin Platform = "cardbin"
 	PlatformGzy     Platform = "gzy"
 	PlatformAdsvcc  Platform = "adsvcc"
+	PlatformAilink  Platform = "ailink"
 )
 
 // ParsePlatform 将渠道字符串规范为卡台。与 finance.CardBin.Channel、constant.Channel_* 对齐。
@@ -29,6 +30,8 @@ func ParsePlatform(channel string) (Platform, error) {
 		return PlatformGzy, nil
 	case string(constant.Channel_Adsvcc), "ads", "virtualcard", "virtualcard_openapi":
 		return PlatformAdsvcc, nil
+	case string(constant.Channel_Ailink), "ailinkvcc":
+		return PlatformAilink, nil
 	default:
 		return "", fmt.Errorf("cardplatform: 未知卡台渠道 %q", channel)
 	}

@@ -104,6 +104,7 @@ domain:
   admin: "https://testadmin.metalposter.com"
   view: "https://testid.metalposter.com"
 carbin:
+  enable: true # false 时不自动刷新 token、不定时拉取交易
   base-url: "https://api.cardbin.io"
   app-id: "1894343052164249928"
   app-secret: "b2434d156a154e8cabf64cd43e557303"
@@ -117,11 +118,13 @@ ethereum:
   watch-eth: false
   limit: 20
 gzy:
+  enable: true # false 时不自动刷新 token、不定时拉取交易
   base-url: "https://x-api1.uat.photontech.cc"
   app-id: "rOAnetlu"
   app-secret: "20fd050505a4dbaaa4aa7faa76fdaaa49eaaaa6c"
   account-id: "FA-USD2052566705788575744"
 adsvcc:
+  enable: true # false 时不自动刷新 token、不定时拉取交易
   base-url: "http://18.162.211.187:89/v1" # 测试环境；生产按开放平台下发
   app-id: "06G9Y9QKRSETC434F968"
   app-secret: "VTi8wSgI9CGwV0GhIreLu2DGIHwjZPddVP83I9TaQh"
@@ -142,3 +145,10 @@ adsvcc:
   provider-id: 0 # 共享卡钱包 /share-card/* 可选供应商 id
   login-password: "" # 可选，拉取 /card/cvv
   mfa-code: ""
+ailink:
+  enable: true
+  base-url: "https://card.ailinkvcc.com"
+  api-key: ""
+  api-secret: ""
+  webhook-secret: ""
+  default-card-group-id: 0

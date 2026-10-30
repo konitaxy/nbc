@@ -3,7 +3,9 @@ package transaction
 import (
 	"strings"
 
+	"github.com/shopspring/decimal"
 	"gitlab.com/ucard/model/constant"
+	"gitlab.com/ucard/utils/fx"
 )
 
 // Photon（gzy）transactionType → 系统 constant.TransactionType / FeeType / EventType 见下方实现。
@@ -17,6 +19,8 @@ func FeeProviderFromChannel(ch constant.Channel) string {
 		return "gzy"
 	case constant.Channel_Adsvcc:
 		return "adsvcc"
+	case constant.Channel_Ailink:
+		return "ailink"
 	default:
 		return "cardbin"
 	}
@@ -62,6 +66,22 @@ func NormalizeTransactionType(transactionType, from string) constant.Transaction
 			return constant.TransactionType_Settlement_Transaction
 		case "refund_reversal":
 			return constant.TransactionType_Refund_Reversal
+		}
+	}
+	if from == "ailink" {
+		switch strings.ToUpper(strings.TrimSpace(transactionType)) {
+		case "AUTH", "PURCHASE", "AUTH_CORRECTION":
+			return constant.TransactionType_Authorization_Transaction
+		case "CAPTURE", "SETTLED", "SETTLEMENT":
+			return constant.TransactionType_Settlement_Transaction
+		case "REFUND":
+			return constant.TransactionType_Refund_Transaction
+		case "REVERSE", "REVERSAL":
+			return constant.TransactionType_Reversal
+		case "RECHARGE":
+			return constant.TransactionType_Card_Recharge
+		case "WITHDRAW":
+			return constant.TransactionType_Card_Withdraw
 		}
 	}
 	if from == "adsvcc" {
@@ -143,7 +163,7 @@ func GetFeeTypeByTransactionType(transactionType constant.TransactionType, from 
 			return constant.AUTH_REVERSAL_TRANSACTION
 		}
 	}
-	if from == "gzy" {
+	if from == "gzy" || from == "ailink" {
 		switch transactionType {
 		case constant.TransactionType_Card_Recharge:
 			return constant.RECHARGE_CARD
@@ -167,4 +187,82 @@ func GetFeeTypeByTransactionType(transactionType constant.TransactionType, from 
 	}
 
 	return ""
+}
+
+// FailureFeeType 授权失败时按扣款金额和卡余额判断手续费类型。
+// 卡不是激活状态时不比较余额，按交易失败计费。
+// 激活时先把扣款金额和卡余额都换算成美金再比较，扣款金额更大则按金额不足而交易失败计费。
+func FailureFeeType(cardStatus, cardCurrency, amountCurrency string, cardBalance, deductAmount decimal.Decimal, originCurrency string, originAmount decimal.Decimal) constant.FeeType {
+	if !strings.EqualFold(strings.TrimSpace(cardStatus), string(constant.CardStatus_ACTIVE)) {
+		return constant.TRANSACTION_FAILURE
+	}
+	balanceUSD, deductUSD, ok := amountsInUSD(cardCurrency, cardBalance, amountCurrency, deductAmount, originCurrency, originAmount)
+	if ok && deductUSD.GreaterThan(balanceUSD) {
+		return constant.INSUFFICIENT_AMOUNT_FAILURE
+	}
+	return constant.TRANSACTION_FAILURE
+}
+
+func amountsInUSD(cardCurrency string, cardBalance decimal.Decimal, amountCurrency string, deductAmount decimal.Decimal, originCurrency string, originAmount decimal.Decimal) (balanceUSD, deductUSD decimal.Decimal, ok bool) {
+	deductAmount = deductAmount.Abs()
+	originAmount = originAmount.Abs()
+	deductRate, deductOK := usdPerUnit(amountCurrency, deductAmount, originCurrency, originAmount)
+	if !deductOK {
+		return decimal.Zero, decimal.Zero, false
+	}
+	balanceRate, balanceOK := cardBalanceUSDRate(cardCurrency, amountCurrency, deductAmount, originCurrency, originAmount)
+	if !balanceOK {
+		return decimal.Zero, decimal.Zero, false
+	}
+	return cardBalance.Mul(balanceRate), deductAmount.Mul(deductRate), true
+}
+
+func cardBalanceUSDRate(cardCurrency, amountCurrency string, deductAmount decimal.Decimal, originCurrency string, originAmount decimal.Decimal) (decimal.Decimal, bool) {
+	if isUSDCurrency(cardCurrency) {
+		return decimal.NewFromInt(1), true
+	}
+	if sameCurrency(cardCurrency, amountCurrency) {
+		return usdPerUnit(amountCurrency, deductAmount, originCurrency, originAmount)
+	}
+	if sameCurrency(cardCurrency, originCurrency) {
+		return usdPerUnit(originCurrency, originAmount, amountCurrency, deductAmount)
+	}
+	return decimal.Zero, false
+}
+
+// usdPerUnit 返回 1 单位 currency 对应的美金。USD/USDT 为 1。
+// 优先用定时拉取的 Frankfurter 汇率；没有该币种时，再用同一笔交易另一侧的美金金额折算。
+func usdPerUnit(currency string, amount decimal.Decimal, quoteCurrency string, quoteAmount decimal.Decimal) (decimal.Decimal, bool) {
+	if isUSDCurrency(currency) {
+		return decimal.NewFromInt(1), true
+	}
+	if rate, ok := fx.USDPerUnit(currency); ok {
+		return rate, true
+	}
+	if amount.IsPositive() && quoteAmount.IsPositive() && isExplicitUSD(quoteCurrency) {
+		return quoteAmount.Div(amount), true
+	}
+	return decimal.Zero, false
+}
+
+func isUSDCurrency(currency string) bool {
+	switch strings.ToUpper(strings.TrimSpace(currency)) {
+	case "", "USD", "USDT":
+		return true
+	default:
+		return false
+	}
+}
+
+func isExplicitUSD(currency string) bool {
+	switch strings.ToUpper(strings.TrimSpace(currency)) {
+	case "USD", "USDT":
+		return true
+	default:
+		return false
+	}
+}
+
+func sameCurrency(a, b string) bool {
+	return strings.EqualFold(strings.TrimSpace(a), strings.TrimSpace(b))
 }

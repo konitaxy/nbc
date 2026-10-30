@@ -3,6 +3,8 @@ package config
 // Adsvcc Adsvcc（VirtualCard OpenAPI）卡台配置。
 // 文档：https://s.apifox.cn/84377478-12dd-41ee-b512-593f1c7e0259/7361632m0
 type Adsvcc struct {
+	// Enable 为 false 时不自动刷新 token、不定时拉取交易。未配置时默认开启。
+	Enable    *bool  `mapstructure:"enable" json:"enable" yaml:"enable"`
 	BaseUrl   string `mapstructure:"base-url" json:"base-url" yaml:"base-url"`
 	APPID     string `mapstructure:"app-id" json:"app-id" yaml:"app-id"`
 	APPSecret string `mapstructure:"app-secret" json:"app-secret" yaml:"app-secret"`

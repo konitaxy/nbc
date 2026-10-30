@@ -26,6 +26,7 @@ func main() {
 	zap.ReplaceGlobals(global.GVA_LOG)
 	global.GVA_DB = initialize.Gorm() // gorm连接数据库
 	initialize.Timer()
+	initialize.FxRateTimer()
 	initialize.DBList()
 	if global.GVA_DB != nil {
 		initialize.RegisterTables(global.GVA_DB) // 初始化表

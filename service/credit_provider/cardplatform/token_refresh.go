@@ -3,6 +3,7 @@ package cardplatform
 import (
 	"time"
 
+	"gitlab.com/ucard/config"
 	"gitlab.com/ucard/global"
 	"gitlab.com/ucard/service/credit_provider/adsvcc"
 	"go.uber.org/zap"
@@ -34,7 +35,7 @@ func runTokenRefreshLoop(p Platform) {
 			}
 			continue
 		}
-		if !iss.TokenRefreshEnabled() {
+		if !platformAutoJobEnabled(p) || !iss.TokenRefreshEnabled() {
 			clock.Reset(tokenDisabledWait)
 			continue
 		}
@@ -76,6 +77,22 @@ func runTokenRefreshLoop(p Platform) {
 		} else if now > exp-tokenRefreshAhead {
 			clock.Reset(tokenPollFast)
 		}
+	}
+}
+
+// platformAutoJobEnabled 配置 enable: false 时关闭该渠道的自动 token 刷新。
+func platformAutoJobEnabled(p Platform) bool {
+	switch p {
+	case PlatformCardbin:
+		return config.AutoJobEnabled(global.GVA_CONFIG.Carbin.Enable)
+	case PlatformGzy:
+		return config.AutoJobEnabled(global.GVA_CONFIG.Gzy.Enable)
+	case PlatformAdsvcc:
+		return config.AutoJobEnabled(global.GVA_CONFIG.Adsvcc.Enable)
+	case PlatformAilink:
+		return config.AutoJobEnabled(global.GVA_CONFIG.Ailink.Enable)
+	default:
+		return true
 	}
 }
 

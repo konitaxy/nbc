@@ -2,6 +2,7 @@ package system
 
 import (
 	"strconv"
+	"strings"
 
 	"gitlab.com/ucard/global"
 	"gitlab.com/ucard/model/common/request"
@@ -10,6 +11,7 @@ import (
 	systemReq "gitlab.com/ucard/model/system/request"
 	systemRes "gitlab.com/ucard/model/system/response"
 	"gitlab.com/ucard/utils"
+	"gitlab.com/ucard/utils/captcha"
 
 	"github.com/gin-gonic/gin"
 	"github.com/go-redis/redis/v8"
@@ -34,12 +36,70 @@ func (b *BaseApi) Login(c *gin.Context) {
 		if err, user := userService.Login(u); err != nil {
 			global.GVA_LOG.Error("登陆失败! 用户名不存在或者密码错误!", zap.Error(err))
 			response.FailWithMessage("用户名不存在或者密码错误", c)
-		} else {
+		} else if !user.Bind2FA {
+			ticket, qrCode, secret, bindErr := userService.BeginBind2FA(user)
+			if bindErr != nil {
+				global.GVA_LOG.Error("发起2FA绑定失败", zap.Error(bindErr))
+				response.FailWithMessage("发起两步验证绑定失败", c)
+				return
+			}
+			response.OkWithDetailed(systemRes.Login2FAChallenge{
+				NeedBind2FA: true,
+				BindTicket:  ticket,
+				QRCode:      qrCode,
+				Secret:      secret,
+			}, "请先绑定两步验证", c)
+		} else if code := strings.TrimSpace(l.Code); code != "" {
+			if user.TOTPSecret == nil || !captcha.VerifyTOTP(*user.TOTPSecret, code) {
+				response.FailWithMessage("动态验证码错误", c)
+				return
+			}
 			b.tokenNext(c, *user)
+		} else {
+			ticket, ticketErr := userService.BeginLogin2FA(user.ID)
+			if ticketErr != nil {
+				global.GVA_LOG.Error("发起2FA校验失败", zap.Error(ticketErr))
+				response.FailWithMessage("发起两步验证失败", c)
+				return
+			}
+			response.OkWithDetailed(systemRes.Login2FAChallenge{
+				Need2FA:     true,
+				LoginTicket: ticket,
+			}, "请输入两步验证码", c)
 		}
 	} else {
 		response.FailWithMessage("验证码错误", c)
 	}
+}
+
+func (b *BaseApi) ConfirmBind2FA(c *gin.Context) {
+	var req systemReq.ConfirmBind2FA
+	_ = c.ShouldBindJSON(&req)
+	if strings.TrimSpace(req.BindTicket) == "" || strings.TrimSpace(req.Code) == "" {
+		response.FailWithMessage("请输入动态验证码", c)
+		return
+	}
+	user, err := userService.ConfirmBind2FA(req.BindTicket, req.Code)
+	if err != nil {
+		response.FailWithMessage(err.Error(), c)
+		return
+	}
+	b.tokenNext(c, user)
+}
+
+func (b *BaseApi) ConfirmLogin2FA(c *gin.Context) {
+	var req systemReq.ConfirmLogin2FA
+	_ = c.ShouldBindJSON(&req)
+	if strings.TrimSpace(req.LoginTicket) == "" || strings.TrimSpace(req.Code) == "" {
+		response.FailWithMessage("请输入动态验证码", c)
+		return
+	}
+	user, err := userService.ConfirmLogin2FA(req.LoginTicket, req.Code)
+	if err != nil {
+		response.FailWithMessage(err.Error(), c)
+		return
+	}
+	b.tokenNext(c, user)
 }
 
 // 登录以后签发jwt

@@ -54,10 +54,10 @@ local:
   path: uploads/file
 mysql:
   config: charset=utf8mb4&parseTime=True&loc=Local
-  path: pixel-pro.cxiaoy2463jf.ap-east-1.rds.amazonaws.com
+  path: mysql
   db-name: pcard
-  username: admin
-  password: Tomcat!Tompig
+  username: root
+  password: Pigdog2=3a!b
   port: "3306"
   max-idle-conns: 10
   max-open-conns: 100
@@ -65,7 +65,7 @@ mysql:
   log-zap: false
 redis:
   db: 0
-  addr: redisnbc:6379
+  addr: redis:6379
   password: ""
 system:
   env: public
@@ -103,10 +103,12 @@ domain:
   artist: "https://newbeecard.com"
   admin: "https://admin.newbeecard.com"
 carbin:
+  enable: true # false 时不自动刷新 token、不定时拉取交易
   base-url: "https://api.cardbin.io"
   app-id: "1894343052164249928"
   app-secret: "b2434d156a154e8cabf64cd43e557303"
 gzy:
+  enable: true # false 时不自动刷新 token、不定时拉取交易
   base-url: "https://x-api.photonpay.com"
   app-id: "9wrv8XZJ"
   app-secret: "3f322b0132c5162b39038d329cd0c5c532c00110"
@@ -115,6 +117,7 @@ gzy:
   pub-key: "MIGfMA0GCSqGSIb3DQEBAQUAA4GNADCBiQKBgQCG0Ih6fs7Vym2iBv4n5gouJSoZaGABCy3voDnPiAQOCgjdWJtSH/D3QokDE8LbGcsX4KVPpHXAunjyBWPfkGpRgwySNN2Mjxd9xCO4YDGjB89n/Fy4+UygcTC5/eJiIs3I4mQd+gonJJL5FYfHO3jDPQc+ZlWJsAFkqlBDa4uvmQIDAQAB"
 
 adsvcc:
+  enable: true # false 时不自动刷新 token、不定时拉取交易
   base-url: "https://api.adsvcc.com/v1" # 测试环境；生产按开放平台下发
   app-id: "06GCREM7FWCZSA3Y7XBX"
   app-secret: "bI2hyNcu2oXc9TfPVGZn-5eaVq2JPYv4JXSMeQEpjU0"
@@ -126,12 +129,19 @@ adsvcc:
   provider-id: 0 # 共享卡钱包 /share-card/* 可选供应商 id
   login-password: "Zz123456" # 可选，拉取 /card/cvv
   mfa-code: ""
+ailink:
+  enable: true
+  base-url: "https://card.ailinkvcc.com"
+  api-key: "ak_aDSIl-QaXCUwqREewndN1NNUdmX5SziG"
+  api-secret: "sk_Q5aCiUyvp_55KwIw3FmkIgh17D-sJSKCoNDegZcxNNE"
+  webhook-secret: "whsec_tSHlKaZoF9_c8dJQb04wRqmXY1F9zaPX6F0Przsl-DA"
+  default-card-group-id: 0
 tron:
   enabled: true
   address: "" # T 开头收款地址
   api-base-url: "https://api.trongrid.io"
   api-key: "5d7ffc45-5ad0-43a1-827a-e4ba9ac6f1a8" # 可选 TronGrid API Key
-  contract-address: "TR7NHqjeKQxGTCi8q8ZY4pL8otSzgjLj6t" # USDT-TRC20；留空则监听全部 TRC20 转入
+  contract-address: "" # USDT-TRC20；留空则监听全部 TRC20 转入
   watch-trx: false
   limit: 20
 ethereum:
@@ -140,6 +150,6 @@ ethereum:
   api-base-url: "https://api.etherscan.io/v2/api"
   api-key: "EK1QQFEBGKYHXUYQSUQNSMQNDCHQ5ZKRNR" # Etherscan API Key
   chain-id: 1 # Ethereum mainnet
-  contract-address: "0xdAC17F958D2ee523a2206206994597C13D831ec7" # USDT-ERC20
+  contract-address: "" # USDT-ERC20
   watch-eth: false
   limit: 20

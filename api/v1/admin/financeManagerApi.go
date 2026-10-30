@@ -92,7 +92,7 @@ func (FinanceManagerApi) Report(c *gin.Context) {
 }
 
 func (FinanceManagerApi) AddFeeGlobalConfig(c *gin.Context) {
-	var req finance.FeeGlobalConfig
+	var req finance.FeeConfig
 	_ = c.ShouldBindJSON(&req)
 	info := utils.GetUserInfo(c)
 	if err := utils.Verify(req, utils.FeeGlobalConfigVerify); err != nil {
@@ -120,7 +120,7 @@ func (FinanceManagerApi) AddFeeGlobalConfig(c *gin.Context) {
 	}
 }
 func (FinanceManagerApi) RemoveFeeUserConfig(c *gin.Context) {
-	var req finance.FeeUserConfig
+	var req finance.FeeConfig
 	_ = c.ShouldBindJSON(&req)
 	info := utils.GetUserInfo(c)
 	if req.ID == 0 {
@@ -144,7 +144,7 @@ func (FinanceManagerApi) RemoveFeeUserConfig(c *gin.Context) {
 }
 
 func (FinanceManagerApi) AddFeeUserConfig(c *gin.Context) {
-	var req finance.FeeUserConfig
+	var req finance.FeeConfig
 	_ = c.ShouldBindJSON(&req)
 	info := utils.GetUserInfo(c)
 	if err := utils.Verify(req, utils.FeeUserConfigVerify); err != nil {
@@ -180,7 +180,7 @@ func (FinanceManagerApi) AddFeeUserConfig(c *gin.Context) {
 }
 
 func (FinanceManagerApi) AddFeeMonthConfig(c *gin.Context) {
-	var req finance.FeeUserConfig
+	var req finance.FeeConfig
 	_ = c.ShouldBindJSON(&req)
 	info := utils.GetUserInfo(c)
 	if err := utils.Verify(req, utils.FeeUserConfigVerify); err != nil {

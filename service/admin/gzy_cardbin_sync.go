@@ -7,6 +7,7 @@ import (
 	"strings"
 
 	"github.com/shopspring/decimal"
+	"gitlab.com/ucard/config"
 	"gitlab.com/ucard/global"
 	"gitlab.com/ucard/model/constant"
 	"gitlab.com/ucard/model/finance"
@@ -21,6 +22,9 @@ import (
 func (c *CardService) SyncGzyCardBinsFromPhoton() error {
 	if global.GVA_DB == nil {
 		return fmt.Errorf("gzy card bin sync: db not initialized")
+	}
+	if !config.AutoJobEnabled(global.GVA_CONFIG.Gzy.Enable) {
+		return nil
 	}
 	if strings.TrimSpace(global.GVA_CONFIG.Gzy.APPID) == "" {
 		return nil

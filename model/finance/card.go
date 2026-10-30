@@ -84,46 +84,6 @@ func (CardBin) TableName() string {
 	return "card_bin"
 }
 
-type CardBinGlobalFeeConfig struct {
-	global.GVA_MODEL
-	FeeType   constant.FeeType `gorm:"column:fee_type;not null" json:"feeType" form:"feeType"`
-	CardBin   string           `gorm:"column:card_bin;not null" json:"cardBin" form:"cardBin"`
-	CardBinID string           `gorm:"column:card_bin_id;not null;default:'All'" json:"cardBinId" form:"cardBinId"`
-
-	CardModel      *string  `gorm:"column:card_model" json:"cardModel,omitempty" form:"cardModel,omitempty"`
-	CardType       string   `gorm:"column:card_type;not null" json:"cardType" form:"cardType"`
-	FeeRatePercent *float64 `gorm:"column:fee_rate_percent;type:decimal(5,2)" json:"feeRatePercent,omitempty" form:"feeRatePercent,omitempty"`
-	FeeFixAmount   *float64 `gorm:"column:fee_fix_amount;type:decimal(10,2)" json:"feeFixAmount,omitempty" form:"feeFixAmount,omitempty"`
-	FeeCurrency    string   `gorm:"column:fee_currency;not null" json:"feeCurrency" form:"feeCurrency"`
-	ActiveStatus   string   `gorm:"column:active_status;type:enum('ENABLE','DISABLE','EXPIRED');not null" json:"activeStatus" form:"activeStatus"`
-	Description    *string  `gorm:"column:description;type:text" json:"description,omitempty" form:"description,omitempty"`
-}
-
-// TableName 返回数据库表名
-func (CardBinGlobalFeeConfig) TableName() string {
-	return "card_bin_global_fee_config"
-}
-
-type CardBinUserFeeConfig struct {
-	global.GVA_MODEL
-	ClientID       string            `gorm:"column:client_id;type:varchar(255);not null" json:"clientId" form:"clientId"`
-	FeeType        constant.FeeType  `gorm:"column:fee_type;not null" json:"feeType" form:"feeType"`
-	CardBin        string            `gorm:"column:card_bin;not null" json:"cardBin" form:"cardBin"`
-	CardBinID      string            `gorm:"column:card_bin_id;not null;default:'All'" json:"cardBinId" form:"cardBinId"`
-	CardModel      *string           `gorm:"column:card_model" json:"cardModel,omitempty" form:"cardModel,omitempty"`
-	CardType       string            `gorm:"column:card_type;not null" json:"cardType" form:"cardType"`
-	FeeRatePercent decimal.Decimal   `gorm:"column:fee_rate_percent;type:decimal(5,2)" json:"feeRatePercent,omitempty" form:"feeRatePercent,omitempty"`
-	FeeFixAmount   decimal.Decimal   `gorm:"column:fee_fix_amount;type:decimal(10,2)" json:"feeFixAmount,omitempty" form:"feeFixAmount,omitempty"`
-	FeeCurrency    constant.Currency `gorm:"column:fee_currency;not null" json:"feeCurrency" form:"feeCurrency"`
-	ActiveStatus   string            `gorm:"column:active_status;not null" json:"activeStatus" form:"activeStatus"`
-	Description    *string           `gorm:"column:description;type:text" json:"description,omitempty" form:"description,omitempty"`
-}
-
-// TableName 返回数据库表名
-func (CardBinUserFeeConfig) TableName() string {
-	return "card_bin_user_fee_config"
-}
-
 type PixielCard struct {
 	global.GVA_MODEL
 	ClientID      uint              `gorm:"column:client_id;index" json:"clientId" form:"clientId"`

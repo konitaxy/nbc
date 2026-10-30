@@ -7,6 +7,7 @@ import (
 	"strings"
 	"time"
 
+	"gitlab.com/ucard/config"
 	"gitlab.com/ucard/global"
 	"gitlab.com/ucard/model/constant"
 	"gitlab.com/ucard/model/finance"
@@ -19,6 +20,9 @@ const gzyTransactionSyncRedisKey = "gzy:last_sync_time"
 
 // SyncGzyTransactions 定时拉取 Photon pagingVccTradeOrder（initialize 注册为每 1 分钟一次），落库逻辑与 cardbin SyncTranscation 对齐。
 func (fs FinanceService) SyncGzyTransactions() {
+	if !config.AutoJobEnabled(global.GVA_CONFIG.Gzy.Enable) {
+		return
+	}
 	if strings.TrimSpace(global.GVA_CONFIG.Gzy.APPID) == "" {
 		return
 	}

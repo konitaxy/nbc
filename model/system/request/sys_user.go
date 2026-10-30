@@ -18,6 +18,17 @@ type Login struct {
 	Password  string `json:"password"`  // 密码
 	Captcha   string `json:"captcha"`   // 验证码
 	CaptchaId string `json:"captchaId"` // 验证码ID
+	Code      string `json:"code"`      // 已绑定 2FA 时的动态码，可空
+}
+
+type ConfirmBind2FA struct {
+	BindTicket string `json:"bindTicket"`
+	Code       string `json:"code"`
+}
+
+type ConfirmLogin2FA struct {
+	LoginTicket string `json:"loginTicket"`
+	Code        string `json:"code"`
 }
 
 // Modify password structure

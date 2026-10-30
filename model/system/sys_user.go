@@ -21,4 +21,6 @@ type SysUser struct {
 	Phone       string         `json:"phone"  gorm:"comment:用户手机号"` // 用户手机号
 	Email       string         `json:"email"  gorm:"comment:用户邮箱"`  // 用户邮箱
 	InviteCode  string         `json:"inviteCode" gorm:"column:invite_code;comment:邀请码"`
+	TOTPSecret  *string        `json:"-" gorm:"column:totp_secret;type:varchar(255);comment:2FA密钥"`
+	Bind2FA     bool           `json:"bind2FA" gorm:"column:bind_2fa;type:tinyint(1);default:0;comment:是否已绑定2FA"`
 }

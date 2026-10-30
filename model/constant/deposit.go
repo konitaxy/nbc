@@ -87,6 +87,7 @@ const (
 	Channel_Cardbin Channel = "cardbin"
 	Channel_Gzy     Channel = "gzy"
 	Channel_Adsvcc  Channel = "adsvcc"
+	Channel_Ailink  Channel = "ailink"
 )
 
 type CardModel string

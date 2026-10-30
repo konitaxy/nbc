@@ -34,6 +34,7 @@ type Server struct {
 	Carbin          Carbin          `mapstructure:"carbin" json:"carbin" yaml:"carbin"`
 	Gzy             Gzy             `mapstructure:"gzy" json:"gzy" yaml:"gzy"`
 	Adsvcc          Adsvcc          `mapstructure:"adsvcc" json:"adsvcc" yaml:"adsvcc"`
+	Ailink          Ailink          `mapstructure:"ailink" json:"ailink" yaml:"ailink"`
 	Tron            Tron            `mapstructure:"tron" json:"tron" yaml:"tron"`
 	Ethereum        Ethereum        `mapstructure:"ethereum" json:"ethereum" yaml:"ethereum"`
 }

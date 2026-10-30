@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/shopspring/decimal"
+	"gitlab.com/ucard/config"
 	"gitlab.com/ucard/global"
 	"gitlab.com/ucard/model/client"
 	"gitlab.com/ucard/model/constant"
@@ -63,6 +64,9 @@ func newCardFacadeForPixielCard(card *finance.PixielCard) (*cardplatform.Facade,
 }
 
 func (fs FinanceService) SyncTranscation() {
+	if !config.AutoJobEnabled(global.GVA_CONFIG.Carbin.Enable) {
+		return
+	}
 
 	loc, _ := time.LoadLocation("Asia/Shanghai")
 	now := utils.TimeFormat(time.Now().In(loc))
@@ -198,8 +202,14 @@ func (fs FinanceService) SyncTranscation() {
 
 // FetchCardHolderFromDizhi 从 dizhi API 拉取随机地址并映射为 CardHolder（未入库、未调渠道）。
 // regionCode 为空为美国 path=/；传入 hk 等为 path=/hk-address，method 均为 address。
-func (FinanceService) FetchCardHolderFromDizhi(regionCode string) (*finance.CardHolder, error) {
-	return dizhi.FetchCardHolder(regionCode)
+// 邮箱优先用当前用户自己的邮箱；该邮箱已被本客户的持卡人占用，或用户没有邮箱时，再生成随机邮箱。
+func (FinanceService) FetchCardHolderFromDizhi(regionCode string, iamID, clientID uint, isIAM bool) (*finance.CardHolder, error) {
+	holder, err := dizhi.FetchCardHolder(regionCode)
+	if err != nil {
+		return nil, err
+	}
+	holder.Email = pickCardHolderEmail(lookupUserEmail(iamID, clientID, isIAM), holder.FirstName, holder.LastName, usedCardHolderEmails(clientID))
+	return holder, nil
 }
 
 func (FinanceService) AddCardHolder(holder *finance.CardHolder) error {
@@ -588,7 +598,37 @@ func (f *FinanceService) AddCardApplyTransaction(ctr *finance.CardTransactionRec
 		feeType := transaction.GetFeeTypeByTransactionType(ctr.TransactionType, transaction.FeeProviderFromChannel(ctr.Channel))
 		fee := CalculateFee(card.ClientID, feeType, card.CardBin, ctr.Amount)
 		if ctr.Status != "Success" && ctr.TransactionType != constant.TransactionType_Card_Recharge {
+			var failFee *finance.FeeDetail
+			if ctr.TransactionType == constant.TransactionType_Authorization_Transaction || ctr.TransactionType == constant.TransactionType_Authorization_Query {
+				failFee = CalculateFee(card.ClientID, transaction.FailureFeeType(card.CardStatus, string(card.Currency), ctr.Currency, card.Balance, ctr.Amount, ctr.OriginCurrency, ctr.OriginAmount), card.CardBin, ctr.Amount)
+			}
 			err = global.GVA_DB.Transaction(func(tx *gorm.DB) error {
+				if failFee != nil && failFee.Fee.GreaterThan(decimal.Zero) {
+					if result := tx.Model(&client.Wallet{}).Where("client_id = ?", ctr.ClientID).Update("balance", gorm.Expr("balance - ?", failFee.Fee)); result.Error != nil || result.RowsAffected == 0 {
+						return fmt.Errorf("failed to deduct failure fee from wallet")
+					}
+					var wallet client.Wallet
+					if err := tx.First(&wallet, "client_id = ?", ctr.ClientID).Error; err != nil {
+						return err
+					}
+					ctr.Fee = ctr.Fee.Add(failFee.Fee)
+					wh := finance.WalletHistory{
+						ClientID:        ctr.ClientID,
+						IAMID:           ctr.IAMID,
+						OrderID:         utils.GenerateID("FE"),
+						IsFee:           true,
+						TransactionType: ctr.TransactionType,
+						Amount:          failFee.Fee.Mul(decimal.NewFromInt(-1)),
+						AmountCurrency:  constant.Currency(ctr.Currency),
+						Currency:        constant.Currency(ctr.Currency),
+						Balance:         wallet.Balance,
+						ReferenceID:     ctr.TransactionID,
+						CardNo:          card.CardNo,
+					}
+					if err := tx.Save(&wh).Error; err != nil {
+						return err
+					}
+				}
 				if ctr.TransactionType == constant.TransactionType_Authorization_Transaction {
 					report := finance.ClientDailyReport{
 						ClientID:                   card.ClientID,
@@ -596,12 +636,17 @@ func (f *FinanceService) AddCardApplyTransaction(ctr *finance.CardTransactionRec
 						AuthorizationFailureCount:  1,
 						AuthorizationFailureAmount: ctr.Amount,
 					}
-					if err := global.GVA_DB.Clauses(clause.OnConflict{
-						Columns: []clause.Column{{Name: "client_id"}, {Name: "report_day"}},
-						DoUpdates: clause.Assignments(map[string]interface{}{
-							"authorization_failure_count":  gorm.Expr("authorization_failure_count + 1"),
-							"authorization_failure_amount": gorm.Expr("authorization_failure_amount + VALUES(authorization_failure_amount)"),
-						}),
+					updates := map[string]interface{}{
+						"authorization_failure_count":  gorm.Expr("authorization_failure_count + 1"),
+						"authorization_failure_amount": gorm.Expr("authorization_failure_amount + VALUES(authorization_failure_amount)"),
+					}
+					if failFee != nil && failFee.Fee.GreaterThan(decimal.Zero) {
+						report.FeeAmount = failFee.Fee
+						updates["fee_amount"] = gorm.Expr("fee_amount + VALUES(fee_amount)")
+					}
+					if err := tx.Clauses(clause.OnConflict{
+						Columns:   []clause.Column{{Name: "client_id"}, {Name: "report_day"}},
+						DoUpdates: clause.Assignments(updates),
 					}).Create(&report).Error; err != nil {
 						return err
 					}
@@ -1218,6 +1263,15 @@ func (f *FinanceService) CreateCard(card *finance.PixielCard) (err error) {
 			req.AccountID = accountNo
 			req.MemberID = memberID
 		}
+		if facade.Platform() == cardplatform.PlatformAilink &&
+			card.CardModel == constant.CardModel_SHARE &&
+			strings.TrimSpace(req.MatrixAccount) == "" &&
+			card.ClientID > 0 {
+			var cl client.Client
+			if err := tx.Select("id", "matrix_account").First(&cl, card.ClientID).Error; err == nil {
+				req.MatrixAccount = strings.TrimSpace(cl.MatrixAccount)
+			}
+		}
 		// 只有当有 HolderId 时才设置 CardHolderID（主卡且卡段不要求持卡人时，HolderId 为空）
 		if card.HolderId != "" {
 			req.CardHolderID = card.HolderId
@@ -1264,7 +1318,7 @@ func (f *FinanceService) CreateCard(card *finance.PixielCard) (err error) {
 		} else {
 			card.OrderID = resp.PartnerOrderID
 			card.CardID = resp.CardID
-			if facade.Platform() == cardplatform.PlatformAdsvcc {
+			if facade.Platform() == cardplatform.PlatformAdsvcc || facade.Platform() == cardplatform.PlatformAilink {
 				card.BatchID = strings.TrimSpace(resp.CardID)
 			}
 			card.CardStatus = "Pending"
@@ -2047,14 +2101,28 @@ func (f *FinanceService) syncCardDetail(orderID, cardID string, updateCVV bool) 
 					card.CardID = s
 				}
 			}
+			if facade.Platform() == cardplatform.PlatformAilink {
+				if strings.TrimSpace(card.BatchID) == "" {
+					card.BatchID = strings.TrimSpace(card.CardID)
+				}
+				if s := strings.TrimSpace(res.CardID); s != "" && s != strings.TrimSpace(card.CardID) {
+					card.CardID = s
+				}
+			}
 			card.InActiveDate = res.InactiveDate
 			// Adsvcc 卡详情不含品牌和创建时间，空值会覆盖本地已有数据。
-			if facade.Platform() != cardplatform.PlatformAdsvcc {
+			if facade.Platform() != cardplatform.PlatformAdsvcc && facade.Platform() != cardplatform.PlatformAilink {
 				card.CardBrand = res.CardBrand
 				card.ActiveDate = res.ActiveDate
 			}
 			card.CardStatus = res.CardStatus
-			card.Balance = res.AvailableBalance
+			keepLocalBalance := facade.Platform() == cardplatform.PlatformAilink &&
+				oldStatus == string(constant.CardStatus_PENDING) &&
+				res.AvailableBalance.IsZero() &&
+				card.Balance.IsPositive()
+			if !keepLocalBalance {
+				card.Balance = res.AvailableBalance
+			}
 			// 更新卡模式和级别
 			if res.CardModel != "" {
 				card.CardModel = constant.CardModel(res.CardModel)
@@ -2069,7 +2137,7 @@ func (f *FinanceService) syncCardDetail(orderID, cardID string, updateCVV bool) 
 			// 更新子卡已使用额度
 			card.UsedAuthLimit = res.UsedAuthLimit
 			save := tx
-			if facade.Platform() == cardplatform.PlatformAdsvcc {
+			if facade.Platform() == cardplatform.PlatformAdsvcc || facade.Platform() == cardplatform.PlatformAilink {
 				save = save.Omit("CardBrand", "ActiveDate", "CreatedAt")
 			}
 			return save.Save(card).Error

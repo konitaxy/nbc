@@ -178,7 +178,8 @@ func (p *FinanceApi) ListCardHolder(c *gin.Context) {
 // FetchCardHolderAddress 从 dizhi 拉取随机地址，映射为 CardHolder 字段供前端预填。
 // Query region：空/us 为 path=/；hk 等为 path=/hk-address，method 均为 address。
 func (f *FinanceApi) FetchCardHolderAddress(c *gin.Context) {
-	holder, err := financeService.FetchCardHolderFromDizhi(c.Query("region"))
+	iamID, clientID, isIAM := utils.GetUserAndTenantID(c)
+	holder, err := financeService.FetchCardHolderFromDizhi(c.Query("region"), iamID, clientID, isIAM)
 	if err != nil {
 		global.GVA_LOG.Error("fetch card holder address failed", zap.Error(err))
 		response.FailWithMessage(err.Error(), c)

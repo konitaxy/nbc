@@ -8,23 +8,6 @@ import (
 	"gitlab.com/ucard/model/constant"
 )
 
-type InboundFeeConfig struct {
-	global.GVA_MODEL
-	BusinessType string            `gorm:"column:business_type;type:string;not null" json:"businessType" form:"businessType"`
-	Currency     constant.Currency `gorm:"column:currency;type:string(8);not null" json:"currency" form:"currency"`
-	FeeRate      float64           `gorm:"column:fee_rate;type:decimal(5,4);not null" json:"feeRate" form:"feeRate"`
-	FixFee       float64           `gorm:"column:fix_fee;type:decimal(10,2);not null" json:"fixFee" form:"fixFee"`
-	MinFee       *float64          `gorm:"column:min_fee;type:decimal(10,2)" json:"minFee" form:"minFee"`
-	MaxFee       *float64          `gorm:"column:max_fee;type:decimal(10,2)" json:"maxFee" form:"maxFee"`
-	Comment      *string           `gorm:"column:comment;type:text" json:"comment" form:"comment"`
-	Operator     string            `gorm:"column:operator;type:string;not null" json:"operator" form:"operator"`
-	Status       string            `gorm:"column:status;type:enum('Pending','Approved','Rejected');not null" json:"status" form:"status"`
-}
-
-func (InboundFeeConfig) TableName() string {
-	return "inbound_fee_config"
-}
-
 type InboundDepositManagement struct {
 	global.GVA_MODEL
 	OrderID                  string            `gorm:"column:order_id;type:varchar(64)" json:"orderId" form:"orderId"`
@@ -58,42 +41,25 @@ func (InboundDepositManagement) TableName() string {
 	return "inbound_deposit_management"
 }
 
-type FeeGlobalConfig struct {
+// FeeConfig 手续费配置。ClientID 为 0 时是全局默认，大于 0 时是该客户的覆盖。
+type FeeConfig struct {
 	global.GVA_MODEL
-	FeeType    constant.FeeType `gorm:"column:fee_type;uniqueindex:idx_fee_type_card_bin" json:"feeType" form:"feeType"`
-	CardBin    string           `gorm:"column:card_bin;type:varchar(16);default:'All';uniqueindex:idx_fee_type_card_bin" json:"cardBin" form:"cardBin"`
-	CardBinID  string           `gorm:"column:card_bin_id;type:varchar(16);default:'All'" json:"cardBinId" form:"cardBinId"`
-	CalType    uint             `gorm:"column:cal_type;type:tinyint(1);default:1" json:"calType" form:"calType"` //1:固定金额 2:比例 3:混合
+	ClientID   uint             `gorm:"column:client_id;not null;default:0;uniqueIndex:idx_fee_client_type_bin" json:"clientId" form:"clientId"`
+	ClientNo   string           `gorm:"column:client_no;type:varchar(32)" json:"clientNo" form:"clientNo"`
+	FeeType    constant.FeeType `gorm:"column:fee_type;type:varchar(50);not null;uniqueIndex:idx_fee_client_type_bin" json:"feeType" form:"feeType"`
+	CardBin    string           `gorm:"column:card_bin;type:varchar(32);not null;default:'All';uniqueIndex:idx_fee_client_type_bin" json:"cardBin" form:"cardBin"`
+	CardBinID  string           `gorm:"column:card_bin_id;type:varchar(32);not null;default:'All'" json:"cardBinId" form:"cardBinId"`
+	CalType    uint             `gorm:"column:cal_type;type:tinyint(1);not null;default:1" json:"calType" form:"calType"` //1:固定金额 2:比例 3:混合
 	Fee        decimal.Decimal  `gorm:"column:fee;type:decimal(10,2)" json:"fee" form:"fee"`
 	MinFee     decimal.Decimal  `gorm:"column:min_fee;type:decimal(10,2)" json:"minFee" form:"minFee"`
 	MaxFee     decimal.Decimal  `gorm:"column:max_fee;type:decimal(10,2)" json:"maxFee" form:"maxFee"`
 	DeclineFee decimal.Decimal  `gorm:"column:decline_fee;type:decimal(10,2)" json:"declineFee" form:"declineFee"`
-	Operator   string           `gorm:"column:operator;type:varchar(16)" json:"operator" form:"operator"`
-	Available  bool             `gorm:"column:available;type:tinyint(1);default:1" json:"available" form:"available"`
+	Operator   string           `gorm:"column:operator;type:varchar(32)" json:"operator" form:"operator"`
+	Available  bool             `gorm:"column:available;type:tinyint(1);not null;default:1" json:"available" form:"available"`
 }
 
-func (FeeGlobalConfig) TableName() string {
-	return "fee_global_config"
-}
-
-type FeeUserConfig struct {
-	global.GVA_MODEL
-	ClientNo   string           `gorm:"column:client_no;type:varchar(16);uniqueindex:idx_client_no_fee_type_card_bin" json:"clientNo" form:"clientNo"`
-	ClientID   uint             `gorm:"column:client_id;type:varchar(16);index" json:"clientId" form:"clientId"`
-	FeeType    constant.FeeType `gorm:"column:fee_type;index;uniqueindex:idx_client_no_fee_type_card_bin" json:"feeType" form:"feeType"`
-	CardBin    string           `gorm:"column:card_bin;type:varchar(30);uniqueindex:idx_client_no_fee_type_card_bin" json:"cardBin" form:"cardBin"`
-	CardBinID  string           `gorm:"column:card_bin_id;type:varchar(16);default:'All'" json:"cardBinId" form:"cardBinId"`
-	CalType    uint             `gorm:"column:cal_type;type:tinyint(1);default:1" json:"calType" form:"calType"` //1:固定金额 2:比例 3:混合
-	Fee        decimal.Decimal  `gorm:"column:fee;type:decimal(10,2)" json:"fee" form:"fee"`
-	MinFee     decimal.Decimal  `gorm:"column:min_fee;type:decimal(10,2)" json:"minFee" form:"minFee"`
-	MaxFee     decimal.Decimal  `gorm:"column:max_fee;type:decimal(10,2)" json:"maxFee" form:"maxFee"`
-	DeclineFee decimal.Decimal  `gorm:"column:decline_fee;type:decimal(10,2)" json:"declineFee" form:"declineFee"`
-	Operator   string           `gorm:"column:operator;type:varchar(16)" json:"operator" form:"operator"`
-	Available  bool             `gorm:"column:available;type:tinyint(1);default:1" json:"available" form:"available"`
-}
-
-func (FeeUserConfig) TableName() string {
-	return "fee_user_config"
+func (FeeConfig) TableName() string {
+	return "fee_config"
 }
 
 type FeeDetail struct {
