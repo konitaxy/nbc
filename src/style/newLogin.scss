@@ -63,6 +63,38 @@
                     vertical-align: middle;
                 }
             }
+            .twofa-box {
+                text-align: center;
+                img {
+                    width: 180px;
+                    height: 180px;
+                    margin: 8px auto 12px;
+                }
+                .twofa-title {
+                    margin: 0;
+                    font-size: 22px;
+                    font-weight: 650;
+                }
+                .twofa-desc {
+                    margin: 8px 0 12px;
+                    color: #667085;
+                    font-size: 14px;
+                }
+                .secret {
+                    margin: 0 0 12px;
+                    color: #667085;
+                    font-size: 12px;
+                    word-break: break-all;
+                }
+                .twofa-actions {
+                    display: flex;
+                    gap: 12px;
+                    margin-top: 16px;
+                    .el-button {
+                        flex: 1;
+                    }
+                }
+            }
         }
         .login_panle_foot {
             position: absolute;

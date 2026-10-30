@@ -4,8 +4,9 @@
       <el-tab-pane label="Watch Addresses" name="addresses">
         <el-form :inline="true" label-position="top" :model="addressSearch">
           <el-form-item label="Chain Type">
-            <el-select v-model="addressSearch.chainType" clearable placeholder="All" style="width: 140px">
-              <el-option label="TRON" value="TRON" />
+            <el-select v-model="addressSearch.chainType" clearable placeholder="All" style="width: 160px">
+              <el-option label="TRON (TRC20)" value="TRON" />
+              <el-option label="ETHEREUM (ERC20)" value="ETHEREUM" />
             </el-select>
           </el-form-item>
           <el-form-item label="Address">
@@ -29,17 +30,21 @@
 
         <el-table :data="addressTableData" show-overflow-tooltip>
           <el-table-column prop="ID" label="ID" width="70" />
-          <el-table-column prop="chainType" label="Chain" width="90" />
+          <el-table-column prop="chainType" label="Chain" width="110">
+            <template #default="{ row }">
+              {{ formatChainType(row.chainType) }}
+            </template>
+          </el-table-column>
           <el-table-column prop="address" label="Address" min-width="280" />
           <el-table-column prop="contractAddress" label="Contract" min-width="200">
             <template #default="{ row }">
               {{ row.contractAddress || '(default USDT)' }}
             </template>
           </el-table-column>
-          <el-table-column prop="watchTrx" label="Watch TRX" width="100">
+          <el-table-column prop="watchTrx" label="Watch Native" width="110">
             <template #default="{ row }">
               <el-tag :type="row.watchTrx ? 'success' : 'info'" size="small">
-                {{ row.watchTrx ? 'Yes' : 'No' }}
+                {{ row.watchTrx ? nativeSymbol(row.chainType) : 'No' }}
               </el-tag>
             </template>
           </el-table-column>
@@ -84,8 +89,9 @@
       <el-tab-pane label="Inbound Transactions" name="transactions">
         <el-form :inline="true" label-position="top" :model="txSearch">
           <el-form-item label="Chain Type">
-            <el-select v-model="txSearch.chainType" clearable placeholder="All" style="width: 140px">
-              <el-option label="TRON" value="TRON" />
+            <el-select v-model="txSearch.chainType" clearable placeholder="All" style="width: 160px">
+              <el-option label="TRON (TRC20)" value="TRON" />
+              <el-option label="ETHEREUM (ERC20)" value="ETHEREUM" />
             </el-select>
           </el-form-item>
           <el-form-item label="To Address">
@@ -98,6 +104,7 @@
             <el-select v-model="txSearch.symbol" clearable placeholder="All" style="width: 120px">
               <el-option label="USDT" value="USDT" />
               <el-option label="TRX" value="TRX" />
+              <el-option label="ETH" value="ETH" />
             </el-select>
           </el-form-item>
           <el-form-item label="Transaction Time">
@@ -119,7 +126,11 @@
 
         <el-table :data="txTableData" show-overflow-tooltip>
           <el-table-column prop="ID" label="ID" width="70" />
-          <el-table-column prop="chainType" label="Chain" width="80" />
+          <el-table-column prop="chainType" label="Chain" width="110">
+            <template #default="{ row }">
+              {{ formatChainType(row.chainType) }}
+            </template>
+          </el-table-column>
           <el-table-column prop="symbol" label="Symbol" width="80" />
           <el-table-column prop="amount" label="Amount" width="120" />
           <el-table-column prop="kind" label="Kind" width="80" />
@@ -154,20 +165,27 @@
       <el-form :model="addressForm" label-width="140px">
         <el-form-item label="Chain Type">
           <el-select v-model="addressForm.chainType" style="width: 100%">
-            <el-option label="TRON" value="TRON" />
+            <el-option label="TRON (TRC20)" value="TRON" />
+            <el-option label="ETHEREUM (ERC20)" value="ETHEREUM" />
           </el-select>
         </el-form-item>
         <el-form-item label="Address *">
-          <el-input v-model="addressForm.address" placeholder="TRON Base58 address" />
+          <el-input
+            v-model="addressForm.address"
+            :placeholder="addressForm.chainType === 'ETHEREUM' ? '0x... Ethereum address' : 'TRON Base58 address (T...)'"
+          />
         </el-form-item>
         <el-form-item label="Contract Address">
           <el-input
             v-model="addressForm.contractAddress"
-            placeholder="Leave empty for default USDT contract"
+            :placeholder="addressForm.chainType === 'ETHEREUM'
+              ? 'Leave empty for default USDT-ERC20'
+              : 'Leave empty for default USDT-TRC20'"
           />
         </el-form-item>
-        <el-form-item label="Watch TRX">
+        <el-form-item :label="addressForm.chainType === 'ETHEREUM' ? 'Watch ETH' : 'Watch TRX'">
           <el-switch v-model="addressForm.watchTrx" />
+          <span class="form-hint">Also watch native {{ addressForm.chainType === 'ETHEREUM' ? 'ETH' : 'TRX' }} transfers</span>
         </el-form-item>
         <el-form-item label="Enabled">
           <el-switch v-model="addressForm.enabled" />
@@ -216,6 +234,14 @@ const defaultAddressForm = () => ({
   enabled: true,
   remark: ''
 })
+
+const formatChainType = (chainType) => {
+  if (chainType === 'ETHEREUM') return 'ETHEREUM'
+  if (chainType === 'TRON') return 'TRON'
+  return chainType || '-'
+}
+
+const nativeSymbol = (chainType) => (chainType === 'ETHEREUM' ? 'ETH' : 'TRX')
 
 const addressForm = ref(defaultAddressForm())
 
@@ -329,10 +355,20 @@ const handleAddAddress = () => {
     ElMessage.warning('Address is required')
     return
   }
+  const chainType = addressForm.value.chainType
+  const address = addressForm.value.address.trim()
+  if (chainType === 'ETHEREUM' && !/^0x[a-fA-F0-9]{40}$/.test(address)) {
+    ElMessage.warning('Ethereum address must be 0x + 40 hex chars')
+    return
+  }
+  if (chainType === 'TRON' && (!address.startsWith('T') || address.length < 30)) {
+    ElMessage.warning('TRON address must start with T')
+    return
+  }
   addingAddress.value = true
   addChainWatchAddress({
-    chainType: addressForm.value.chainType,
-    address: addressForm.value.address.trim(),
+    chainType,
+    address,
     contractAddress: addressForm.value.contractAddress?.trim() || '',
     watchTrx: addressForm.value.watchTrx,
     enabled: addressForm.value.enabled,

@@ -17,7 +17,15 @@
               </el-select>
             </el-form-item>
             <el-form-item label="Card Bin">
-              <el-input v-model="search.cardBin" placeholder="Please enter card bin"></el-input>
+              <el-select v-model="search.cardBin" filterable clearable placeholder="All / select card bin" style="min-width: 180px">
+                <el-option label="All" value="All"></el-option>
+                <el-option
+                  v-for="item in cardBinSelectOptions"
+                  :key="item.cardBinId || item.cardBin"
+                  :label="cardBinOptionLabel(item)"
+                  :value="item.cardBin"
+                ></el-option>
+              </el-select>
             </el-form-item>
             <el-form-item label="Card Type">
               <el-input v-model="search.cardType" placeholder="Please enter card type"></el-input>
@@ -183,8 +191,14 @@
         </el-col>
         <el-col :span="12">
           <el-form-item label="* Card Bin">
-            <el-select v-model="feeCfg.cardBin">
+            <el-select v-model="feeCfg.cardBin" filterable clearable placeholder="select card bin" @change="onFeeCardBinChange">
               <el-option label="All" value="All"></el-option>
+              <el-option
+                v-for="item in cardBinSelectOptions"
+                :key="item.cardBinId || item.cardBin"
+                :label="cardBinOptionLabel(item)"
+                :value="item.cardBin"
+              ></el-option>
             </el-select>
           </el-form-item>
         </el-col>
@@ -244,8 +258,14 @@
         </el-col>
         <el-col :span="12">
           <el-form-item label="* Card Bin">
-            <el-select v-model="feeCfg.cardBin">
+            <el-select v-model="feeCfg.cardBin" filterable clearable placeholder="select card bin" @change="onFeeCardBinChange">
               <el-option label="All" value="All"></el-option>
+              <el-option
+                v-for="item in cardBinSelectOptions"
+                :key="item.cardBinId || item.cardBin"
+                :label="cardBinOptionLabel(item)"
+                :value="item.cardBin"
+              ></el-option>
             </el-select>
           </el-form-item>
         </el-col>
@@ -347,9 +367,14 @@
         <el-input v-model="feeCfg.clientNo"></el-input>
       </el-form-item>
       <el-form-item label="CardBin">
-        <el-select v-model="feeCfg.cardBin">
+        <el-select v-model="feeCfg.cardBin" filterable clearable placeholder="select card bin" @change="onFeeCardBinChange">
             <el-option label="All" value="All"></el-option>
-            <el-option v-for="item in cardBinList" :key="item.id" :label="item.cardBin" :value="item.cardBin"></el-option>
+            <el-option
+              v-for="item in cardBinSelectOptions"
+              :key="item.cardBinId || item.cardBin"
+              :label="cardBinOptionLabel(item)"
+              :value="item.cardBin"
+            ></el-option>
         </el-select>
       </el-form-item>
       <el-form-item label="Fixed Fee">
@@ -371,7 +396,7 @@
 </template>
 
 <script setup>
-import { ref, reactive,onMounted } from 'vue';
+import { ref, reactive, onMounted, computed } from 'vue';
 import { addFeeGlobalCfg,addFeeUserCfg,addFeeMonthCfg,setUserCfgGlobal,listFeeUserCfg,listFeeGlobalCfg,listLogs } from '@/api/finance';
 import {listCardBin} from '@/api/card'
 import { formatDate } from '@/utils/format';
@@ -389,7 +414,9 @@ const feeTypes = [
   { label: "Refund Reversal Transaction", value: "REFUND_REVERSAL_TRANSACTION" },
   { label: "Authorization Query", value: "AUTHORIZATION_QUERY" },
   { label: "Withdraw Card", value: "WITHDRAW_CARD" },
-  { label: "Atm Transaction", value: "ATM_TRANSACTION" }
+  { label: "Atm Transaction", value: "ATM_TRANSACTION" },
+  { label: "交易失败", value: "TRANSACTION_FAILURE" },
+  { label: "金额不足而交易失败", value: "INSUFFICIENT_AMOUNT_FAILURE" }
 ]
 const activeTab = ref('userFeeConfig');
 const dialogVisible = ref(false);
@@ -408,7 +435,8 @@ const search =reactive({
 const feeCfg = ref({
   calType:1,
   feeType:'',
-  cardBin:'',
+  cardBin:'All',
+  cardBinId:'All',
   cardType:'',
   minFee:0,
   maxFee:0,
@@ -429,7 +457,8 @@ const resetFeeCfg = ()=>{
   feeCfg.value = {
   calType:1,
   feeType:'',
-  cardBin:'',
+  cardBin:'All',
+  cardBinId:'All',
   cardType:'',
   minFee:0,
   maxFee:0,
@@ -467,13 +496,45 @@ const handleSetFeeCfgGlobal = () =>{
   })
  }
  const cardBinList = ref([])
+const cardBinOptionLabel = (item) => {
+  if (!item) return ''
+  const bin = item.cardBin || ''
+  const id = item.cardBinId || ''
+  const model = item.cardModel || ''
+  const parts = [bin]
+  if (id && id !== bin) parts.push(id)
+  if (model) parts.push(model)
+  return parts.join(' / ')
+}
+// 按 cardBin 去重（同一 BIN 可能有 SHARE/CARD 多条）
+const cardBinSelectOptions = computed(() => {
+  const seen = new Set()
+  const list = []
+  for (const item of cardBinList.value || []) {
+    const bin = String(item?.cardBin || '').trim()
+    if (!bin || seen.has(bin)) continue
+    seen.add(bin)
+    list.push(item)
+  }
+  return list
+})
+const onFeeCardBinChange = (val) => {
+  if (!val || val === 'All') {
+    feeCfg.value.cardBinId = 'All'
+    return
+  }
+  const hit = (cardBinList.value || []).find((i) => i.cardBin === val)
+  feeCfg.value.cardBinId = hit?.cardBinId || val
+}
 onMounted(()=>{
   getTableData()
   listCardBin({
     page: 1,
     pageSize: 1000
   }).then(res =>{
-    cardBinList.value = res.data.list
+    if (res.code === 0) {
+      cardBinList.value = res.data?.list || []
+    }
   })
 })
 const handleAddMonthFeeCfg = ()=>{
@@ -589,6 +650,8 @@ const handleTabChange = (tab) => {
   getTableData()
 }
 const formatFeeType =(str) =>{
+  const hit = feeTypes.find(item => item.value === str)
+  if (hit) return hit.label
   return str
     .toLowerCase()
     .split('_')

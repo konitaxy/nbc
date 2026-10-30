@@ -51,33 +51,36 @@ export const useUserStore = defineStore('user', () => {
     }
     return res
   }
-  /* 登录*/
+  const completeLogin = async(data) => {
+    setUserInfo(data.user)
+    setToken(data.token)
+    const routerStore = useRouterStore()
+    await routerStore.SetAsyncRouter()
+    routerStore.asyncRouters.forEach(asyncRouter => {
+      router.addRoute(asyncRouter)
+    })
+    await router.push({ name: userInfo.value.authority.defaultRouter })
+    return true
+  }
+  /* 登录。未绑定 2FA 或需要动态码时返回挑战数据，不写入登录态。*/
   const LoginIn = async(loginInfo) => {
     loadingInstance.value = ElLoading.service({
       fullscreen: true,
       text: '登陆中，请稍候...',
     })
-    loginInfo = {
-      ...loginInfo
-    }
     try {
       const res = await login(loginInfo)
       if (res.code === 0) {
-        setUserInfo(res.data.user)
-        setToken(res.data.token)
-        const routerStore = useRouterStore()
-        await routerStore.SetAsyncRouter()
-        const asyncRouters = routerStore.asyncRouters
-        asyncRouters.forEach(asyncRouter => {
-          router.addRoute(asyncRouter)
-        })
-        router.push({ name: userInfo.value.authority.defaultRouter })
-        return true
+        if (res.data?.needBind2FA || res.data?.need2FA) {
+          return res.data
+        }
+        return await completeLogin(res.data)
       }
     } catch (e) {
-      loadingInstance.value.close()
+      console.error(e)
+    } finally {
+      loadingInstance.value?.close()
     }
-    loadingInstance.value.close()
   }
   /* 登出*/
   const LoginOut = async() => {
@@ -139,6 +142,7 @@ export const useUserStore = defineStore('user', () => {
     ResetUserInfo,
     GetUserInfo,
     LoginIn,
+    completeLogin,
     LoginOut,
     changeSideMode,
     mode,

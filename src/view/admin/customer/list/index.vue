@@ -78,6 +78,12 @@
           </template>
 
         </el-table-column>
+        <el-table-column prop="cardBinGroups" label="CardBin Groups" min-width="180">
+          <template #default="{row}">
+            <i @click="handleSetCardBinGroups(row)" class="bi bi-pencil-square"></i>
+            {{ formatCardBinGroups(row.cardBinGroups) }}
+          </template>
+        </el-table-column>
         <el-table-column label="Action" fixed="right" min-width="200">
           <template #default="{row}"> 
             <div>
@@ -102,17 +108,54 @@
       ></el-pagination>
     </div>
     </div>
+
+    <el-dialog v-model="cardBinGroupsDialogVisible" title="Set CardBin Groups" width="420px" align-center>
+      <el-select
+        v-model="cardBinGroupsForm.groups"
+        multiple
+        filterable
+        clearable
+        placeholder="Select VIP groups"
+        style="width: 100%">
+        <el-option
+          v-for="item in binGroupOptions"
+          :key="item.value"
+          :label="item.label"
+          :value="item.value">
+        </el-option>
+      </el-select>
+      <template #footer>
+        <el-button @click="cardBinGroupsDialogVisible = false">Cancel</el-button>
+        <el-button type="primary" @click="confirmSetCardBinGroups">Save</el-button>
+      </template>
+    </el-dialog>
   </div>
 </template>
 <script setup>
 import { reactive, ref,onMounted } from 'vue';
 import {formatDate} from '@/utils/format';
-import { listClient,setClientName,setClientManager,remarkClient,ddClient,reviewClient,changeClientStatus,adminLogin} from '@/api/client';
+import { listClient,setClientName,setClientManager,setCardBinGroups,remarkClient,ddClient,reviewClient,changeClientStatus,adminLogin} from '@/api/client';
 import { ElMessage, ElMessageBox } from 'element-plus';
 import {writeText} from 'clipboard-polyfill'
 
 const dialogs=reactive({
   clientDDDetailDialogVisible:false
+})
+const binGroupOptions = Array.from({ length: 9 }, (_, i) => ({
+  label: `VIP${i + 1}`,
+  value: i + 1,
+}))
+const formatCardBinGroups = (groups) => {
+  const list = (groups && groups.length) ? groups : [1]
+  return list.map((g) => {
+    const n = Number(g)
+    return n >= 1 && n <= 9 ? `VIP${n}` : String(g)
+  }).join(', ')
+}
+const cardBinGroupsDialogVisible = ref(false)
+const cardBinGroupsForm = reactive({
+  id: 0,
+  groups: [1],
 })
 const activeNames = ref(['1']);
 const search = ref({
@@ -232,6 +275,31 @@ const handleSetManager = (row) => {
         });
       }
     })
+  })
+};
+
+const handleSetCardBinGroups = (row) => {
+  cardBinGroupsForm.id = row.ID
+  const current = (row.cardBinGroups && row.cardBinGroups.length)
+    ? row.cardBinGroups.map((g) => Number(g)).filter((n) => n >= 1 && n <= 9)
+    : [1]
+  cardBinGroupsForm.groups = current.length ? current : [1]
+  cardBinGroupsDialogVisible.value = true
+};
+
+const confirmSetCardBinGroups = () => {
+  const groups = (cardBinGroupsForm.groups || [])
+    .map((n) => Number(n))
+    .filter((n) => Number.isFinite(n) && n >= 1 && n <= 9)
+  setCardBinGroups({
+    id: cardBinGroupsForm.id,
+    cardBinGroups: groups.length ? groups : [1],
+  }).then((res) => {
+    if (res.code === 0) {
+      ElMessage.success('Edit Success')
+      cardBinGroupsDialogVisible.value = false
+      getTableData()
+    }
   })
 };
 </script>

@@ -11,6 +11,22 @@ export const login = (data) => {
   })
 }
 
+export const bindAdmin2FA = (data) => {
+  return service({
+    url: '/base/login/bind2fa',
+    method: 'post',
+    data: data
+  })
+}
+
+export const verifyAdmin2FA = (data) => {
+  return service({
+    url: '/base/login/2fa',
+    method: 'post',
+    data: data
+  })
+}
+
 // @Summary 获取验证码
 // @Produce  application/json
 // @Param data body {username:"string",password:"string"}

@@ -22,6 +22,13 @@ export const setClientManager = (data) => {
       data
     })
 }
+export const setCardBinGroups = (data) => {
+    return service({
+      url: '/admin/client/setCardBinGroups',
+      method: 'post',
+      data
+    })
+}
 export const remarkClient = (data) => {
     return service({
       url: '/admin/client/remark',

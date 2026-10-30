@@ -80,4 +80,12 @@ export const frozenCard = (data) => {
   })
 }
 
+export const resetCardDailyLimit = (data) => {
+  return service({
+    url: '/admin/card/resetDailyLimit',
+    method: 'post',
+    data
+  })
+}
+
 

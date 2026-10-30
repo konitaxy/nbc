@@ -49,9 +49,19 @@
           </template>
         </el-table-column>
         <el-table-column prop="activeDate" label="创建时间" width="120"></el-table-column>
-        <el-table-column label="操作" width="300">
+        <el-table-column label="操作" width="400">
             <template #default="scope">
               <el-button icon="Refresh"  size="small" @click="handleCardRefresh(scope.row)" class="me-1">refresh</el-button>
+              <el-popconfirm
+                width="240"
+                icon-color="#626AEF"
+                title="确认将日限额重置为 $1000？"
+                @confirm="handleResetDailyLimit(scope.row)"
+              >
+                <template #reference>
+                  <el-button type="primary" size="small" class="me-1">重置上限</el-button>
+                </template>
+              </el-popconfirm>
               <el-button 
                 v-if="scope.row.cardStatus !== 'Frozen' && scope.row.cardStatus !== 'Suspend'"
                 type="warning" 
@@ -140,7 +150,7 @@
 <script setup>
 import { reactive, ref,onMounted } from 'vue';
 import {formatDate} from '@/utils/format';
-import { listCard,rechargeCard,cancelCard,syncCard,frozenCard} from '@/api/card';
+import { listCard,rechargeCard,cancelCard,syncCard,frozenCard,resetCardDailyLimit} from '@/api/card';
 import { ElMessage, ElMessageBox } from 'element-plus';
 import {writeText} from 'clipboard-polyfill'
 
@@ -187,6 +197,14 @@ const handleTerminateCard = (row)=>{
   }).then(res=>{
     if (res.code === 0){
       ElMessage.success('Success')
+      getTableData()
+    }
+  })
+}
+const handleResetDailyLimit = (row)=>{
+  resetCardDailyLimit({ id: row.ID }).then(res=>{
+    if (res.code === 0){
+      ElMessage.success('日限额已重置为 $1000')
       getTableData()
     }
   })

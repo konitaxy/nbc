@@ -11,6 +11,7 @@
           <p class="login_panle_form_title_p">{{ $GIN_VUE_ADMIN.appName }}</p>
         </div>
         <el-form
+          v-if="step === 'password'"
           ref="loginForm"
           :model="loginFormData"
           :rules="rules"
@@ -80,6 +81,19 @@
             >登 录</el-button>
           </el-form-item>
         </el-form>
+        <div v-else class="twofa-box">
+          <p class="twofa-title">{{ step === 'bind' ? '绑定两步验证' : '两步验证' }}</p>
+          <p class="twofa-desc">
+            {{ step === 'bind' ? '使用验证器扫描二维码，然后输入 6 位动态码完成绑定。' : '请输入验证器中的 6 位动态码。' }}
+          </p>
+          <img v-if="step === 'bind'" :src="qrCode" alt="2FA QR code">
+          <p v-if="step === 'bind'" class="secret">{{ secret }}</p>
+          <el-input v-model="otpCode" maxlength="6" placeholder="6 位动态码" @keyup.enter="submitOtp" />
+          <div class="twofa-actions">
+            <el-button size="large" @click="backToPassword">返回</el-button>
+            <el-button type="primary" size="large" @click="submitOtp">确认</el-button>
+          </div>
+        </div>
       </div>
       <div class="login_panle_right" />
       <div class="login_panle_foot">
@@ -98,7 +112,7 @@ export default {
 </script>
 
 <script setup>
-import { captcha } from '@/api/user'
+import { bindAdmin2FA, captcha, verifyAdmin2FA } from '@/api/user'
 import { checkDB } from '@/api/initdb'
 import bootomInfo from '@/view/layout/bottomInfo/bottomInfo.vue'
 import { reactive, ref } from 'vue'
@@ -160,17 +174,16 @@ const rules = reactive({
 })
 
 const userStore = useUserStore()
-const login = async() => {
-  return await userStore.LoginIn(loginFormData)
-}
+const step = ref('password')
+const bindTicket = ref('')
+const loginTicket = ref('')
+const qrCode = ref('')
+const secret = ref('')
+const otpCode = ref('')
+
 const submitForm = () => {
   loginForm.value.validate(async(v) => {
-    if (v) {
-      const flag = await login()
-      if (!flag) {
-        loginVerify()
-      }
-    } else {
+    if (!v) {
       ElMessage({
         type: 'error',
         message: '请正确填写登录信息',
@@ -179,7 +192,45 @@ const submitForm = () => {
       loginVerify()
       return false
     }
+    const result = await userStore.LoginIn(loginFormData)
+    if (result?.needBind2FA) {
+      step.value = 'bind'
+      bindTicket.value = result.bindTicket
+      qrCode.value = result.qrCode
+      secret.value = result.secret
+      otpCode.value = ''
+      return
+    }
+    if (result?.need2FA) {
+      step.value = 'otp'
+      loginTicket.value = result.loginTicket
+      otpCode.value = ''
+      return
+    }
+    if (!result) {
+      loginVerify()
+    }
   })
+}
+
+const backToPassword = () => {
+  step.value = 'password'
+  otpCode.value = ''
+  loginVerify()
+}
+
+const submitOtp = async() => {
+  const code = otpCode.value.trim()
+  if (!/^\d{6}$/.test(code)) {
+    ElMessage({ type: 'error', message: '请输入 6 位动态码', showClose: true })
+    return
+  }
+  const res = step.value === 'bind'
+    ? await bindAdmin2FA({ bindTicket: bindTicket.value, code })
+    : await verifyAdmin2FA({ loginTicket: loginTicket.value, code })
+  if (res.code === 0) {
+    await userStore.completeLogin(res.data)
+  }
 }
 
 // 跳转初始化

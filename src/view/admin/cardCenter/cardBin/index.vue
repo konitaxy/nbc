@@ -7,6 +7,11 @@
             <el-form-item label="Card Bin">
               <el-input v-model="search.cardBin" placeholder="Please enter card bin"></el-input>
             </el-form-item>
+            <el-form-item label="Region">
+              <el-select v-model="search.region" clearable placeholder="Select region" style="width: 140px">
+                <el-option v-for="item in regionOptions" :key="item" :label="item" :value="item"></el-option>
+              </el-select>
+            </el-form-item>
             <el-form-item>
               <el-button type="primary" @click="handleSearch">Search</el-button>
               <el-button @click="resetSearch">Reset</el-button>
@@ -19,8 +24,14 @@
             <el-table-column prop="cardModel" label="Card Model"></el-table-column>
             <el-table-column prop="cardBrand" label="Brand"></el-table-column>
             <el-table-column prop="currency" label="Currency"></el-table-column>
+            <el-table-column prop="region" label="Region" width="100"></el-table-column>
             <el-table-column prop="qtyIssuanceLimitCardholder" label="QTY Limit PER Card Holder"></el-table-column>
             <el-table-column prop="channel" label="Channel"></el-table-column>
+            <el-table-column prop="binGroup" label="Group" width="90">
+              <template #default="{ row }">
+                {{ binGroupLabel(row.binGroup) }}
+              </template>
+            </el-table-column>
             <el-table-column label="Operate">
               <template #default="scope">
                 <el-button size="small" @click="handleEdit(scope.$index, scope.row)">Edit</el-button>
@@ -136,11 +147,8 @@
         </el-col>
         <el-col :span="12">
           <el-form-item label="* Region">
-            <el-select v-model="cardBinForm.region" placeholder="Select card regon">
-              <el-option label="USA" value="USA"></el-option>
-              <el-option label="CHN" value="CHN"></el-option>
-              <el-option label="VN" value="VN"></el-option>
-              <!-- Add more options as needed -->
+            <el-select v-model="cardBinForm.region" placeholder="Select region">
+              <el-option v-for="item in regionOptions" :key="item" :label="item" :value="item"></el-option>
             </el-select>
           </el-form-item>
         </el-col>
@@ -150,10 +158,22 @@
         <el-col :span="12">
           <el-form-item label="Channel">
             <el-select v-model="cardBinForm.channel" placeholder="Select card Channel">
-              <el-option label="SLASH" value="SLASH"></el-option>
-              <!-- Add more options as needed -->
+              <el-option label="gzy" value="gzy"></el-option>
+              <el-option label="ailink" value="ailink"></el-option>
             </el-select>
             </el-form-item>
+        </el-col>
+        <el-col :span="12">
+          <el-form-item label="Group">
+            <el-select v-model="cardBinForm.binGroup" placeholder="Select group">
+              <el-option
+                v-for="item in binGroupOptions"
+                :key="item.value"
+                :label="item.label"
+                :value="item.value">
+              </el-option>
+            </el-select>
+          </el-form-item>
         </el-col>
         <el-col :span="12">
           <el-form-item label="Description">
@@ -296,9 +316,20 @@ import { ElMessage } from 'element-plus';
 
 const activeTab = ref('cardBinList');
 const dialogVisible = ref(false);
+const regionOptions = ['US', 'HK', 'CN']
+const binGroupOptions = Array.from({ length: 9 }, (_, i) => ({
+  label: `VIP${i + 1}`,
+  value: i + 1,
+}))
+const binGroupLabel = (g) => {
+  const n = Number(g)
+  if (!Number.isFinite(n) || n <= 0) return 'VIP1'
+  return n >= 1 && n <= 9 ? `VIP${n}` : String(n)
+}
 const search =reactive({
   cardBin: '',
   cardBinId:'',
+  region: '',
   page:1,
   pageSize: 10,
   total: 0,
@@ -319,6 +350,7 @@ const initialCardBinForm = {
   currency: '',
   region: '',
   channel: '',
+  binGroup: 1,
   // Add other fields as per the image
   qtyIssuanceLimitCardholder: 0,
   authAmountLimit:0,
@@ -372,6 +404,8 @@ const handleSearch = () => {
 const resetSearch = () => {
   search.cardBin = '';
   search.cardBinId = '';
+  search.region = '';
+  getTableData()
 }
 const handlePageSizeChange =(val) =>{
   search.pageSize = val
@@ -383,7 +417,10 @@ const handlePageChange =(val) =>{
 }
 
 const handleEdit = (index, row) => {
-  cardBinForm.value = row
+  cardBinForm.value = { ...row }
+  if (!cardBinForm.value.binGroup || cardBinForm.value.binGroup < 1) {
+    cardBinForm.value.binGroup = 1
+  }
   dialogVisible.value = true
 };
 
